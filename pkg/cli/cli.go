@@ -33,6 +33,7 @@ func WithUI(h http.Handler) Option {
 
 // Execute builds the command tree for info and runs it with ctx.
 func Execute(ctx context.Context, info BuildInfo, opts ...Option) error {
+	//nolint:contextcheck // false positive: cobra hands ctx to RunE via cmd.Context()
 	return NewRootCommand(info, opts...).ExecuteContext(ctx)
 }
 

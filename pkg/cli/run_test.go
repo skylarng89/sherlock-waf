@@ -15,7 +15,7 @@ import (
 func TestServeShutsDownOnContextCancel(t *testing.T) {
 	t.Parallel()
 
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	ln, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -44,7 +44,7 @@ func TestServeShutsDownOnContextCancel(t *testing.T) {
 func TestServeWithoutUIReturnsNotFound(t *testing.T) {
 	t.Parallel()
 
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	ln, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithCancel(context.Background())

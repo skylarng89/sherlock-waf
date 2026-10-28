@@ -41,7 +41,7 @@ func TestHandler(t *testing.T) {
 			t.Parallel()
 
 			rec := httptest.NewRecorder()
-			webui.NewHandler(tc.fsys).ServeHTTP(rec, httptest.NewRequest(tc.method, tc.target, nil))
+			webui.NewHandler(tc.fsys).ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), tc.method, tc.target, nil))
 
 			require.Equal(t, tc.wantStatus, rec.Code)
 			if tc.wantBody != "" {
@@ -57,7 +57,7 @@ func TestEmbeddedHandlerWithoutBuild(t *testing.T) {
 	t.Parallel()
 
 	rec := httptest.NewRecorder()
-	webui.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+	webui.Handler().ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))
 
 	// A clean clone only has the .gitkeep placeholder; a built tree serves the app.
 	require.Contains(t, []int{http.StatusOK, http.StatusServiceUnavailable}, rec.Code)
