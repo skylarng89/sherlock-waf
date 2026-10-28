@@ -54,7 +54,7 @@ test: test-go test-web ## Go and web unit tests
 
 .PHONY: test-go
 test-go:
-	go test -race ./...
+	go test -race -tags sherlock_testhooks ./...
 
 .PHONY: test-web
 test-web:
