@@ -1,0 +1,26 @@
+# Milestone M1 stack: Sherlock in front of httpbin. Later milestones add Juice Shop and Postgres.
+#   CGO_ENABLED=0 go build -o bin/sherlock ./cmd/sherlock   (from the repo root)
+#   docker compose -f test/e2e-compose/compose.yaml up --build -d
+#   curl -i -H 'Accept: application/json' "http://site.localhost:8080/get?id=1' OR '1'='1"
+services:
+  httpbin:
+    image: mccutchen/go-httpbin:2.18.3
+    command: ["/bin/go-httpbin", "-port", "8080"]
+    expose: ["8080"]
+
+  sherlock:
+    build:
+      context: ../..
+      dockerfile: test/e2e-compose/Dockerfile
+    command: ["run", "--config", "/etc/sherlock/sherlock.yaml", "--http-port", "80", "--data-dir", "/tmp/sherlock"]
+    volumes:
+      - ./sherlock.yaml:/etc/sherlock/sherlock.yaml:ro
+    ports:
+      - "${SHERLOCK_HTTP_PORT:-8080}:80"
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: 0
+    read_only: true
+    tmpfs: ["/tmp"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    depends_on: [httpbin]

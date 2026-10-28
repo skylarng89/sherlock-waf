@@ -1,0 +1,16 @@
+schema_version: 1
+sites:
+  - id: site
+    name: Block mode demo
+    hosts: [site.localhost]
+    tls: { mode: none }
+    policy: { mode: block }
+    upstreams:
+      targets: ["httpbin:8080"]
+  - id: detect
+    name: Detect mode demo
+    hosts: [detect.localhost]
+    tls: { mode: none }
+    policy: { mode: detect }
+    upstreams:
+      targets: ["httpbin:8080"]

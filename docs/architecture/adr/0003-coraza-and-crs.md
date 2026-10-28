@@ -10,7 +10,7 @@ Detection quality is the core of a WAF. The OWASP CRS project recommends Coraza 
 ## Decision
 
 - Use `github.com/corazawaf/coraza/v3` directly inside our own `sherlock_waf` Caddy handler, using `coraza-caddy` as reference (Apache-2.0, credited in NOTICE).
-- Embed CRS via `github.com/corazawaf/coraza-coreruleset` pinned to a CRS 4 release (4.30.0 at time of writing; 4.25.x is the LTS line).
+- Embed CRS via `github.com/corazawaf/coraza-coreruleset` pinned to a CRS 4 release (M1 pins `coraza-coreruleset/v4` v4.25.0, the latest published module at implementation time; 4.25.x is the LTS line).
 - Generate the CRS setup directives from site config.
 - Run the CRS regression suite with `go-ftw` against the built binary in CI.
 

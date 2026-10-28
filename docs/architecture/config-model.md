@@ -52,7 +52,9 @@ sites:
     fail_mode: open                  # open | closed
     tls:
       mode: acme                     # acme | file | none (HTTP only, discouraged)
-      cert_id: ""                    # for mode=file, references an uploaded cert
+      cert_id: ""                    # for mode=file, references an uploaded cert (M3+)
+      cert_file: ""                  # file config only: PEM path for mode=file
+      key_file: ""                   # file config only: PEM key path for mode=file
       min_version: "1.2"
       hsts: { enabled: true, max_age: 31536000, include_subdomains: false }
     upstreams:
@@ -203,6 +205,10 @@ In the YAML of the full example above, the protection fields shown directly unde
 **Endpoint matching**: `path` (exact), `path_prefix`, or `path_glob`, plus optional `methods`. Precedence: exact > longest prefix/glob > any; method-specific > any method. Two endpoints with the same precedence that can match the same request fail validation. The compiler resolves effective policies at compile time and emits one Caddy subroute per endpoint (ordered by precedence), so there is no merging at request time.
 
 **Effective view**: `GET /api/v1/sites/{site}/effective-policy?path=/wp-login.php&method=POST` returns the merged policy with `source` (`global`, `site`, `endpoint:<id>`) for each field.
+
+## Milestone 1 subset
+
+The file loader accepts `schema_version`, `global` (`trusted_proxies`, `client_ip_headers`, `acme`, `defaults`) and `sites` (`id`, `name`, `hosts`, `path_prefix`, `tls`, `upstreams`, `headers.security_headers`, `policy` with `mode`, `fail_mode`, `waf` (no exclusions or custom rules) and `block_page`, `endpoints`). **Any other key is a hard validation error** (`unknown_field`) so typos cannot silently disable protection; later milestones add their fields. `fail_mode` defaults to `closed` for `block` and `open` otherwise. `blocking_paranoia_level` defaults to the resolved `paranoia_level`. Endpoint `path_glob` uses Go `path.Match` syntax.
 
 ## Rules
 
