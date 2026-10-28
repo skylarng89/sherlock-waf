@@ -1,0 +1,12 @@
+schema_version: 1
+sites:
+  - id: web
+    hosts: [example.com]
+    tls: { mode: none }
+    upstreams: { targets: ["10.0.1.10:8080"] }
+  - id: api
+    hosts: [example.com]
+    path_prefix: /api
+    tls: { mode: none }
+    policy: { mode: block }
+    upstreams: { targets: ["10.0.3.10:9000"] }

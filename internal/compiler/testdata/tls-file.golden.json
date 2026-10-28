@@ -1,0 +1,204 @@
+{
+  "admin": {
+    "config": {
+      "persist": false
+    },
+    "disabled": true
+  },
+  "apps": {
+    "http": {
+      "http_port": 80,
+      "https_port": 443,
+      "servers": {
+        "sherlock_http": {
+          "automatic_https": {
+            "disable_redirects": true
+          },
+          "listen": [
+            ":80"
+          ],
+          "routes": [
+            {
+              "handle": [
+                {
+                  "handler": "static_response",
+                  "headers": {
+                    "Location": [
+                      "https://{http.request.host}{http.request.uri}"
+                    ]
+                  },
+                  "status_code": 308
+                }
+              ],
+              "match": [
+                {
+                  "host": [
+                    "bank.example.com"
+                  ]
+                }
+              ],
+              "terminal": true
+            },
+            {
+              "handle": [
+                {
+                  "body": "421 Misdirected Request\n",
+                  "handler": "static_response",
+                  "headers": {
+                    "Content-Type": [
+                      "text/plain; charset=utf-8"
+                    ]
+                  },
+                  "status_code": 421
+                }
+              ],
+              "terminal": true
+            }
+          ]
+        },
+        "sherlock_https": {
+          "automatic_https": {
+            "disable_redirects": true,
+            "skip_certificates": [
+              "bank.example.com"
+            ]
+          },
+          "listen": [
+            ":443"
+          ],
+          "routes": [
+            {
+              "handle": [
+                {
+                  "handler": "subroute",
+                  "routes": [
+                    {
+                      "handle": [
+                        {
+                          "fail_mode": "closed",
+                          "handler": "sherlock_core",
+                          "mode": "block",
+                          "site_id": "bank"
+                        },
+                        {
+                          "blocking_paranoia_level": 1,
+                          "fail_mode": "closed",
+                          "handler": "sherlock_waf",
+                          "inbound_threshold": 5,
+                          "max_body_bytes": 10485760,
+                          "mode": "block",
+                          "outbound_threshold": 4,
+                          "paranoia_level": 1,
+                          "site_id": "bank",
+                          "skip_inspection_extensions": [
+                            ".css",
+                            ".js",
+                            ".png",
+                            ".jpg",
+                            ".jpeg",
+                            ".gif",
+                            ".svg",
+                            ".ico",
+                            ".woff",
+                            ".woff2"
+                          ]
+                        },
+                        {
+                          "handler": "headers",
+                          "response": {
+                            "deferred": true,
+                            "set": {
+                              "Referrer-Policy": [
+                                "strict-origin-when-cross-origin"
+                              ],
+                              "Strict-Transport-Security": [
+                                "max-age=63072000; includeSubDomains"
+                              ],
+                              "X-Content-Type-Options": [
+                                "nosniff"
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "handler": "reverse_proxy",
+                          "load_balancing": {
+                            "selection_policy": {
+                              "policy": "round_robin"
+                            }
+                          },
+                          "transport": {
+                            "dial_timeout": "5s",
+                            "protocol": "http",
+                            "read_timeout": "1m0s",
+                            "tls": {
+                              "insecure_skip_verify": false
+                            },
+                            "write_timeout": "1m0s"
+                          },
+                          "upstreams": [
+                            {
+                              "dial": "10.0.1.10:8443"
+                            }
+                          ]
+                        }
+                      ],
+                      "terminal": true
+                    }
+                  ]
+                }
+              ],
+              "match": [
+                {
+                  "host": [
+                    "bank.example.com"
+                  ]
+                }
+              ],
+              "terminal": true
+            },
+            {
+              "handle": [
+                {
+                  "body": "421 Misdirected Request\n",
+                  "handler": "static_response",
+                  "headers": {
+                    "Content-Type": [
+                      "text/plain; charset=utf-8"
+                    ]
+                  },
+                  "status_code": 421
+                }
+              ],
+              "terminal": true
+            }
+          ],
+          "tls_connection_policies": [
+            {
+              "match": {
+                "sni": [
+                  "bank.example.com"
+                ]
+              },
+              "protocol_min": "tls1.3"
+            },
+            {
+              "protocol_min": "tls1.2"
+            }
+          ]
+        }
+      }
+    },
+    "tls": {
+      "certificates": {
+        "load_files": [
+          {
+            "certificate": "/etc/sherlock/certs/bank.pem",
+            "format": "pem",
+            "key": "/etc/sherlock/certs/bank.key"
+          }
+        ]
+      }
+    }
+  }
+}
