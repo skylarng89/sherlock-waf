@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/skylarng89/sherlock-waf/internal/webui"
 	"github.com/skylarng89/sherlock-waf/pkg/cli"
 )
 
@@ -19,7 +20,8 @@ var (
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	err := cli.Execute(ctx, cli.BuildInfo{Version: version, Commit: commit, Date: date})
+	err := cli.Execute(ctx, cli.BuildInfo{Version: version, Commit: commit, Date: date},
+		cli.WithUI(webui.Handler()))
 	stop()
 	if err != nil {
 		os.Exit(1)

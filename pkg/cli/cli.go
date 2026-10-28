@@ -5,6 +5,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"runtime"
 
 	"github.com/spf13/cobra"
@@ -17,20 +18,38 @@ type BuildInfo struct {
 	Date    string
 }
 
+type options struct {
+	ui http.Handler
+}
+
+// Option customises the command tree.
+type Option func(*options)
+
+// WithUI sets the handler that `run` serves the dashboard with. Each binary
+// supplies its own, so an edition can embed a different dashboard build.
+func WithUI(h http.Handler) Option {
+	return func(o *options) { o.ui = h }
+}
+
 // Execute builds the command tree for info and runs it with ctx.
-func Execute(ctx context.Context, info BuildInfo) error {
-	return NewRootCommand(info).ExecuteContext(ctx)
+func Execute(ctx context.Context, info BuildInfo, opts ...Option) error {
+	return NewRootCommand(info, opts...).ExecuteContext(ctx)
 }
 
 // NewRootCommand returns the root `sherlock` command with all subcommands attached.
-func NewRootCommand(info BuildInfo) *cobra.Command {
+func NewRootCommand(info BuildInfo, opts ...Option) *cobra.Command {
+	var o options
+	for _, opt := range opts {
+		opt(&o)
+	}
+
 	root := &cobra.Command{
 		Use:           "sherlock",
 		Short:         "Sherlock WAF: a self-hosted web application and API firewall",
 		SilenceUsage:  true,
 		SilenceErrors: false,
 	}
-	root.AddCommand(newVersionCommand(info))
+	root.AddCommand(newVersionCommand(info), newRunCommand(o))
 	return root
 }
 

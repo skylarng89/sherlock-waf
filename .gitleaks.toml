@@ -1,0 +1,6 @@
+title = "Sherlock WAF gitleaks config"
+
+[extend]
+useDefault = true
+
+# Add allowlist entries here only for documented, non-secret fixtures, each with a reason.

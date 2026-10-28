@@ -6,7 +6,7 @@
 | --- | --- |
 | Go | 1.27.x (Caddy 2.11 needs ≥ 1.26) |
 | Node.js | 22 LTS or 24 LTS |
-| pnpm | 10.x |
+| pnpm | 12.x (pinned in `web/package.json` `packageManager`) |
 | Docker + Compose v2 | recent |
 | make, git | |
 | VS Code with Go, Vue (Volar), ESLint, Tailwind CSS IntelliSense extensions | |

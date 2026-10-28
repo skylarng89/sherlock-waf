@@ -1,0 +1,17 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
+  "schedule": ["before 6am on monday"],
+  "postUpdateOptions": ["gomodTidy"],
+  "packageRules": [
+    { "matchManagers": ["gomod"], "groupName": "go dependencies" },
+    { "matchManagers": ["npm"], "groupName": "web dependencies" },
+    { "matchManagers": ["github-actions"], "groupName": "github actions" },
+    {
+      "description": "Automerge patch updates of dev-only dependencies",
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["patch"],
+      "automerge": true
+    }
+  ]
+}

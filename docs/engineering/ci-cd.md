@@ -22,3 +22,14 @@ Go build and module cache, pnpm store, Playwright browsers, CRS test files.
 ## Secrets used by CI
 
 None for PRs. Release uses GitHub OIDC for keyless cosign signing and `GITHUB_TOKEN` for GHCR; no long-lived keys.
+
+## Status after M0
+
+`ci.yml` currently runs `lint`, `test-go` (Linux and macOS), `test-web`, `build` (Linux and macOS), `govulncheck`, `licenses` and `gitleaks`. The remaining jobs in the table are added by the milestone that introduces what they check (`gen-drift` in M1 with the first generator, `test-store` in M3, `ftw-smoke` and `bench` in M2, `e2e-smoke` in M2). Actions are pinned by commit SHA; Renovate keeps the pins current.
+
+## Branch protection checklist (M0-T9, manual)
+
+- [ ] Required status checks: every `ci.yml` job, `codeql`, and the `cla` check.
+- [ ] Require linear history and squash merging; require one approving review; require review from CODEOWNERS.
+- [ ] Create the `cla-signatures` branch (unprotected) that the CLA workflow writes signatures to.
+- [ ] Enable private vulnerability reporting and Dependabot alerts.
