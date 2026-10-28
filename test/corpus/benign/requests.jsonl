@@ -1,0 +1,200 @@
+{"body": "", "content_type": "", "method": "GET", "path": "/"}
+{"body": "", "content_type": "", "method": "GET", "path": "/about"}
+{"body": "", "content_type": "", "method": "GET", "path": "/contact"}
+{"body": "", "content_type": "", "method": "GET", "path": "/pricing"}
+{"body": "", "content_type": "", "method": "GET", "path": "/blog"}
+{"body": "", "content_type": "", "method": "GET", "path": "/docs/getting-started"}
+{"body": "", "content_type": "", "method": "GET", "path": "/docs/api/v1/overview"}
+{"body": "", "content_type": "", "method": "GET", "path": "/favicon.ico"}
+{"body": "", "content_type": "", "method": "GET", "path": "/robots.txt"}
+{"body": "", "content_type": "", "method": "GET", "path": "/sitemap.xml"}
+{"body": "", "content_type": "", "method": "GET", "path": "/healthz"}
+{"body": "", "content_type": "", "method": "GET", "path": "/status"}
+{"body": "", "content_type": "", "method": "GET", "path": "/login"}
+{"body": "", "content_type": "", "method": "GET", "path": "/signup"}
+{"body": "", "content_type": "", "method": "GET", "path": "/cart"}
+{"body": "", "content_type": "", "method": "GET", "path": "/checkout"}
+{"body": "", "content_type": "", "method": "GET", "path": "/account/settings"}
+{"body": "", "content_type": "", "method": "GET", "path": "/account/orders"}
+{"body": "", "content_type": "", "method": "GET", "path": "/help/faq"}
+{"body": "", "content_type": "", "method": "GET", "path": "/terms"}
+{"body": "", "content_type": "", "method": "GET", "path": "/products?category=shoes&page=1&per_page=20&sort=price"}
+{"body": "", "content_type": "", "method": "GET", "path": "/products?category=shoes&page=2&per_page=20&sort=name"}
+{"body": "", "content_type": "", "method": "GET", "path": "/products?category=shoes&page=3&per_page=20&sort=price"}
+{"body": "", "content_type": "", "method": "GET", "path": "/products?category=laptops&page=1&per_page=20&sort=price"}
+{"body": "", "content_type": "", "method": "GET", "path": "/products?category=laptops&page=2&per_page=20&sort=name"}
+{"body": "", "content_type": "", "method": "GET", "path": "/products?category=laptops&page=3&per_page=20&sort=price"}
+{"body": "", "content_type": "", "method": "GET", "path": "/products?category=books&page=1&per_page=20&sort=price"}
+{"body": "", "content_type": "", "method": "GET", "path": "/products?category=books&page=2&per_page=20&sort=name"}
+{"body": "", "content_type": "", "method": "GET", "path": "/products?category=books&page=3&per_page=20&sort=price"}
+{"body": "", "content_type": "", "method": "GET", "path": "/products?category=garden&page=1&per_page=20&sort=price"}
+{"body": "", "content_type": "", "method": "GET", "path": "/products?category=garden&page=2&per_page=20&sort=name"}
+{"body": "", "content_type": "", "method": "GET", "path": "/products?category=garden&page=3&per_page=20&sort=price"}
+{"body": "", "content_type": "", "method": "GET", "path": "/products?category=toys&page=1&per_page=20&sort=price"}
+{"body": "", "content_type": "", "method": "GET", "path": "/products?category=toys&page=2&per_page=20&sort=name"}
+{"body": "", "content_type": "", "method": "GET", "path": "/products?category=toys&page=3&per_page=20&sort=price"}
+{"body": "", "content_type": "", "method": "GET", "path": "/products?category=kitchen&page=1&per_page=20&sort=price"}
+{"body": "", "content_type": "", "method": "GET", "path": "/products?category=kitchen&page=2&per_page=20&sort=name"}
+{"body": "", "content_type": "", "method": "GET", "path": "/products?category=kitchen&page=3&per_page=20&sort=price"}
+{"body": "", "content_type": "", "method": "GET", "path": "/products?category=music&page=1&per_page=20&sort=price"}
+{"body": "", "content_type": "", "method": "GET", "path": "/products?category=music&page=2&per_page=20&sort=name"}
+{"body": "", "content_type": "", "method": "GET", "path": "/products?category=music&page=3&per_page=20&sort=price"}
+{"body": "", "content_type": "", "method": "GET", "path": "/products?category=sports&page=1&per_page=20&sort=price"}
+{"body": "", "content_type": "", "method": "GET", "path": "/products?category=sports&page=2&per_page=20&sort=name"}
+{"body": "", "content_type": "", "method": "GET", "path": "/products?category=sports&page=3&per_page=20&sort=price"}
+{"body": "", "content_type": "", "method": "GET", "path": "/get?id=7&ref=home"}
+{"body": "", "content_type": "", "method": "GET", "path": "/get?id=14&ref=home"}
+{"body": "", "content_type": "", "method": "GET", "path": "/get?id=21&ref=home"}
+{"body": "", "content_type": "", "method": "GET", "path": "/get?id=28&ref=home"}
+{"body": "", "content_type": "", "method": "GET", "path": "/get?id=35&ref=home"}
+{"body": "", "content_type": "", "method": "GET", "path": "/get?id=42&ref=home"}
+{"body": "", "content_type": "", "method": "GET", "path": "/get?id=49&ref=home"}
+{"body": "", "content_type": "", "method": "GET", "path": "/get?id=56&ref=home"}
+{"body": "", "content_type": "", "method": "GET", "path": "/get?id=63&ref=home"}
+{"body": "", "content_type": "", "method": "GET", "path": "/get?id=70&ref=home"}
+{"body": "", "content_type": "", "method": "GET", "path": "/get?id=77&ref=home"}
+{"body": "", "content_type": "", "method": "GET", "path": "/get?id=84&ref=home"}
+{"body": "", "content_type": "", "method": "GET", "path": "/get?id=91&ref=home"}
+{"body": "", "content_type": "", "method": "GET", "path": "/get?id=98&ref=home"}
+{"body": "", "content_type": "", "method": "GET", "path": "/get?id=105&ref=home"}
+{"body": "", "content_type": "", "method": "GET", "path": "/get?id=112&ref=home"}
+{"body": "", "content_type": "", "method": "GET", "path": "/get?id=119&ref=home"}
+{"body": "", "content_type": "", "method": "GET", "path": "/get?id=126&ref=home"}
+{"body": "", "content_type": "", "method": "GET", "path": "/get?id=133&ref=home"}
+{"body": "", "content_type": "", "method": "GET", "path": "/get?id=140&ref=home"}
+{"body": "", "content_type": "", "method": "GET", "path": "/get?id=147&ref=home"}
+{"body": "", "content_type": "", "method": "GET", "path": "/get?id=154&ref=home"}
+{"body": "", "content_type": "", "method": "GET", "path": "/get?id=161&ref=home"}
+{"body": "", "content_type": "", "method": "GET", "path": "/get?id=168&ref=home"}
+{"body": "", "content_type": "", "method": "GET", "path": "/get?id=175&ref=home"}
+{"body": "", "content_type": "", "method": "GET", "path": "/get?id=182&ref=home"}
+{"body": "", "content_type": "", "method": "GET", "path": "/get?id=189&ref=home"}
+{"body": "", "content_type": "", "method": "GET", "path": "/get?id=196&ref=home"}
+{"body": "", "content_type": "", "method": "GET", "path": "/get?id=203&ref=home"}
+{"body": "", "content_type": "", "method": "GET", "path": "/get?id=210&ref=home"}
+{"body": "", "content_type": "", "method": "GET", "path": "/api/v1/orders/1001/items?include=product,shipping&limit=50"}
+{"body": "", "content_type": "", "method": "GET", "path": "/api/v1/orders/1002/items?include=product,shipping&limit=50"}
+{"body": "", "content_type": "", "method": "GET", "path": "/api/v1/orders/1003/items?include=product,shipping&limit=50"}
+{"body": "", "content_type": "", "method": "GET", "path": "/api/v1/orders/1004/items?include=product,shipping&limit=50"}
+{"body": "", "content_type": "", "method": "GET", "path": "/api/v1/orders/1005/items?include=product,shipping&limit=50"}
+{"body": "", "content_type": "", "method": "GET", "path": "/api/v1/orders/1006/items?include=product,shipping&limit=50"}
+{"body": "", "content_type": "", "method": "GET", "path": "/api/v1/orders/1007/items?include=product,shipping&limit=50"}
+{"body": "", "content_type": "", "method": "GET", "path": "/api/v1/orders/1008/items?include=product,shipping&limit=50"}
+{"body": "", "content_type": "", "method": "GET", "path": "/api/v1/orders/1009/items?include=product,shipping&limit=50"}
+{"body": "", "content_type": "", "method": "GET", "path": "/api/v1/orders/1010/items?include=product,shipping&limit=50"}
+{"body": "", "content_type": "", "method": "GET", "path": "/api/v1/orders/1011/items?include=product,shipping&limit=50"}
+{"body": "", "content_type": "", "method": "GET", "path": "/api/v1/orders/1012/items?include=product,shipping&limit=50"}
+{"body": "", "content_type": "", "method": "GET", "path": "/api/v1/orders/1013/items?include=product,shipping&limit=50"}
+{"body": "", "content_type": "", "method": "GET", "path": "/api/v1/orders/1014/items?include=product,shipping&limit=50"}
+{"body": "", "content_type": "", "method": "GET", "path": "/api/v1/orders/1015/items?include=product,shipping&limit=50"}
+{"body": "", "content_type": "", "method": "GET", "path": "/api/v1/orders/1016/items?include=product,shipping&limit=50"}
+{"body": "", "content_type": "", "method": "GET", "path": "/api/v1/orders/1017/items?include=product,shipping&limit=50"}
+{"body": "", "content_type": "", "method": "GET", "path": "/api/v1/orders/1018/items?include=product,shipping&limit=50"}
+{"body": "", "content_type": "", "method": "GET", "path": "/api/v1/orders/1019/items?include=product,shipping&limit=50"}
+{"body": "", "content_type": "", "method": "GET", "path": "/api/v1/orders/1020/items?include=product,shipping&limit=50"}
+{"body": "", "content_type": "", "method": "GET", "path": "/search?q=red+running+shoes"}
+{"body": "", "content_type": "", "method": "GET", "path": "/search?q=men%27s+winter+jacket"}
+{"body": "", "content_type": "", "method": "GET", "path": "/search?q=wireless+headphones"}
+{"body": "", "content_type": "", "method": "GET", "path": "/search?q=o%27reilly+books"}
+{"body": "", "content_type": "", "method": "GET", "path": "/search?q=how+to+bake+bread"}
+{"body": "", "content_type": "", "method": "GET", "path": "/search?q=rock+and+roll"}
+{"body": "", "content_type": "", "method": "GET", "path": "/search?q=select+committee+report"}
+{"body": "", "content_type": "", "method": "GET", "path": "/search?q=union+station+schedule"}
+{"body": "", "content_type": "", "method": "GET", "path": "/search?q=drop+shipping+guide"}
+{"body": "", "content_type": "", "method": "GET", "path": "/search?q=order+by+date"}
+{"body": "", "content_type": "", "method": "GET", "path": "/search?q=update+your+profile"}
+{"body": "", "content_type": "", "method": "GET", "path": "/search?q=insert+coin"}
+{"body": "", "content_type": "", "method": "GET", "path": "/search?q=caf%C3%A9+near+me"}
+{"body": "", "content_type": "", "method": "GET", "path": "/search?q=na%C3%AFve+bayes+tutorial"}
+{"body": "", "content_type": "", "method": "GET", "path": "/search?q=50%25+off"}
+{"body": "", "content_type": "", "method": "GET", "path": "/search?q=tom+%26+jerry"}
+{"body": "", "content_type": "", "method": "GET", "path": "/search?q=c%2B%2B+primer"}
+{"body": "", "content_type": "", "method": "GET", "path": "/search?q=user+manual+pdf"}
+{"body": "", "content_type": "", "method": "GET", "path": "/search?q=1+2+3+go"}
+{"body": "", "content_type": "", "method": "GET", "path": "/search?q=what%27s+new"}
+{"body": "name=Alice+Johnson&email=user0%40example.com&message=Hello%2C+I+would+like+to+know+more+about+your+service.+Thanks%21&newsletter=on", "content_type": "application/x-www-form-urlencoded", "method": "POST", "path": "/contact"}
+{"body": "username=user0&password=correct+horse+battery+staple&remember=1", "content_type": "application/x-www-form-urlencoded", "method": "POST", "path": "/login"}
+{"body": "name=Bob+O%27Brien&email=user1%40example.com&message=Hello%2C+I+would+like+to+know+more+about+your+service.+Thanks%21&newsletter=on", "content_type": "application/x-www-form-urlencoded", "method": "POST", "path": "/contact"}
+{"body": "username=user1&password=correct+horse+battery+staple&remember=1", "content_type": "application/x-www-form-urlencoded", "method": "POST", "path": "/login"}
+{"body": "name=Chlo%C3%A9+Dupont&email=user2%40example.com&message=Hello%2C+I+would+like+to+know+more+about+your+service.+Thanks%21&newsletter=on", "content_type": "application/x-www-form-urlencoded", "method": "POST", "path": "/contact"}
+{"body": "username=user2&password=correct+horse+battery+staple&remember=1", "content_type": "application/x-www-form-urlencoded", "method": "POST", "path": "/login"}
+{"body": "name=Dmitri+Ivanov&email=user3%40example.com&message=Hello%2C+I+would+like+to+know+more+about+your+service.+Thanks%21&newsletter=on", "content_type": "application/x-www-form-urlencoded", "method": "POST", "path": "/contact"}
+{"body": "username=user3&password=correct+horse+battery+staple&remember=1", "content_type": "application/x-www-form-urlencoded", "method": "POST", "path": "/login"}
+{"body": "name=Eve+Adams&email=user4%40example.com&message=Hello%2C+I+would+like+to+know+more+about+your+service.+Thanks%21&newsletter=on", "content_type": "application/x-www-form-urlencoded", "method": "POST", "path": "/contact"}
+{"body": "username=user4&password=correct+horse+battery+staple&remember=1", "content_type": "application/x-www-form-urlencoded", "method": "POST", "path": "/login"}
+{"body": "name=Farah+Khan&email=user5%40example.com&message=Hello%2C+I+would+like+to+know+more+about+your+service.+Thanks%21&newsletter=on", "content_type": "application/x-www-form-urlencoded", "method": "POST", "path": "/contact"}
+{"body": "username=user5&password=correct+horse+battery+staple&remember=1", "content_type": "application/x-www-form-urlencoded", "method": "POST", "path": "/login"}
+{"body": "name=Grace+Lee&email=user6%40example.com&message=Hello%2C+I+would+like+to+know+more+about+your+service.+Thanks%21&newsletter=on", "content_type": "application/x-www-form-urlencoded", "method": "POST", "path": "/contact"}
+{"body": "username=user6&password=correct+horse+battery+staple&remember=1", "content_type": "application/x-www-form-urlencoded", "method": "POST", "path": "/login"}
+{"body": "name=Hiro+Tanaka&email=user7%40example.com&message=Hello%2C+I+would+like+to+know+more+about+your+service.+Thanks%21&newsletter=on", "content_type": "application/x-www-form-urlencoded", "method": "POST", "path": "/contact"}
+{"body": "username=user7&password=correct+horse+battery+staple&remember=1", "content_type": "application/x-www-form-urlencoded", "method": "POST", "path": "/login"}
+{"body": "name=Ines+Alvarez&email=user8%40example.com&message=Hello%2C+I+would+like+to+know+more+about+your+service.+Thanks%21&newsletter=on", "content_type": "application/x-www-form-urlencoded", "method": "POST", "path": "/contact"}
+{"body": "username=user8&password=correct+horse+battery+staple&remember=1", "content_type": "application/x-www-form-urlencoded", "method": "POST", "path": "/login"}
+{"body": "name=Jonas+M%C3%BCller&email=user9%40example.com&message=Hello%2C+I+would+like+to+know+more+about+your+service.+Thanks%21&newsletter=on", "content_type": "application/x-www-form-urlencoded", "method": "POST", "path": "/contact"}
+{"body": "username=user9&password=correct+horse+battery+staple&remember=1", "content_type": "application/x-www-form-urlencoded", "method": "POST", "path": "/login"}
+{"body": "{\"customer_id\": 1, \"items\": [{\"sku\": \"SKU-0001\", \"qty\": 2}], \"note\": \"Please leave at the front door\", \"gift\": false}", "content_type": "application/json", "method": "POST", "path": "/api/v1/orders"}
+{"body": "{\"customer_id\": 2, \"items\": [{\"sku\": \"SKU-0002\", \"qty\": 3}], \"note\": \"Please leave at the front door\", \"gift\": true}", "content_type": "application/json", "method": "POST", "path": "/api/v1/orders"}
+{"body": "{\"customer_id\": 3, \"items\": [{\"sku\": \"SKU-0003\", \"qty\": 4}], \"note\": \"Please leave at the front door\", \"gift\": false}", "content_type": "application/json", "method": "POST", "path": "/api/v1/orders"}
+{"body": "{\"customer_id\": 4, \"items\": [{\"sku\": \"SKU-0004\", \"qty\": 5}], \"note\": \"Please leave at the front door\", \"gift\": true}", "content_type": "application/json", "method": "POST", "path": "/api/v1/orders"}
+{"body": "{\"customer_id\": 5, \"items\": [{\"sku\": \"SKU-0005\", \"qty\": 1}], \"note\": \"Please leave at the front door\", \"gift\": false}", "content_type": "application/json", "method": "POST", "path": "/api/v1/orders"}
+{"body": "{\"customer_id\": 6, \"items\": [{\"sku\": \"SKU-0006\", \"qty\": 2}], \"note\": \"Please leave at the front door\", \"gift\": true}", "content_type": "application/json", "method": "POST", "path": "/api/v1/orders"}
+{"body": "{\"customer_id\": 7, \"items\": [{\"sku\": \"SKU-0007\", \"qty\": 3}], \"note\": \"Please leave at the front door\", \"gift\": false}", "content_type": "application/json", "method": "POST", "path": "/api/v1/orders"}
+{"body": "{\"customer_id\": 8, \"items\": [{\"sku\": \"SKU-0008\", \"qty\": 4}], \"note\": \"Please leave at the front door\", \"gift\": true}", "content_type": "application/json", "method": "POST", "path": "/api/v1/orders"}
+{"body": "{\"customer_id\": 9, \"items\": [{\"sku\": \"SKU-0009\", \"qty\": 5}], \"note\": \"Please leave at the front door\", \"gift\": false}", "content_type": "application/json", "method": "POST", "path": "/api/v1/orders"}
+{"body": "{\"customer_id\": 10, \"items\": [{\"sku\": \"SKU-0010\", \"qty\": 1}], \"note\": \"Please leave at the front door\", \"gift\": true}", "content_type": "application/json", "method": "POST", "path": "/api/v1/orders"}
+{"body": "{\"customer_id\": 11, \"items\": [{\"sku\": \"SKU-0011\", \"qty\": 2}], \"note\": \"Please leave at the front door\", \"gift\": false}", "content_type": "application/json", "method": "POST", "path": "/api/v1/orders"}
+{"body": "{\"customer_id\": 12, \"items\": [{\"sku\": \"SKU-0012\", \"qty\": 3}], \"note\": \"Please leave at the front door\", \"gift\": true}", "content_type": "application/json", "method": "POST", "path": "/api/v1/orders"}
+{"body": "{\"customer_id\": 13, \"items\": [{\"sku\": \"SKU-0013\", \"qty\": 4}], \"note\": \"Please leave at the front door\", \"gift\": false}", "content_type": "application/json", "method": "POST", "path": "/api/v1/orders"}
+{"body": "{\"customer_id\": 14, \"items\": [{\"sku\": \"SKU-0014\", \"qty\": 5}], \"note\": \"Please leave at the front door\", \"gift\": true}", "content_type": "application/json", "method": "POST", "path": "/api/v1/orders"}
+{"body": "{\"customer_id\": 15, \"items\": [{\"sku\": \"SKU-0015\", \"qty\": 1}], \"note\": \"Please leave at the front door\", \"gift\": false}", "content_type": "application/json", "method": "POST", "path": "/api/v1/orders"}
+{"body": "{\"customer_id\": 16, \"items\": [{\"sku\": \"SKU-0016\", \"qty\": 2}], \"note\": \"Please leave at the front door\", \"gift\": true}", "content_type": "application/json", "method": "POST", "path": "/api/v1/orders"}
+{"body": "{\"customer_id\": 17, \"items\": [{\"sku\": \"SKU-0017\", \"qty\": 3}], \"note\": \"Please leave at the front door\", \"gift\": false}", "content_type": "application/json", "method": "POST", "path": "/api/v1/orders"}
+{"body": "{\"customer_id\": 18, \"items\": [{\"sku\": \"SKU-0018\", \"qty\": 4}], \"note\": \"Please leave at the front door\", \"gift\": true}", "content_type": "application/json", "method": "POST", "path": "/api/v1/orders"}
+{"body": "{\"customer_id\": 19, \"items\": [{\"sku\": \"SKU-0019\", \"qty\": 5}], \"note\": \"Please leave at the front door\", \"gift\": false}", "content_type": "application/json", "method": "POST", "path": "/api/v1/orders"}
+{"body": "{\"customer_id\": 20, \"items\": [{\"sku\": \"SKU-0020\", \"qty\": 1}], \"note\": \"Please leave at the front door\", \"gift\": true}", "content_type": "application/json", "method": "POST", "path": "/api/v1/orders"}
+{"body": "{\"customer_id\": 21, \"items\": [{\"sku\": \"SKU-0021\", \"qty\": 2}], \"note\": \"Please leave at the front door\", \"gift\": false}", "content_type": "application/json", "method": "POST", "path": "/api/v1/orders"}
+{"body": "{\"customer_id\": 22, \"items\": [{\"sku\": \"SKU-0022\", \"qty\": 3}], \"note\": \"Please leave at the front door\", \"gift\": true}", "content_type": "application/json", "method": "POST", "path": "/api/v1/orders"}
+{"body": "{\"customer_id\": 23, \"items\": [{\"sku\": \"SKU-0023\", \"qty\": 4}], \"note\": \"Please leave at the front door\", \"gift\": false}", "content_type": "application/json", "method": "POST", "path": "/api/v1/orders"}
+{"body": "{\"customer_id\": 24, \"items\": [{\"sku\": \"SKU-0024\", \"qty\": 5}], \"note\": \"Please leave at the front door\", \"gift\": true}", "content_type": "application/json", "method": "POST", "path": "/api/v1/orders"}
+{"body": "{\"customer_id\": 25, \"items\": [{\"sku\": \"SKU-0025\", \"qty\": 1}], \"note\": \"Please leave at the front door\", \"gift\": false}", "content_type": "application/json", "method": "POST", "path": "/api/v1/orders"}
+{"body": "{\"display_name\": \"User 1\", \"bio\": \"Coffee lover, hiker & amateur photographer.\", \"timezone\": \"Europe/Berlin\", \"tags\": [\"a\", \"b\", \"c\"]}", "content_type": "application/json", "method": "PUT", "path": "/api/v1/profile/1"}
+{"body": "{\"display_name\": \"User 2\", \"bio\": \"Coffee lover, hiker & amateur photographer.\", \"timezone\": \"Europe/Berlin\", \"tags\": [\"a\", \"b\", \"c\"]}", "content_type": "application/json", "method": "PUT", "path": "/api/v1/profile/2"}
+{"body": "{\"display_name\": \"User 3\", \"bio\": \"Coffee lover, hiker & amateur photographer.\", \"timezone\": \"Europe/Berlin\", \"tags\": [\"a\", \"b\", \"c\"]}", "content_type": "application/json", "method": "PUT", "path": "/api/v1/profile/3"}
+{"body": "{\"display_name\": \"User 4\", \"bio\": \"Coffee lover, hiker & amateur photographer.\", \"timezone\": \"Europe/Berlin\", \"tags\": [\"a\", \"b\", \"c\"]}", "content_type": "application/json", "method": "PUT", "path": "/api/v1/profile/4"}
+{"body": "{\"display_name\": \"User 5\", \"bio\": \"Coffee lover, hiker & amateur photographer.\", \"timezone\": \"Europe/Berlin\", \"tags\": [\"a\", \"b\", \"c\"]}", "content_type": "application/json", "method": "PUT", "path": "/api/v1/profile/5"}
+{"body": "{\"display_name\": \"User 6\", \"bio\": \"Coffee lover, hiker & amateur photographer.\", \"timezone\": \"Europe/Berlin\", \"tags\": [\"a\", \"b\", \"c\"]}", "content_type": "application/json", "method": "PUT", "path": "/api/v1/profile/6"}
+{"body": "{\"display_name\": \"User 7\", \"bio\": \"Coffee lover, hiker & amateur photographer.\", \"timezone\": \"Europe/Berlin\", \"tags\": [\"a\", \"b\", \"c\"]}", "content_type": "application/json", "method": "PUT", "path": "/api/v1/profile/7"}
+{"body": "{\"display_name\": \"User 8\", \"bio\": \"Coffee lover, hiker & amateur photographer.\", \"timezone\": \"Europe/Berlin\", \"tags\": [\"a\", \"b\", \"c\"]}", "content_type": "application/json", "method": "PUT", "path": "/api/v1/profile/8"}
+{"body": "{\"display_name\": \"User 9\", \"bio\": \"Coffee lover, hiker & amateur photographer.\", \"timezone\": \"Europe/Berlin\", \"tags\": [\"a\", \"b\", \"c\"]}", "content_type": "application/json", "method": "PUT", "path": "/api/v1/profile/9"}
+{"body": "{\"display_name\": \"User 10\", \"bio\": \"Coffee lover, hiker & amateur photographer.\", \"timezone\": \"Europe/Berlin\", \"tags\": [\"a\", \"b\", \"c\"]}", "content_type": "application/json", "method": "PUT", "path": "/api/v1/profile/10"}
+{"body": "{\"display_name\": \"User 11\", \"bio\": \"Coffee lover, hiker & amateur photographer.\", \"timezone\": \"Europe/Berlin\", \"tags\": [\"a\", \"b\", \"c\"]}", "content_type": "application/json", "method": "PUT", "path": "/api/v1/profile/11"}
+{"body": "{\"display_name\": \"User 12\", \"bio\": \"Coffee lover, hiker & amateur photographer.\", \"timezone\": \"Europe/Berlin\", \"tags\": [\"a\", \"b\", \"c\"]}", "content_type": "application/json", "method": "PUT", "path": "/api/v1/profile/12"}
+{"body": "{\"display_name\": \"User 13\", \"bio\": \"Coffee lover, hiker & amateur photographer.\", \"timezone\": \"Europe/Berlin\", \"tags\": [\"a\", \"b\", \"c\"]}", "content_type": "application/json", "method": "PUT", "path": "/api/v1/profile/13"}
+{"body": "{\"display_name\": \"User 14\", \"bio\": \"Coffee lover, hiker & amateur photographer.\", \"timezone\": \"Europe/Berlin\", \"tags\": [\"a\", \"b\", \"c\"]}", "content_type": "application/json", "method": "PUT", "path": "/api/v1/profile/14"}
+{"body": "{\"display_name\": \"User 15\", \"bio\": \"Coffee lover, hiker & amateur photographer.\", \"timezone\": \"Europe/Berlin\", \"tags\": [\"a\", \"b\", \"c\"]}", "content_type": "application/json", "method": "PUT", "path": "/api/v1/profile/15"}
+{"body": "{\"coupon\": \"SPRING25\", \"quantity\": 1}", "content_type": "application/json", "method": "PATCH", "path": "/api/v1/cart/1"}
+{"body": "{\"coupon\": \"SPRING25\", \"quantity\": 2}", "content_type": "application/json", "method": "PATCH", "path": "/api/v1/cart/2"}
+{"body": "{\"coupon\": \"SPRING25\", \"quantity\": 3}", "content_type": "application/json", "method": "PATCH", "path": "/api/v1/cart/3"}
+{"body": "{\"coupon\": \"SPRING25\", \"quantity\": 4}", "content_type": "application/json", "method": "PATCH", "path": "/api/v1/cart/4"}
+{"body": "{\"coupon\": \"SPRING25\", \"quantity\": 5}", "content_type": "application/json", "method": "PATCH", "path": "/api/v1/cart/5"}
+{"body": "{\"coupon\": \"SPRING25\", \"quantity\": 6}", "content_type": "application/json", "method": "PATCH", "path": "/api/v1/cart/6"}
+{"body": "{\"coupon\": \"SPRING25\", \"quantity\": 7}", "content_type": "application/json", "method": "PATCH", "path": "/api/v1/cart/7"}
+{"body": "{\"coupon\": \"SPRING25\", \"quantity\": 8}", "content_type": "application/json", "method": "PATCH", "path": "/api/v1/cart/8"}
+{"body": "{\"coupon\": \"SPRING25\", \"quantity\": 9}", "content_type": "application/json", "method": "PATCH", "path": "/api/v1/cart/9"}
+{"body": "{\"coupon\": \"SPRING25\", \"quantity\": 10}", "content_type": "application/json", "method": "PATCH", "path": "/api/v1/cart/10"}
+{"body": "", "content_type": "", "method": "DELETE", "path": "/api/v1/cart/1/items/3"}
+{"body": "", "content_type": "", "method": "DELETE", "path": "/api/v1/cart/2/items/6"}
+{"body": "", "content_type": "", "method": "DELETE", "path": "/api/v1/cart/3/items/9"}
+{"body": "", "content_type": "", "method": "DELETE", "path": "/api/v1/cart/4/items/12"}
+{"body": "", "content_type": "", "method": "DELETE", "path": "/api/v1/cart/5/items/15"}
+{"body": "", "content_type": "", "method": "OPTIONS", "path": "/api/v1/orders"}
+{"body": "", "content_type": "", "method": "HEAD", "path": "/api/v1/orders"}
+{"body": "", "content_type": "", "method": "OPTIONS", "path": "/api/v1/profile/1"}
+{"body": "", "content_type": "", "method": "HEAD", "path": "/api/v1/profile/1"}
+{"body": "", "content_type": "", "method": "OPTIONS", "path": "/products"}
+{"body": "", "content_type": "", "method": "HEAD", "path": "/products"}
+{"body": "", "content_type": "", "method": "GET", "path": "/static/app.css?v=20260101"}
+{"body": "", "content_type": "", "method": "GET", "path": "/static/app.js?v=20260101"}
+{"body": "", "content_type": "", "method": "GET", "path": "/static/app.png?v=20260101"}
+{"body": "", "content_type": "", "method": "GET", "path": "/static/app.svg?v=20260101"}
+{"body": "", "content_type": "", "method": "GET", "path": "/static/app.woff2?v=20260101"}
