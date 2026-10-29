@@ -30,6 +30,7 @@ import (
 	"github.com/skylarng89/sherlock-waf/internal/dataplane/blockpage"
 	"github.com/skylarng89/sherlock-waf/internal/events"
 	"github.com/skylarng89/sherlock-waf/internal/policy"
+	"github.com/skylarng89/sherlock-waf/internal/vpatch"
 )
 
 // CRSVersion is the embedded OWASP CRS release; a test checks it against the
@@ -41,7 +42,9 @@ const (
 	// wouldBlockRuleID is CRS's inbound anomaly evaluation rule; matching it
 	// in DetectionOnly means the request would have been blocked.
 	wouldBlockRuleID = 949110
-	maxMatchedBytes  = 256
+	// outboundWouldBlockRuleID is the CRS outbound anomaly evaluation rule.
+	outboundWouldBlockRuleID = 959100
+	maxMatchedBytes          = 256
 	// bodySampleBytes is how much of a body is kept for the redacted excerpt.
 	bodySampleBytes = 4096
 )
@@ -171,6 +174,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request, next caddyht
 		blockpage.WriteTemplate(w, r, status, d.EventID, h.BlockPageID)
 		return nil
 	}
+	if h.OutboundInspection && res.tx != nil && !isUpgrade(r) {
+		return h.serveInspected(w, r, next, d, &res)
+	}
 	return next.ServeHTTP(w, r)
 }
 
@@ -194,6 +200,9 @@ type result struct {
 	tx           types.Transaction
 	interruption *types.Interruption
 	err          error
+	// recorded is how many matched rules were already copied into the
+	// decision, so the response phase records only what is new.
+	recorded int
 }
 
 func (res *result) close() {
@@ -251,7 +260,7 @@ func (h *Handler) inspect(r *http.Request, d *policy.Decision) (res result) {
 
 	if it := tx.ProcessRequestHeaders(); it != nil {
 		res.interruption = it
-		h.record(tx, d)
+		res.recorded = h.record(tx, d, 0)
 		return res
 	}
 
@@ -263,7 +272,7 @@ func (h *Handler) inspect(r *http.Request, d *policy.Decision) (res result) {
 		}
 		if it != nil {
 			res.interruption = it
-			h.record(tx, d)
+			res.recorded = h.record(tx, d, 0)
 			return res
 		}
 		// Hand the upstream the buffered prefix followed by whatever the
@@ -290,7 +299,7 @@ func (h *Handler) inspect(r *http.Request, d *policy.Decision) (res result) {
 		return res
 	}
 	res.interruption = it
-	h.record(tx, d)
+	res.recorded = h.record(tx, d, 0)
 	return res
 }
 
@@ -309,15 +318,21 @@ type readCloser struct {
 	io.Closer
 }
 
-// record copies matched rules into the decision. In detect mode a match of
-// the anomaly evaluation rule is surfaced as action=log ("would have blocked").
-func (h *Handler) record(tx types.Transaction, d *policy.Decision) {
+// record copies matched rules (from index `from`) into the decision and returns
+// the number of matched rules seen. In detect mode a match of an anomaly
+// evaluation rule, or of a virtual patch, is surfaced as action=log ("would
+// have blocked"). Rules above the blocking paranoia level are recorded like any
+// other finding: they score but do not block, which is what the paranoia-level
+// helper reads back (M8-T5).
+func (h *Handler) record(tx types.Transaction, d *policy.Decision, from int) int {
 	if st, ok := tx.(plugintypes.TransactionState); ok {
 		in := txInt(st, "detection_inbound_anomaly_score")
 		out := txInt(st, "detection_outbound_anomaly_score")
 		d.SetAnomalyScore(in, out)
 	}
-	for _, mr := range tx.MatchedRules() {
+	matched := tx.MatchedRules()
+	for i := from; i < len(matched); i++ {
+		mr := matched[i]
 		msg := mr.Message()
 		meta := mr.Rule()
 		if msg == "" || !isFinding(meta) {
@@ -340,10 +355,12 @@ func (h *Handler) record(tx types.Transaction, d *policy.Decision) {
 			f.Matched = truncate(md.Value(), maxMatchedBytes)
 		}
 		d.AddFinding(f)
-		if meta.ID() == wouldBlockRuleID && h.Mode == config.ModeDetect {
+		wouldBlock := meta.ID() == wouldBlockRuleID || meta.ID() == outboundWouldBlockRuleID || vpatch.IsRuleID(meta.ID())
+		if wouldBlock && h.Mode == config.ModeDetect {
 			d.SetAction(policy.ActionLog)
 		}
 	}
+	return len(matched)
 }
 
 // isFinding separates detections from CRS housekeeping rules, which Coraza
@@ -389,7 +406,7 @@ func severityOf(s types.RuleSeverity) policy.Severity {
 // scoreOf mirrors CRS's default anomaly scores per severity for detection
 // rules; evaluation rules (949xxx and above) contribute no score themselves.
 func scoreOf(id int, s types.RuleSeverity) int {
-	if id >= 949000 || id < 911000 {
+	if id < 911000 || (id >= 949000 && id < 950000) || id >= 959000 {
 		return 0
 	}
 	switch s {

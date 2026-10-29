@@ -13,6 +13,7 @@
   "severity": "critical",
   "cvss": 10.0,
   "kev": true,
+  "kev_added": "2023-11-07",
   "stacks": [
     "confluence",
     "atlassian"

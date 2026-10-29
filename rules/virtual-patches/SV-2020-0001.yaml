@@ -1,0 +1,30 @@
+# Metadata for SV-2020-0001. verification=synthetic: the exploit request was rebuilt from public
+# write-ups and tested against Sherlock only; it was not replayed against a vulnerable product.
+# kev=true must be re-checked against the CISA KEV catalog before each release (see docs/security/virtual-patching-process.md).
+{
+  "id": "SV-2020-0001",
+  "title": "WordPress File Manager plugin unauthenticated arbitrary file upload",
+  "cves": [
+    "CVE-2020-25213"
+  ],
+  "vendor": "mndpsingh287",
+  "product": "WP File Manager (WordPress plugin)",
+  "versions": "before 6.9 (NVD CPE range; the 6.0 lower bound was not confirmed)",
+  "severity": "critical",
+  "cvss": 10.0,
+  "kev": true,
+  "kev_added": "2021-11-03",
+  "stacks": [
+    "wordpress"
+  ],
+  "references": [
+    "https://nvd.nist.gov/vuln/detail/CVE-2020-25213",
+    "https://www.wordfence.com/blog/2020/09/700000-wordpress-users-affected-by-zero-day-vulnerability-in-file-manager-plugin/"
+  ],
+  "false_positive_notes": "The exposed connector.minimal.php file should not be called from a browser. Disable the patch only if you run a fixed plugin version and rely on a custom path to that file.",
+  "verification": "synthetic",
+  "added_in": "2026.10.1",
+  "rule_ids": [
+    9500120
+  ]
+}

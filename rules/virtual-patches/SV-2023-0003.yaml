@@ -13,6 +13,7 @@
   "severity": "critical",
   "cvss": 9.8,
   "kev": true,
+  "kev_added": "2023-04-21",
   "stacks": [
     "papercut"
   ],

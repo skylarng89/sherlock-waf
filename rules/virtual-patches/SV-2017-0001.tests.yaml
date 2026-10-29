@@ -1,0 +1,28 @@
+{
+  "positive": [
+    {
+      "name": "exploit",
+      "method": "POST",
+      "path": "/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php",
+      "content_type": "text/plain",
+      "body": "<?php echo 1; ?>"
+    },
+    {
+      "name": "old layout",
+      "method": "GET",
+      "path": "/vendor/phpunit/phpunit/Util/PHP/eval-stdin.php"
+    }
+  ],
+  "negative": [
+    {
+      "name": "application page",
+      "method": "GET",
+      "path": "/vendor-list.php"
+    },
+    {
+      "name": "similar name in blog",
+      "method": "GET",
+      "path": "/blog/phpunit-eval-stdin-explained"
+    }
+  ]
+}

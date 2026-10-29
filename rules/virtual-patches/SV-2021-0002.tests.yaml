@@ -1,0 +1,39 @@
+{
+  "positive": [
+    {
+      "name": "unicode-escaped quote probe",
+      "method": "POST",
+      "path": "/pages/doenterpagevariables.action",
+      "content_type": "application/x-www-form-urlencoded",
+      "body": "queryString=%5Cu0027%2B%7B233*233%7D%2B%5Cu0027"
+    },
+    {
+      "name": "OGNL in createpage",
+      "method": "POST",
+      "path": "/pages/createpage-entervariables.action?SpaceKey=x",
+      "content_type": "application/x-www-form-urlencoded",
+      "body": "queryString=%5Cu0027%2B%23%7B3*3%7D%2B%5Cu0027"
+    },
+    {
+      "name": "dark features query",
+      "method": "GET",
+      "path": "/users/user-dark-features.action?queryString=%24%7B1%2B1%7D"
+    }
+  ],
+  "negative": [
+    {
+      "name": "page variables with text",
+      "method": "POST",
+      "path": "/pages/doenterpagevariables.action",
+      "content_type": "application/x-www-form-urlencoded",
+      "body": "queryString=Quarterly+report&pageId=12345"
+    },
+    {
+      "name": "same params on another action",
+      "method": "POST",
+      "path": "/pages/dosearch.action",
+      "content_type": "application/x-www-form-urlencoded",
+      "body": "queryString=hello+world"
+    }
+  ]
+}

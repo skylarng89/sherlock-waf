@@ -73,7 +73,7 @@ func NewRootCommand(info BuildInfo, opts ...Option) *cobra.Command {
 	root.AddCommand(
 		newVersionCommand(info), newRunCommand(o, &sf, info),
 		newUserCommand(&sf), newHashPasswordCommand(), newTokenCommand(&sf), newConfigCommand(&sf), newAuditCommand(&sf), newSecretsCommand(&sf),
-		newUpdateCommand(o, &sf, info), newBackupCommand(&sf, info), newRestoreCommand(&sf),
+		newUpdateCommand(o, &sf, info), newBackupCommand(&sf, info), newRestoreCommand(&sf), newHealthcheckCommand(),
 	)
 	return root
 }

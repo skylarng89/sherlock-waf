@@ -11,8 +11,9 @@
   "product": "Exchange Server",
   "versions": "2013, 2016 and 2019 before the March 2021 security updates",
   "severity": "critical",
-  "cvss": 9.8,
+  "cvss": 9.1,
   "kev": true,
+  "kev_added": "2021-11-03",
   "stacks": [
     "exchange"
   ],
