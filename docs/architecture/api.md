@@ -23,16 +23,20 @@
 
 | Method | Used by | Details |
 | --- | --- | --- |
-| Session cookie | Dashboard | `POST /api/v1/auth/login` (username + password) → `mfa_required` → `POST /api/v1/auth/mfa` (TOTP). Cookie `sherlock_session`: `HttpOnly`, `Secure`, `SameSite=Strict`, 12 h absolute, 30 min idle. CSRF: double-submit token in `X-CSRF-Token` header for all non-GET requests |
-| API token | CLI, CI, Terraform | `Authorization: Bearer shk_<id>_<secret>`. Stored as SHA-256 hash. Scopes: `read`, `write`, `events:read`, `admin`. Optional expiry and CIDR restriction |
+| Session cookie | Dashboard | `POST /api/v1/auth/login` (username + password) → `mfa_required` → `POST /api/v1/auth/mfa` (TOTP), or `mfa_enrol_required` → `POST /auth/mfa/enroll` (returns the seed once) → `POST /auth/mfa/enroll/confirm`. MFA is mandatory for every account. The pre-MFA session is partial (5 min, may only complete this step) and is destroyed when the full session is issued. Cookie `__Host-sherlock_session`: `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/`, no `Domain`, 12 h absolute, 30 min idle. CSRF: double-submit token (cookie `__Host-sherlock_csrf`, readable by the dashboard) echoed in the `X-CSRF-Token` header for all non-GET session requests |
+| API token | CLI, CI, Terraform | `Authorization: Bearer shk_<id>_<secret>`. Only the SHA-256 of the secret is stored (it carries 160 bits of entropy, so a fast hash is appropriate). Scopes: `read`, `write`, `events:read`, `admin`. A token's permissions are its scopes intersected with its owner's role, so demoting a user narrows their tokens. Tokens cannot create tokens (that needs a session). Optional expiry and CIDR restriction. No CSRF header needed (not ambient browser credentials) |
 
-Roles (OSS): `admin`, `viewer`. Authorisation is checked in one middleware from a route→permission table generated from `x-sherlock-permission` extensions in the OpenAPI spec, so no handler can forget it. Enterprise replaces the authoriser through `extension.Authorizer`.
+Login is throttled at 5 attempts per minute per IP and per username (unknown usernames included, so throttling does not reveal which exist); five consecutive failures lock the account for 1 minute, doubling to a 15-minute cap. Failures, locks, denials and successes are audited, never with credentials.
+
+Roles (OSS): `admin`, `viewer`. Authorisation is checked in one middleware from a route→permission table read from the `x-sherlock-permission` extensions of the embedded OpenAPI spec (`api/openapi.yaml`), so no handler can forget it: a route with no permission, or an unknown permission name, stops the server starting. Special values: `public` (no authentication), `authenticated`, `session-any`, `session-partial` (sign-in steps). Enterprise replaces the authoriser through `extension.Authorizer`; authentication, CSRF and the sign-in rules above it are not replaceable, and an authoriser error denies.
+
+Operational conventions: errors are RFC 9457 `application/problem+json` with a `request_id`; configuration bodies are decoded strictly (an unknown field is a 400); the control plane listens on `SHERLOCK_ADMIN_LISTEN` (default `127.0.0.1:9443`) over TLS 1.2+ with a self-signed ECDSA P-256 certificate generated at first start (or `SHERLOCK_ADMIN_TLS_CERT`/`_KEY`; its public-key SHA-256 is logged for pinning), optionally restricted by `SHERLOCK_ADMIN_ALLOWED_CIDRS`.
 
 ## Resources
 
 | Method and path | Purpose | Permission | M |
 | --- | --- | --- | --- |
-| `POST /auth/login`, `/auth/mfa`, `/auth/logout` | Session | public / session | M3 |
+| `POST /auth/login`, `/auth/mfa`, `/auth/mfa/enroll`, `/auth/mfa/enroll/confirm`, `/auth/logout` | Session sign-in steps | public / session | M3 |
 | `GET /auth/me` | Current user, role, permissions | any | M3 |
 | `GET /setup/status`, `POST /setup` | First-run wizard (only works while no user exists) | public, one-time | M4 |
 | `GET /config` / `PUT /config` | Whole effective config (JSON or `Accept: application/yaml`) | viewer / admin | M3 |
@@ -60,6 +64,11 @@ Roles (OSS): `admin`, `viewer`. Authorisation is checked in one middleware from 
 | `GET/POST /tokens`, `DELETE /tokens/{id}` | API tokens (own; admin sees all) | any / admin | M3 |
 | `GET /audit` | Audit log | admin | M3 |
 | `GET /system/health`, `/system/info`, `/system/update`, `POST /system/update/apply`, `POST /system/backup` | System | viewer / admin | M7 |
+| `GET /setup/status`, `POST /setup/admin` | First-run setup: whether it is open; create the first admin with the one-time setup token | public (token-guarded, closes itself) | M4 |
+| `POST /system/test-upstream` | Reachability check for an upstream (connect + `HEAD /`, no redirects, 3 s, no response content returned) | admin | M4 |
+| `GET /stats/timeseries?from&to&step&site` | Event counts per bucket and action from the minute rollups (dense buckets, at most 2000) | viewer | M4 |
+| `GET/POST /certificates`, `DELETE /certificates/{id}`, `GET /certificates/acme-status` | Uploaded certificates (PEM chain + key; key never returned; delete refused while a site uses it); certificate state per site host | viewer / admin | M4 |
+| `GET /block-pages`, `PUT/DELETE /block-pages/{id}` | Custom block page templates (`html/template`; fields `.Status .Title .Detail .EventID`; validated by rendering once; delete refused while in use) | viewer / admin | M4 |
 | `GET /healthz`, `/readyz` (no `/api/v1` prefix) | Probes | public | M2 |
 | `GET /metrics` (no prefix, can be bound to separate address) | Prometheus | token or CIDR | M2 |
 

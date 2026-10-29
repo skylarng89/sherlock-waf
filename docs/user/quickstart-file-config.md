@@ -103,6 +103,25 @@ global:
 
 The client address is the right-most address in the header that is not a trusted proxy. Without `trusted_proxies`, forwarded headers are ignored.
 
+## Events, metrics and health
+
+Every request that had a finding, or that Sherlock stopped, is written as one JSON line (redacted: passwords, tokens, card numbers and `Authorization`/`Cookie` never appear) to standard output and to `events.jsonl` in the data directory (`--data-dir`, default `~/.local/share/sherlock`). The line has the same `event_id` the client saw in the block page.
+
+```sh
+tail -f ~/.local/share/sherlock/events.jsonl | jq '{id, action, path: .request.path, rules: [.findings[].rule_id]}'
+```
+
+A small admin listener on `127.0.0.1:9444` serves Prometheus metrics (`/metrics`) and health checks (`/healthz`, `/readyz`). Change or disable it under `global.admin`; see [deployment](../operations/deployment.md).
+
+```yaml
+global:
+  events:
+    access_log: { enabled: true, sample_rate: 0.01 }   # also log 1% of clean requests, separately
+    body_excerpt: false                                # keep request bodies out of events
+    redaction:
+      patterns: ["(?i)iban", "(?i)national_id"]        # extra parameter names to redact
+```
+
 ## What is not in this milestone
 
 Rate limits, access lists, bots, response inspection, exclusions and custom rules, the API and the dashboard.

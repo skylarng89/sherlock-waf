@@ -43,7 +43,21 @@ Everything else is configuration in the store, managed via API/dashboard/YAML.
 ## Operating
 
 - Health: `GET /healthz` (process up), `GET /readyz` (store reachable, data plane running, config applied).
-- Metrics: `GET /metrics` on the admin listener (token or CIDR protected). Key series: `sherlock_requests_total{site,action}`, `sherlock_request_duration_seconds`, `sherlock_waf_duration_seconds`, `sherlock_events_dropped_total`, `sherlock_upstream_healthy{site,upstream}`, `sherlock_config_version_info`, `sherlock_crs_version_info`, `sherlock_cert_expiry_seconds`.
+- Metrics: `GET /metrics` on the admin listener (CIDR protected via `global.admin.allowed_cidrs`; the control plane adds token auth in M3). Key series: `sherlock_requests_total{site,action}`, `sherlock_request_duration_seconds`, `sherlock_waf_duration_seconds`, `sherlock_events_published_total`, `sherlock_events_dropped_total`, `sherlock_internal_errors_total`, `sherlock_requests_in_flight`, `sherlock_config_version_info`, `sherlock_crs_version_info`. Not yet exposed (they need Caddy state the data plane does not publish): `sherlock_upstream_healthy{site,upstream}` and `sherlock_cert_expiry_seconds`.
+
+### Admin listener (since M2)
+
+`global.admin.listen` (default `127.0.0.1:9444`, because the control plane uses 9443; `off` disables it) serves only `GET /metrics`, `/healthz` and `/readyz`, separate from proxied traffic. `/readyz` answers 503 until the first configuration has been applied and again while shutting down. `allowed_cidrs` limits who may connect (empty means anyone who can reach the port, so keep the default loopback bind or set a list when binding wider). It is plain HTTP until the control plane brings TLS (M3).
+
+### Events on disk (since M2)
+
+Until the event store exists (M3), security events are written as JSON lines, one event per line (schema: [event.schema.json](../reference/event.schema.json)):
+
+- `$DATA_DIR/events.jsonl`, rotated by size (`global.events.sinks.file_max_mb`, default 100, keeping `file_keep`, default 5 rotated files), mode 0600;
+- standard output (`global.events.sinks.stdout`, default on), interleaved with log lines (distinguish them by the `"schema":"sherlock.event.v1"` field);
+- optionally `$DATA_DIR/access.jsonl`: a sampled log of *clean* requests (`global.events.access_log`, off by default), kept apart from security events.
+
+The data directory defaults to `$XDG_DATA_HOME/sherlock` or `~/.local/share/sherlock`; override with `--data-dir`. Only whole lines are ever written, so a log shipper tailing the file never sees a truncated event.
 - Backups: daily automatic to `$DATA_DIR/backups`, keep 7; copy off-host with your own tooling.
 - Logs: JSON to stdout/journald.
 - Upgrades: `sherlock update` (online) or `sherlock update --bundle sherlock-X.Y.Z-linux-amd64.tar.gz` (offline). Both verify signatures, back up, migrate, restart with zero downtime for proxied connections that finish within 30 s.

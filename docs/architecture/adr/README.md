@@ -17,5 +17,7 @@ We record significant decisions as ADRs (Michael Nygard format). An ADR is immut
 | [0011](0011-rule-updates.md) | CRS ships inside releases | Accepted |
 | [0012](0012-policy-hierarchy.md) | Global, site and endpoint policy hierarchy | Accepted |
 | [0013](0013-virtual-patching-rule-pack.md) | Virtual-patching rule pack for exploited CVEs | Accepted |
+| [0014](0014-throughput-budget.md) | Throughput budget (NFR-2) | **Proposed** |
+| [0015](0015-single-codegen-store.md) | One set of queries, run on both databases | Accepted |
 
 New ADRs: copy [template.md](template.md), take the next number, open a PR titled `docs(adr): NNNN <title>`.

@@ -27,6 +27,10 @@ None for PRs. Release uses GitHub OIDC for keyless cosign signing and `GITHUB_TO
 
 `ci.yml` currently runs `lint`, `test-go` (Linux and macOS), `test-web`, `build` (Linux and macOS), `govulncheck`, `licenses` and `gitleaks`. The remaining jobs in the table are added by the milestone that introduces what they check (`gen-drift` in M1 with the first generator, `test-store` in M3, `ftw-smoke` and `bench` in M2, `e2e-smoke` in M2). Actions are pinned by commit SHA; Renovate keeps the pins current.
 
+## Status after M2
+
+`ci.yml` adds `ftw-smoke` (CRS regression at PL1, `make ftw`), `benign-corpus` (`make corpus`), `bench` (PRs only: benchmarks on the base and the head commit, failing on a significant slowdown over 10% via `scripts/bench-gate.sh`) and `e2e-smoke` (`make e2e`). `nightly.yml` runs the CRS suite at PL1 to PL4 (`make ftw-all`), the Juice Shop attack replay with nuclei and ZAP, and long fuzzing, and files or updates one tracking issue when anything fails. The k6 budgets (`test/k6/run.sh`) need the fixed 2 vCPU runner and are wired into the nightly workflow once that runner exists; until then their numbers are local (see [../plan/benchmarks.md](../plan/benchmarks.md)). `release.yml` produces archives, packages, SPDX SBOMs, a multi-arch image and keyless cosign signatures. `gen-drift` arrives with the first generated code beyond the event schema (M3).
+
 ## Branch protection checklist (M0-T9, manual)
 
 - [ ] Required status checks: every `ci.yml` job, `codeql`, and the `cla` check.

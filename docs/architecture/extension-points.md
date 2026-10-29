@@ -14,56 +14,49 @@ Enterprise features are added by a separate binary, `sherlock-ee`, built in the 
 
 ```go
 // cmd/sherlock/main.go (core)
-func main() { cli.Execute(extension.None()) }
+cli.Execute(ctx, info, cli.WithExtensions(extension.None()))
 
 // cmd/sherlock-ee/main.go (enterprise repo)
-func main() {
-    cli.Execute(extension.Bundle(
-        enterprise.Modules()..., // defined in the private repository
-    ))
-}
+cli.Execute(ctx, info, cli.WithExtensions(extension.Bundle(enterprise.Modules()...)))
 ```
 
-`cli.Execute` lives in `pkg/cli` so both binaries share every command. Extensions can add CLI subcommands through `Host.RegisterCommand`.
+`cli.Execute` lives in `pkg/cli` so both binaries share every command. `WithExtensions` is an `Option` (rather than a changed `Execute` signature) so existing callers keep compiling.
 
-## Interfaces
+## Interfaces (v0, implemented in `pkg/extension`)
+
+Only what the milestone that introduces a point needs is defined; the rest of the table below is added by the milestone that first uses it (rule 3).
 
 ```go
-package extension
-
 type Extension interface {
     Name() string
-    Init(ctx context.Context, h Host) error   // called once, after store and before data plane start
+    Init(ctx context.Context, h Host) error   // once, after the store is open and before the data plane starts
 }
 
-type Host interface {
+type Host interface {              // implemented by the core; adding methods is not breaking
+    CoreVersion() string
     Logger() *slog.Logger
-    DB() (*sql.DB, Dialect)                    // EE owns its own tables, prefixed ee_, with its own migrations
-    Events() EventSubscriber                   // subscribe to the event bus
-    RegisterAPIRoutes(prefix string, h http.Handler, perms map[string]Permission) // mounted under /api/v1/ee/
-    RegisterCommand(cmd *cobra.Command)
-    RegisterJob(name string, every time.Duration, fn func(context.Context) error)
+    DB() (*sql.DB, Dialect)        // EE owns its own tables, prefixed ee_, with its own migrations
+    Sessions() SessionIssuer       // AuthProviders turn an identity into a core session; the core keeps cookies, CSRF and MFA policy
+
     SetAuthorizer(Authorizer)
     AddAuthProvider(AuthProvider)
     AddAuditSink(AuditSink)
     SetEventStore(EventStore)
-    AddExporterType(ExporterType)
-    SetRateLimitBackend(RateLimitBackend)
-    AddCompilerHook(CompilerHook)
-    SetConfigSource(ConfigSource)
-    AddReport(Report)
-    AddFeatures(...Feature)                   // advertised in GET /system/info so the UI can show EE pages
 }
 ```
 
+Design rules that keep the surface stable: implemented interfaces have one to three methods and exchange **structs** (`AuthzRequest`, `AuditRecord`, `EventQuery`, ...) so fields can be added; new optional behaviour arrives as a separate interface found by type assertion; every type in a signature lives in `pkg/extension` so Enterprise never imports `internal/`; failures use the sentinel errors `ErrNotFound` and `ErrDenied`. `extension/extensiontest` provides a fake `Host`.
+
+Added by later milestones (see the table): `RegisterAPIRoutes`, `RegisterJob`, `Events()` subscription, `AddExporterType` (M10), `SetRateLimitBackend` (M5), `AddCompilerHook`, `SetConfigSource`, `AddReport`, `AddFeatures`. `RegisterCommand` is deliberately not planned: it would put cobra into the public API.
+
 | Interface | Core default | Enterprise implementation |
 | --- | --- | --- |
-| `Authorizer` | Two roles: admin, viewer | Custom roles, per-site permissions, teams |
+| `Authorizer` | Two roles: admin, viewer. Must fail closed: an error counts as a denial | Custom roles, per-site permissions, teams |
 | `AuthProvider` | Local username/password + TOTP | OIDC, SAML; SCIM via EE API routes |
-| `AuditSink` | Writes to `audit_log` with hash chain | Signs chain checkpoints, ships to WORM/S3 Object Lock, verifies |
+| `AuditSink` | The core writes the hash-chained `audit_log` inside the audited transaction; sinks are **post-commit observers** that receive the chained record | Signs chain checkpoints, ships to WORM/S3 Object Lock, verifies |
 | `EventStore` | SQL event tables | ClickHouse |
-| `ExporterType` | syslog/CEF, webhook, OTLP | Splunk HEC, Sentinel, Elastic, QRadar |
-| `RateLimitBackend` | In-memory sharded sliding window | Valkey (cluster-wide) |
+| `ExporterType` (M10) | syslog/CEF, webhook, OTLP | Splunk HEC, Sentinel, Elastic, QRadar |
+| `RateLimitBackend` (M5) | In-memory sharded sliding window | Valkey (cluster-wide) |
 | `CompilerHook` | none | Adds cluster headers, EE Caddy modules into routes |
 | `ConfigSource` | Local store | Cluster control plane pushes signed config to nodes |
 | `Report` | none | PCI DSS evidence pack, scheduled PDF reports |

@@ -8,7 +8,7 @@
 | Event store | Same database by default, separate tables; Enterprise can switch to ClickHouse | Security events, aggregated counters |
 | Files | `data/` directory | ACME certificates (Caddy storage), uploaded certs, GeoIP DB, feed caches, backups |
 
-SQLite driver: `modernc.org/sqlite` (pure Go, keeps NFR-10 no-CGO). Postgres driver: `github.com/jackc/pgx/v5`. Queries are written in SQL and generated with `sqlc` for both dialects (`internal/store/sqlite`, `internal/store/postgres`) behind one Go interface. Migrations with `pressly/goose`, embedded, forward-only, one file per dialect per change.
+SQLite driver: `modernc.org/sqlite` (pure Go, keeps NFR-10 no-CGO). Postgres driver: `github.com/jackc/pgx/v5`. Queries are written once in SQL, generated with `sqlc` from the PostgreSQL dialect and run on both engines behind one Go interface ([ADR-0015](adr/0015-single-codegen-store.md)). Migrations with `pressly/goose`, embedded, forward-only, one file per dialect per change.
 
 ## Tables
 

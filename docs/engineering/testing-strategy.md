@@ -18,6 +18,20 @@
 
 Coverage targets: `internal/policy` 90%, other Go packages 75%, enforced per package in CI from M3. Coverage is a floor, not a goal.
 
+## Running the harness locally
+
+| Command | What it runs |
+| --- | --- |
+| `make check` | lint, unit and integration tests (race detector, `sherlock_testhooks` tag), build |
+| `make corpus` | the 1,000+ request benign corpus at PL1 (zero blocks) plus the known-false-positive tripwire |
+| `make ftw` / `make ftw PL=3` / `make ftw-all` | CRS regression with go-ftw ([../../test/ftw/README.md](../../test/ftw/README.md)) |
+| `make bench` / `make bench-gate BASE=old.txt` | Go benchmarks and the 10% regression gate |
+| `make e2e` | the compose test bed smoke test; `make e2e-up` / `e2e-down` to keep it running |
+| `python3 test/juice/challenges.py`, `test/nuclei/run.sh`, `test/zap/run.sh` | attack replay against Juice Shop ([../../test/nuclei/BASELINE.md](../../test/nuclei/BASELINE.md)) |
+| `test/k6/run.sh` | NFR-1/NFR-2 latency and throughput |
+
+The `sherlock_testhooks` build tag adds test-only behaviour (forced-panic header, CRS test-environment settings, the go-ftw marker rule). It is never part of a release build.
+
 ## Juice Shop test bed
 
 `test/e2e-compose/compose.yaml` runs Sherlock, OWASP Juice Shop, `httpbin` and a Postgres. `make e2e-up` brings it up locally with Sherlock in block mode on `juice.localhost`. All attack tests run against it.
