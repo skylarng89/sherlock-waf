@@ -15,6 +15,7 @@ import setup from './setup'
 import sites from './sites'
 import system from './system'
 import tokens from './tokens'
+import tuning from './tuning'
 import type { AreaModule, NavItem } from './types'
 import users from './users'
 
@@ -34,6 +35,7 @@ const areas: AreaModule[] = [
   bans,
   bot,
   events,
+  tuning,
   analytics,
   reports,
   system,

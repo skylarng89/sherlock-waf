@@ -75,7 +75,7 @@ docker run -d --name sherlock --restart unless-stopped \
 docker exec -it sherlock sherlock user create --admin ada --data-dir /var/lib/sherlock
 ```
 
-A hardened Compose file with the same settings (non-root, read-only root filesystem, tmpfs, data volume, healthcheck) is at [`deploy/compose/docker-compose.yml`](../../deploy/compose/docker-compose.yml). Replace `<VERSION>` with a released tag, set `SHERLOCK_ADMIN_ALLOWED_CIDRS`, then run `docker compose up -d` and create the first admin with `docker compose exec sherlock sherlock user create --admin <name> --data-dir /var/lib/sherlock`. The image has no shell or curl, so its built-in healthcheck only proves the binary runs; point your monitoring at `https://<host>:9443/readyz` for real readiness.
+A hardened Compose file with the same settings (non-root, read-only root filesystem, tmpfs, data volume, healthcheck) is at [`deploy/compose/docker-compose.yml`](../../deploy/compose/docker-compose.yml). Replace `<VERSION>` with a released tag, set `SHERLOCK_ADMIN_ALLOWED_CIDRS`, then run `docker compose up -d` and create the first admin with `docker compose exec sherlock sherlock user create --admin <name> --data-dir /var/lib/sherlock`. The image has no shell or curl, so its healthcheck runs `sherlock healthcheck`, which probes the node's own `/readyz` over loopback and exits non-zero when it is not ready. Point external monitoring at `https://<host>:9443/readyz`.
 
 Notes:
 

@@ -119,6 +119,17 @@ func (p *Policy) validateAccess(path string, lists map[string]bool, inherited []
 	}
 	for i, o := range p.OptOut {
 		op := path + "/opt_out/" + strconv.Itoa(i)
+		if rest, other := strings.CutPrefix(o, optOutExclusions); other || strings.HasPrefix(o, optOutVirtualPatches) {
+			switch {
+			case isGlobal:
+				errs.add(op, CodeInvalid, "the global defaults have nothing to opt out of")
+			case other && !slugRE.MatchString(rest):
+				errs.add(op, CodeInvalid, "%q is not a valid exclusion id", rest)
+			case !other && !vpatchIDRE.MatchString(strings.TrimPrefix(o, optOutVirtualPatches)):
+				errs.add(op, CodeInvalid, "%q is not a valid virtual patch id", strings.TrimPrefix(o, optOutVirtualPatches))
+			}
+			continue
+		}
 		name, ok := strings.CutPrefix(o, optOutPrefix)
 		switch {
 		case !ok:

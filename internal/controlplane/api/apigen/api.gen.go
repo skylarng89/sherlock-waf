@@ -238,6 +238,195 @@ func (e CreatedTokenScopes) Valid() bool {
 	}
 }
 
+// Defines values for CrsRuleDirection.
+const (
+	CrsRuleDirectionRequest  CrsRuleDirection = "request"
+	CrsRuleDirectionResponse CrsRuleDirection = "response"
+)
+
+// Valid indicates whether the value is a known member of the CrsRuleDirection enum.
+func (e CrsRuleDirection) Valid() bool {
+	switch e {
+	case CrsRuleDirectionRequest:
+		return true
+	case CrsRuleDirectionResponse:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CrsRuleStatusReason.
+const (
+	CrsRuleStatusReasonAboveBlockingParanoiaLevel CrsRuleStatusReason = "above_blocking_paranoia_level"
+	CrsRuleStatusReasonExclusion                  CrsRuleStatusReason = "exclusion"
+	CrsRuleStatusReasonOutboundInspectionOff      CrsRuleStatusReason = "outbound_inspection_off"
+	CrsRuleStatusReasonParanoiaLevelTooLow        CrsRuleStatusReason = "paranoia_level_too_low"
+	CrsRuleStatusReasonScopedExclusion            CrsRuleStatusReason = "scoped_exclusion"
+	CrsRuleStatusReasonWafOff                     CrsRuleStatusReason = "waf_off"
+)
+
+// Valid indicates whether the value is a known member of the CrsRuleStatusReason enum.
+func (e CrsRuleStatusReason) Valid() bool {
+	switch e {
+	case CrsRuleStatusReasonAboveBlockingParanoiaLevel:
+		return true
+	case CrsRuleStatusReasonExclusion:
+		return true
+	case CrsRuleStatusReasonOutboundInspectionOff:
+		return true
+	case CrsRuleStatusReasonParanoiaLevelTooLow:
+		return true
+	case CrsRuleStatusReasonScopedExclusion:
+		return true
+	case CrsRuleStatusReasonWafOff:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CrsRuleStatusState.
+const (
+	CrsRuleStatusStateDetectOnly     CrsRuleStatusState = "detect_only"
+	CrsRuleStatusStateDisabled       CrsRuleStatusState = "disabled"
+	CrsRuleStatusStateEnforcing      CrsRuleStatusState = "enforcing"
+	CrsRuleStatusStateInactive       CrsRuleStatusState = "inactive"
+	CrsRuleStatusStatePartlyExcluded CrsRuleStatusState = "partly_excluded"
+)
+
+// Valid indicates whether the value is a known member of the CrsRuleStatusState enum.
+func (e CrsRuleStatusState) Valid() bool {
+	switch e {
+	case CrsRuleStatusStateDetectOnly:
+		return true
+	case CrsRuleStatusStateDisabled:
+		return true
+	case CrsRuleStatusStateEnforcing:
+		return true
+	case CrsRuleStatusStateInactive:
+		return true
+	case CrsRuleStatusStatePartlyExcluded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CustomRulesValidationIssuesCode.
+const (
+	Compile            CustomRulesValidationIssuesCode = "compile"
+	ForbiddenAction    CustomRulesValidationIssuesCode = "forbidden_action"
+	ForbiddenCtl       CustomRulesValidationIssuesCode = "forbidden_ctl"
+	ForbiddenDirective CustomRulesValidationIssuesCode = "forbidden_directive"
+	ForbiddenOperator  CustomRulesValidationIssuesCode = "forbidden_operator"
+	ForbiddenVariable  CustomRulesValidationIssuesCode = "forbidden_variable"
+	IdDuplicate        CustomRulesValidationIssuesCode = "id_duplicate"
+	IdMissing          CustomRulesValidationIssuesCode = "id_missing"
+	IdRange            CustomRulesValidationIssuesCode = "id_range"
+	Phase              CustomRulesValidationIssuesCode = "phase"
+	Syntax             CustomRulesValidationIssuesCode = "syntax"
+	TooLarge           CustomRulesValidationIssuesCode = "too_large"
+)
+
+// Valid indicates whether the value is a known member of the CustomRulesValidationIssuesCode enum.
+func (e CustomRulesValidationIssuesCode) Valid() bool {
+	switch e {
+	case Compile:
+		return true
+	case ForbiddenAction:
+		return true
+	case ForbiddenCtl:
+		return true
+	case ForbiddenDirective:
+		return true
+	case ForbiddenOperator:
+		return true
+	case ForbiddenVariable:
+		return true
+	case IdDuplicate:
+		return true
+	case IdMissing:
+		return true
+	case IdRange:
+		return true
+	case Phase:
+		return true
+	case Syntax:
+		return true
+	case TooLarge:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ExclusionProposalRequestScope.
+const (
+	ExclusionProposalRequestScopeRule   ExclusionProposalRequestScope = "rule"
+	ExclusionProposalRequestScopeTarget ExclusionProposalRequestScope = "target"
+)
+
+// Valid indicates whether the value is a known member of the ExclusionProposalRequestScope enum.
+func (e ExclusionProposalRequestScope) Valid() bool {
+	switch e {
+	case ExclusionProposalRequestScopeRule:
+		return true
+	case ExclusionProposalRequestScopeTarget:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ExclusionWarningCode.
+const (
+	BlockingEvaluation  ExclusionWarningCode = "blocking_evaluation"
+	BroadScope          ExclusionWarningCode = "broad_scope"
+	NoMatchingEvents    ExclusionWarningCode = "no_matching_events"
+	UnscopedRuleRemoval ExclusionWarningCode = "unscoped_rule_removal"
+	WholeCategory       ExclusionWarningCode = "whole_category"
+)
+
+// Valid indicates whether the value is a known member of the ExclusionWarningCode enum.
+func (e ExclusionWarningCode) Valid() bool {
+	switch e {
+	case BlockingEvaluation:
+		return true
+	case BroadScope:
+		return true
+	case NoMatchingEvents:
+		return true
+	case UnscopedRuleRemoval:
+		return true
+	case WholeCategory:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ExclusionWarningSeverity.
+const (
+	ExclusionWarningSeverityCritical ExclusionWarningSeverity = "critical"
+	ExclusionWarningSeverityInfo     ExclusionWarningSeverity = "info"
+	ExclusionWarningSeverityWarning  ExclusionWarningSeverity = "warning"
+)
+
+// Valid indicates whether the value is a known member of the ExclusionWarningSeverity enum.
+func (e ExclusionWarningSeverity) Valid() bool {
+	switch e {
+	case ExclusionWarningSeverityCritical:
+		return true
+	case ExclusionWarningSeverityInfo:
+		return true
+	case ExclusionWarningSeverityWarning:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for FeedStatusState.
 const (
 	FeedStatusStateDisabled    FeedStatusState = "disabled"
@@ -559,6 +748,117 @@ func (e VersionDetailSource) Valid() bool {
 	}
 }
 
+// Defines values for VirtualPatchSeverity.
+const (
+	VirtualPatchSeverityCritical VirtualPatchSeverity = "critical"
+	VirtualPatchSeverityHigh     VirtualPatchSeverity = "high"
+	VirtualPatchSeverityLow      VirtualPatchSeverity = "low"
+	VirtualPatchSeverityMedium   VirtualPatchSeverity = "medium"
+)
+
+// Valid indicates whether the value is a known member of the VirtualPatchSeverity enum.
+func (e VirtualPatchSeverity) Valid() bool {
+	switch e {
+	case VirtualPatchSeverityCritical:
+		return true
+	case VirtualPatchSeverityHigh:
+		return true
+	case VirtualPatchSeverityLow:
+		return true
+	case VirtualPatchSeverityMedium:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VirtualPatchVerification.
+const (
+	ProductVerified VirtualPatchVerification = "product-verified"
+	Synthetic       VirtualPatchVerification = "synthetic"
+)
+
+// Valid indicates whether the value is a known member of the VirtualPatchVerification enum.
+func (e VirtualPatchVerification) Valid() bool {
+	switch e {
+	case ProductVerified:
+		return true
+	case Synthetic:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VirtualPatchSiteStateState.
+const (
+	VirtualPatchSiteStateStateActive           VirtualPatchSiteStateState = "active"
+	VirtualPatchSiteStateStateDisabled         VirtualPatchSiteStateState = "disabled"
+	VirtualPatchSiteStateStatePackOff          VirtualPatchSiteStateState = "pack_off"
+	VirtualPatchSiteStateStateStackNotDeclared VirtualPatchSiteStateState = "stack_not_declared"
+)
+
+// Valid indicates whether the value is a known member of the VirtualPatchSiteStateState enum.
+func (e VirtualPatchSiteStateState) Valid() bool {
+	switch e {
+	case VirtualPatchSiteStateStateActive:
+		return true
+	case VirtualPatchSiteStateStateDisabled:
+		return true
+	case VirtualPatchSiteStateStatePackOff:
+		return true
+	case VirtualPatchSiteStateStateStackNotDeclared:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListCrsRulesParamsDirection.
+const (
+	ListCrsRulesParamsDirectionRequest  ListCrsRulesParamsDirection = "request"
+	ListCrsRulesParamsDirectionResponse ListCrsRulesParamsDirection = "response"
+)
+
+// Valid indicates whether the value is a known member of the ListCrsRulesParamsDirection enum.
+func (e ListCrsRulesParamsDirection) Valid() bool {
+	switch e {
+	case ListCrsRulesParamsDirectionRequest:
+		return true
+	case ListCrsRulesParamsDirectionResponse:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListCrsRulesParamsState.
+const (
+	ListCrsRulesParamsStateDetectOnly     ListCrsRulesParamsState = "detect_only"
+	ListCrsRulesParamsStateDisabled       ListCrsRulesParamsState = "disabled"
+	ListCrsRulesParamsStateEnforcing      ListCrsRulesParamsState = "enforcing"
+	ListCrsRulesParamsStateInactive       ListCrsRulesParamsState = "inactive"
+	ListCrsRulesParamsStatePartlyExcluded ListCrsRulesParamsState = "partly_excluded"
+)
+
+// Valid indicates whether the value is a known member of the ListCrsRulesParamsState enum.
+func (e ListCrsRulesParamsState) Valid() bool {
+	switch e {
+	case ListCrsRulesParamsStateDetectOnly:
+		return true
+	case ListCrsRulesParamsStateDisabled:
+		return true
+	case ListCrsRulesParamsStateEnforcing:
+		return true
+	case ListCrsRulesParamsStateInactive:
+		return true
+	case ListCrsRulesParamsStatePartlyExcluded:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListEventsParamsAction.
 const (
 	ListEventsParamsActionAllow     ListEventsParamsAction = "allow"
@@ -658,6 +958,30 @@ func (e GetTopParamsDim) Valid() bool {
 	case GetTopParamsDimRule:
 		return true
 	case GetTopParamsDimSite:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListVirtualPatchesParamsSeverity.
+const (
+	ListVirtualPatchesParamsSeverityCritical ListVirtualPatchesParamsSeverity = "critical"
+	ListVirtualPatchesParamsSeverityHigh     ListVirtualPatchesParamsSeverity = "high"
+	ListVirtualPatchesParamsSeverityLow      ListVirtualPatchesParamsSeverity = "low"
+	ListVirtualPatchesParamsSeverityMedium   ListVirtualPatchesParamsSeverity = "medium"
+)
+
+// Valid indicates whether the value is a known member of the ListVirtualPatchesParamsSeverity enum.
+func (e ListVirtualPatchesParamsSeverity) Valid() bool {
+	switch e {
+	case ListVirtualPatchesParamsSeverityCritical:
+		return true
+	case ListVirtualPatchesParamsSeverityHigh:
+		return true
+	case ListVirtualPatchesParamsSeverityLow:
+		return true
+	case ListVirtualPatchesParamsSeverityMedium:
 		return true
 	default:
 		return false
@@ -840,6 +1164,16 @@ type CertificateList struct {
 // Config defines model for Config.
 type Config = config.Root
 
+// CoveredCve defines model for CoveredCve.
+type CoveredCve struct {
+	CrsRules []string `json:"crs_rules"`
+	Cve      string   `json:"cve"`
+	Kev      bool     `json:"kev"`
+	Note     *string  `json:"note,omitempty"`
+	Product  string   `json:"product"`
+	Severity string   `json:"severity"`
+}
+
 // CreateBan defines model for CreateBan.
 type CreateBan struct {
 	DurationSeconds int `json:"duration_seconds"`
@@ -889,6 +1223,82 @@ type CreatedToken struct {
 // CreatedTokenScopes defines model for CreatedToken.Scopes.
 type CreatedTokenScopes string
 
+// CrsRule defines model for CrsRule.
+type CrsRule struct {
+	// Category attack-sqli, attack-xss, ... or a protocol/method/scanner/data-leakage name
+	Category      string           `json:"category"`
+	Direction     CrsRuleDirection `json:"direction"`
+	File          string           `json:"file"`
+	Id            int              `json:"id"`
+	Message       string           `json:"message"`
+	ParanoiaLevel int              `json:"paranoia_level"`
+	Phase         int              `json:"phase"`
+	Severity      *string          `json:"severity,omitempty"`
+	Status        *CrsRuleStatus   `json:"status,omitempty"`
+	Tags          []string         `json:"tags"`
+}
+
+// CrsRuleDirection defines model for CrsRule.Direction.
+type CrsRuleDirection string
+
+// CrsRuleList defines model for CrsRuleList.
+type CrsRuleList struct {
+	Categories []string  `json:"categories"`
+	CrsVersion string    `json:"crs_version"`
+	Items      []CrsRule `json:"items"`
+
+	// Total Matches before limit and offset
+	Total int `json:"total"`
+}
+
+// CrsRuleStatus defines model for CrsRuleStatus.
+type CrsRuleStatus struct {
+	// ExcludedBy Exclusion ids
+	ExcludedBy *[]string            `json:"excluded_by,omitempty"`
+	Reason     *CrsRuleStatusReason `json:"reason,omitempty"`
+	State      CrsRuleStatusState   `json:"state"`
+}
+
+// CrsRuleStatusReason defines model for CrsRuleStatus.Reason.
+type CrsRuleStatusReason string
+
+// CrsRuleStatusState defines model for CrsRuleStatus.State.
+type CrsRuleStatusState string
+
+// CustomRules defines model for CustomRules.
+type CustomRules struct {
+	ReservedIdRange *struct {
+		Max *int `json:"max,omitempty"`
+		Min *int `json:"min,omitempty"`
+	} `json:"reserved_id_range,omitempty"`
+	RuleIds []int  `json:"rule_ids"`
+	Rules   string `json:"rules"`
+
+	// Source Which level supplies the rules for this site: site, global or none
+	Source string `json:"source"`
+}
+
+// CustomRulesInput defines model for CustomRulesInput.
+type CustomRulesInput struct {
+	Rules string `json:"rules"`
+}
+
+// CustomRulesValidation defines model for CustomRulesValidation.
+type CustomRulesValidation struct {
+	Issues []struct {
+		Code CustomRulesValidationIssuesCode `json:"code"`
+
+		// Line 1-based; 0 for the whole input
+		Line    int    `json:"line"`
+		Message string `json:"message"`
+	} `json:"issues"`
+	RuleIds []int `json:"rule_ids"`
+	Valid   bool  `json:"valid"`
+}
+
+// CustomRulesValidationIssuesCode defines model for CustomRulesValidation.Issues.Code.
+type CustomRulesValidationIssuesCode string
+
 // EffectivePolicy defines model for EffectivePolicy.
 type EffectivePolicy struct {
 	// MatchedEndpoint Endpoint id, empty when the site default applies
@@ -926,6 +1336,97 @@ type EventPage struct {
 	Items      []Event `json:"items"`
 	NextCursor *string `json:"next_cursor,omitempty"`
 }
+
+// Exclusion defines model for Exclusion.
+type Exclusion = config.Exclusion
+
+// ExclusionCreate defines model for ExclusionCreate.
+type ExclusionCreate struct {
+	// AcknowledgeWarnings Required when the proposal has critical warnings
+	AcknowledgeWarnings *bool `json:"acknowledge_warnings,omitempty"`
+
+	// EventId The event the exclusion was created from; recorded in the audit entry
+	EventId   *string   `json:"event_id,omitempty"`
+	Exclusion Exclusion `json:"exclusion"`
+}
+
+// ExclusionImpact defines model for ExclusionImpact.
+type ExclusionImpact struct {
+	ByRule        map[string]int `json:"by_rule"`
+	EventsScanned int            `json:"events_scanned"`
+	From          time.Time      `json:"from"`
+
+	// MatchingEvents Past events in the exclusion's scope that carried a finding it removes
+	MatchingEvents int `json:"matching_events"`
+
+	// NoLongerBlocking Matching events that were blocked (or would have been) and fall under the threshold
+	NoLongerBlocking int `json:"no_longer_blocking"`
+
+	// NoLongerTriggering Matching events left with no WAF finding at all
+	NoLongerTriggering int       `json:"no_longer_triggering"`
+	SampleEventIds     []string  `json:"sample_event_ids"`
+	To                 time.Time `json:"to"`
+
+	// Truncated More events existed than were analysed
+	Truncated bool `json:"truncated"`
+}
+
+// ExclusionList defines model for ExclusionList.
+type ExclusionList struct {
+	Items []Exclusion `json:"items"`
+}
+
+// ExclusionProposal defines model for ExclusionProposal.
+type ExclusionProposal struct {
+	EventId   *string   `json:"event_id,omitempty"`
+	Exclusion Exclusion `json:"exclusion"`
+
+	// Finding The finding the exclusion addresses
+	Finding *struct {
+		Matched *string `json:"matched,omitempty"`
+		Message *string `json:"message,omitempty"`
+		RuleId  string  `json:"rule_id"`
+		Score   *int    `json:"score,omitempty"`
+		Target  *string `json:"target,omitempty"`
+	} `json:"finding,omitempty"`
+	Impact ExclusionImpact `json:"impact"`
+
+	// RequiresAcknowledgement True when a critical warning needs acknowledge_warnings on create
+	RequiresAcknowledgement bool               `json:"requires_acknowledgement"`
+	Warnings                []ExclusionWarning `json:"warnings"`
+}
+
+// ExclusionProposalRequest defines model for ExclusionProposalRequest.
+type ExclusionProposalRequest struct {
+	// Days How far back the impact preview looks
+	Days *int `json:"days,omitempty"`
+
+	// EventId Build the narrowest exclusion for this event
+	EventId   *string    `json:"event_id,omitempty"`
+	Exclusion *Exclusion `json:"exclusion,omitempty"`
+
+	// RuleId Which finding to exclude; default the highest-scoring one
+	RuleId *string `json:"rule_id,omitempty"`
+
+	// Scope target removes only the offending parameter from the rule; rule removes the rule on that path and method
+	Scope *ExclusionProposalRequestScope `json:"scope,omitempty"`
+}
+
+// ExclusionProposalRequestScope target removes only the offending parameter from the rule; rule removes the rule on that path and method
+type ExclusionProposalRequestScope string
+
+// ExclusionWarning defines model for ExclusionWarning.
+type ExclusionWarning struct {
+	Code     ExclusionWarningCode     `json:"code"`
+	Message  string                   `json:"message"`
+	Severity ExclusionWarningSeverity `json:"severity"`
+}
+
+// ExclusionWarningCode defines model for ExclusionWarning.Code.
+type ExclusionWarningCode string
+
+// ExclusionWarningSeverity defines model for ExclusionWarning.Severity.
+type ExclusionWarningSeverity string
 
 // FeedStatus defines model for FeedStatus.
 type FeedStatus struct {
@@ -1017,6 +1518,36 @@ type NameList0 = []string
 type NameList1 struct {
 	Add    *[]string `json:"add,omitempty"`
 	Remove *[]string `json:"remove,omitempty"`
+}
+
+// ParanoiaImpact defines model for ParanoiaImpact.
+type ParanoiaImpact struct {
+	AdditionalBlocks int `json:"additional_blocks"`
+
+	// Advice Set when not observable: what to change first
+	Advice                *string `json:"advice,omitempty"`
+	AlreadyBlocking       int     `json:"already_blocking"`
+	BlockingParanoiaLevel int     `json:"blocking_paranoia_level"`
+	ByPath                []struct {
+		Count int    `json:"count"`
+		Path  string `json:"path"`
+	} `json:"by_path"`
+	ByRule []struct {
+		Count  int    `json:"count"`
+		RuleId string `json:"rule_id"`
+	} `json:"by_rule"`
+	DetectionParanoiaLevel int       `json:"detection_paranoia_level"`
+	EventsScanned          int       `json:"events_scanned"`
+	From                   time.Time `json:"from"`
+	InboundThreshold       int       `json:"inbound_threshold"`
+
+	// Observable False when findings above the blocking level are not being recorded (target exceeds the detection level)
+	Observable          bool      `json:"observable"`
+	SampleEventIds      []string  `json:"sample_event_ids"`
+	Site                string    `json:"site"`
+	TargetParanoiaLevel int       `json:"target_paranoia_level"`
+	To                  time.Time `json:"to"`
+	Truncated           bool      `json:"truncated"`
 }
 
 // PatchUser defines model for PatchUser.
@@ -1347,13 +1878,107 @@ type VersionPage struct {
 	NextCursor *string   `json:"next_cursor,omitempty"`
 }
 
+// VirtualPatch defines model for VirtualPatch.
+type VirtualPatch struct {
+	// AddedIn Pack version (YYYY.MM.N)
+	AddedIn            string   `json:"added_in"`
+	Cves               []string `json:"cves"`
+	Cvss               float32  `json:"cvss"`
+	FalsePositiveNotes string   `json:"false_positive_notes"`
+
+	// Generic No stack needed: active wherever the pack is on
+	Generic bool `json:"generic"`
+
+	// Hits Total across the listed sites
+	Hits int    `json:"hits"`
+	Id   string `json:"id"`
+
+	// Kev In the CISA Known Exploited Vulnerabilities catalogue
+	Kev        bool                    `json:"kev"`
+	KevAdded   *string                 `json:"kev_added,omitempty"`
+	Product    string                  `json:"product"`
+	References []string                `json:"references"`
+	RuleIds    []int                   `json:"rule_ids"`
+	Severity   VirtualPatchSeverity    `json:"severity"`
+	Sites      []VirtualPatchSiteState `json:"sites"`
+	Stacks     []string                `json:"stacks"`
+	Title      string                  `json:"title"`
+	Vendor     string                  `json:"vendor"`
+
+	// Verification synthetic: tested with exploit requests rebuilt from public write-ups, not against a vulnerable product
+	Verification VirtualPatchVerification `json:"verification"`
+	Versions     string                   `json:"versions"`
+}
+
+// VirtualPatchSeverity defines model for VirtualPatch.Severity.
+type VirtualPatchSeverity string
+
+// VirtualPatchVerification synthetic: tested with exploit requests rebuilt from public write-ups, not against a vulnerable product
+type VirtualPatchVerification string
+
+// VirtualPatchCatalogue defines model for VirtualPatchCatalogue.
+type VirtualPatchCatalogue struct {
+	Covered     []CoveredCve        `json:"covered"`
+	Items       []VirtualPatch      `json:"items"`
+	KnownStacks []string            `json:"known_stacks"`
+	PackVersion string              `json:"pack_version"`
+	Summary     VirtualPatchSummary `json:"summary"`
+
+	// Truncated Hit counts come from a capped scan of recent events
+	Truncated  bool `json:"truncated"`
+	WindowDays int  `json:"window_days"`
+}
+
+// VirtualPatchSiteState defines model for VirtualPatchSiteState.
+type VirtualPatchSiteState struct {
+	// Hits Events with a finding from this patch in the window
+	Hits    int        `json:"hits"`
+	LastHit *time.Time `json:"last_hit,omitempty"`
+	Site    string     `json:"site"`
+
+	// State active: the rule is loaded. stack_not_declared: product-specific and the site has not declared one of its stacks. disabled: in virtual_patches.disabled. pack_off: virtual_patches.enabled is false
+	State VirtualPatchSiteStateState `json:"state"`
+}
+
+// VirtualPatchSiteStateState active: the rule is loaded. stack_not_declared: product-specific and the site has not declared one of its stacks. disabled: in virtual_patches.disabled. pack_off: virtual_patches.enabled is false
+type VirtualPatchSiteStateState string
+
+// VirtualPatchSummary defines model for VirtualPatchSummary.
+type VirtualPatchSummary struct {
+	// CoveredCves CVEs CRS blocks without a patch
+	CoveredCves int `json:"covered_cves"`
+
+	// CvesWithRule Distinct CVEs with a Sherlock rule
+	CvesWithRule int `json:"cves_with_rule"`
+	Hits         int `json:"hits"`
+
+	// KevCves Distinct KEV CVEs across rules and CRS coverage
+	KevCves int `json:"kev_cves"`
+	Patches int `json:"patches"`
+
+	// SitesProtected Sites with at least one active patch
+	SitesProtected int `json:"sites_protected"`
+}
+
 // WAFPolicy defines model for WAFPolicy.
 type WAFPolicy struct {
-	BlockingParanoiaLevel    *int      `json:"blocking_paranoia_level,omitempty"`
-	Enabled                  *bool     `json:"enabled,omitempty"`
-	InboundThreshold         *int      `json:"inbound_threshold,omitempty"`
-	MaxBodyBytes             *int64    `json:"max_body_bytes,omitempty"`
-	OutboundInspection       *bool     `json:"outbound_inspection,omitempty"`
+	BlockingParanoiaLevel *int `json:"blocking_paranoia_level,omitempty"`
+
+	// CustomRules Operator SecLang (ids 10000-99999). Validated by compiling in a throwaway engine; exec, Lua, include, audit and unsafe ctl are rejected. The lowest level that sets it wins.
+	CustomRules *string `json:"custom_rules,omitempty"`
+	Enabled     *bool   `json:"enabled,omitempty"`
+
+	// Exclusions Named rule removals; levels are unioned by id, a lower level replaces the same id
+	Exclusions       *[]Exclusion `json:"exclusions,omitempty"`
+	InboundThreshold *int         `json:"inbound_threshold,omitempty"`
+	MaxBodyBytes     *int64       `json:"max_body_bytes,omitempty"`
+
+	// OutboundContentTypes Media types (prefix match, e.g. text/ or application/json) whose responses are inspected; default text/html, text/plain, application/json, application/xml, text/xml
+	OutboundContentTypes *[]string `json:"outbound_content_types,omitempty"`
+	OutboundInspection   *bool     `json:"outbound_inspection,omitempty"`
+
+	// OutboundMaxBodyBytes Response bytes kept for inspection when outbound_inspection is on (default 1048576); the rest streams through uninspected
+	OutboundMaxBodyBytes     *int64    `json:"outbound_max_body_bytes,omitempty"`
 	OutboundThreshold        *int      `json:"outbound_threshold,omitempty"`
 	ParanoiaLevel            *int      `json:"paranoia_level,omitempty"`
 	SkipInspectionExtensions *[]string `json:"skip_inspection_extensions,omitempty"`
@@ -1438,6 +2063,29 @@ type RollbackConfigParams struct {
 	IfMatch *IfMatch `json:"If-Match,omitempty"`
 }
 
+// ListCrsRulesParams defines parameters for ListCrsRules.
+type ListCrsRulesParams struct {
+	// Q Matches id, description, category or tag
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
+
+	// Site Adds `status` (enforcing, detect_only, inactive, disabled, partly_excluded) from the site's effective policy
+	Site          *string                      `form:"site,omitempty" json:"site,omitempty"`
+	Category      *string                      `form:"category,omitempty" json:"category,omitempty"`
+	ParanoiaLevel *int                         `form:"paranoia_level,omitempty" json:"paranoia_level,omitempty"`
+	Direction     *ListCrsRulesParamsDirection `form:"direction,omitempty" json:"direction,omitempty"`
+
+	// State Requires site
+	State  *ListCrsRulesParamsState `form:"state,omitempty" json:"state,omitempty"`
+	Limit  *int                     `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset *int                     `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// ListCrsRulesParamsDirection defines parameters for ListCrsRules.
+type ListCrsRulesParamsDirection string
+
+// ListCrsRulesParamsState defines parameters for ListCrsRules.
+type ListCrsRulesParamsState string
+
 // PutDefaultsParams defines parameters for PutDefaults.
 type PutDefaultsParams struct {
 	// IfMatch ETag of the version you read. Required to change an existing configuration (428 if missing, 412 if stale).
@@ -1506,6 +2154,12 @@ type PatchSiteParams struct {
 	IfMatch *IfMatch `json:"If-Match,omitempty"`
 }
 
+// PutCustomRulesParams defines parameters for PutCustomRules.
+type PutCustomRulesParams struct {
+	// IfMatch ETag of the version you read. Required to change an existing configuration (428 if missing, 412 if stale).
+	IfMatch *IfMatch `json:"If-Match,omitempty"`
+}
+
 // GetEffectivePolicyParams defines parameters for GetEffectivePolicy.
 type GetEffectivePolicyParams struct {
 	Path   *string `form:"path,omitempty" json:"path,omitempty"`
@@ -1533,6 +2187,40 @@ type PatchEndpointParams struct {
 	IfMatch *IfMatch `json:"If-Match,omitempty"`
 }
 
+// CreateExclusionParams defines parameters for CreateExclusion.
+type CreateExclusionParams struct {
+	// IfMatch ETag of the version you read. Required to change an existing configuration (428 if missing, 412 if stale).
+	IfMatch *IfMatch `json:"If-Match,omitempty"`
+}
+
+// DeleteExclusionParams defines parameters for DeleteExclusion.
+type DeleteExclusionParams struct {
+	// IfMatch ETag of the version you read. Required to change an existing configuration (428 if missing, 412 if stale).
+	IfMatch *IfMatch `json:"If-Match,omitempty"`
+}
+
+// GetParanoiaImpactParams defines parameters for GetParanoiaImpact.
+type GetParanoiaImpactParams struct {
+	Target int `form:"target" json:"target"`
+
+	// From Default 7 days before `to`
+	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
+
+	// To Default now
+	To *time.Time `form:"to,omitempty" json:"to,omitempty"`
+}
+
+// SetVirtualPatchStateJSONBody defines parameters for SetVirtualPatchState.
+type SetVirtualPatchStateJSONBody struct {
+	Enabled bool `json:"enabled"`
+}
+
+// SetVirtualPatchStateParams defines parameters for SetVirtualPatchState.
+type SetVirtualPatchStateParams struct {
+	// IfMatch ETag of the version you read. Required to change an existing configuration (428 if missing, 412 if stale).
+	IfMatch *IfMatch `json:"If-Match,omitempty"`
+}
+
 // GetTimeseriesParams defines parameters for GetTimeseries.
 type GetTimeseriesParams struct {
 	From time.Time                `form:"from" json:"from"`
@@ -1556,6 +2244,23 @@ type GetTopParams struct {
 
 // GetTopParamsDim defines parameters for GetTop.
 type GetTopParamsDim string
+
+// ListVirtualPatchesParams defines parameters for ListVirtualPatches.
+type ListVirtualPatchesParams struct {
+	// Q Matches patch id, CVE, product, vendor or title
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
+
+	// Site Limit the per-site state and hits to one site
+	Site     *string                           `form:"site,omitempty" json:"site,omitempty"`
+	Severity *ListVirtualPatchesParamsSeverity `form:"severity,omitempty" json:"severity,omitempty"`
+	Kev      *bool                             `form:"kev,omitempty" json:"kev,omitempty"`
+
+	// Days Window for hit counts
+	Days *int `form:"days,omitempty" json:"days,omitempty"`
+}
+
+// ListVirtualPatchesParamsSeverity defines parameters for ListVirtualPatches.
+type ListVirtualPatchesParamsSeverity string
 
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginRequest
@@ -1593,11 +2298,26 @@ type CreateSiteJSONRequestBody = Site
 // PatchSiteApplicationMergePatchPlusJSONRequestBody defines body for PatchSite for application/merge-patch+json ContentType.
 type PatchSiteApplicationMergePatchPlusJSONRequestBody PatchSiteApplicationMergePatchPlusJSONBody
 
+// PutCustomRulesJSONRequestBody defines body for PutCustomRules for application/json ContentType.
+type PutCustomRulesJSONRequestBody = CustomRulesInput
+
+// ValidateCustomRulesJSONRequestBody defines body for ValidateCustomRules for application/json ContentType.
+type ValidateCustomRulesJSONRequestBody = CustomRulesInput
+
 // CreateEndpointJSONRequestBody defines body for CreateEndpoint for application/json ContentType.
 type CreateEndpointJSONRequestBody = Endpoint
 
 // PatchEndpointApplicationMergePatchPlusJSONRequestBody defines body for PatchEndpoint for application/merge-patch+json ContentType.
 type PatchEndpointApplicationMergePatchPlusJSONRequestBody PatchEndpointApplicationMergePatchPlusJSONBody
+
+// CreateExclusionJSONRequestBody defines body for CreateExclusion for application/json ContentType.
+type CreateExclusionJSONRequestBody = ExclusionCreate
+
+// ProposeExclusionJSONRequestBody defines body for ProposeExclusion for application/json ContentType.
+type ProposeExclusionJSONRequestBody = ExclusionProposalRequest
+
+// SetVirtualPatchStateJSONRequestBody defines body for SetVirtualPatchState for application/json ContentType.
+type SetVirtualPatchStateJSONRequestBody SetVirtualPatchStateJSONBody
 
 // TestUpstreamJSONRequestBody defines body for TestUpstream for application/json ContentType.
 type TestUpstreamJSONRequestBody = TestUpstreamRequest
@@ -1842,6 +2562,9 @@ type ServerInterface interface {
 	// RollbackConfig Apply an earlier version's snapshot as a new version
 	// (POST /config/versions/{id}/rollback)
 	RollbackConfig(w http.ResponseWriter, r *http.Request, id VersionID, params RollbackConfigParams)
+	// ListCrsRules OWASP CRS rule catalogue with descriptions, searchable, optionally with the state of each rule for a site
+	// (GET /crs/rules)
+	ListCrsRules(w http.ResponseWriter, r *http.Request, params ListCrsRulesParams)
 	// GetDefaults Global policy defaults
 	// (GET /defaults)
 	GetDefaults(w http.ResponseWriter, r *http.Request)
@@ -1884,6 +2607,15 @@ type ServerInterface interface {
 	// PatchSite Change fields of a site (JSON Merge Patch)
 	// (PATCH /sites/{site})
 	PatchSite(w http.ResponseWriter, r *http.Request, site SiteID, params PatchSiteParams)
+	// GetCustomRules The site's custom SecLang rules
+	// (GET /sites/{site}/custom-rules)
+	GetCustomRules(w http.ResponseWriter, r *http.Request, site SiteID)
+	// PutCustomRules Validate and save the site's custom rules (audited)
+	// (PUT /sites/{site}/custom-rules)
+	PutCustomRules(w http.ResponseWriter, r *http.Request, site SiteID, params PutCustomRulesParams)
+	// ValidateCustomRules Check custom rules without saving (static allow-list plus a compile in a throwaway engine)
+	// (POST /sites/{site}/custom-rules/validate)
+	ValidateCustomRules(w http.ResponseWriter, r *http.Request, site SiteID)
 	// GetEffectivePolicy The merged policy for a request, with the source of every value
 	// (GET /sites/{site}/effective-policy)
 	GetEffectivePolicy(w http.ResponseWriter, r *http.Request, site SiteID, params GetEffectivePolicyParams)
@@ -1902,6 +2634,24 @@ type ServerInterface interface {
 	// PatchEndpoint Change fields of an endpoint override (JSON Merge Patch)
 	// (PATCH /sites/{site}/endpoints/{endpoint})
 	PatchEndpoint(w http.ResponseWriter, r *http.Request, site SiteID, endpoint EndpointID, params PatchEndpointParams)
+	// ListExclusions Exclusions defined at the site level (false-positive tuning)
+	// (GET /sites/{site}/exclusions)
+	ListExclusions(w http.ResponseWriter, r *http.Request, site SiteID)
+	// CreateExclusion Add an exclusion; the change is audited with the actor and, when created from an event, the event id
+	// (POST /sites/{site}/exclusions)
+	CreateExclusion(w http.ResponseWriter, r *http.Request, site SiteID, params CreateExclusionParams)
+	// ProposeExclusion Propose the narrowest exclusion for an event, or preview one you edited, with past-event impact and warnings
+	// (POST /sites/{site}/exclusions/propose)
+	ProposeExclusion(w http.ResponseWriter, r *http.Request, site SiteID)
+	// DeleteExclusion Remove a site-level exclusion
+	// (DELETE /sites/{site}/exclusions/{exclusion})
+	DeleteExclusion(w http.ResponseWriter, r *http.Request, site SiteID, exclusion string, params DeleteExclusionParams)
+	// GetParanoiaImpact Predicted additional blocks if the blocking paranoia level is raised, from stored findings
+	// (GET /sites/{site}/paranoia-impact)
+	GetParanoiaImpact(w http.ResponseWriter, r *http.Request, site SiteID, params GetParanoiaImpactParams)
+	// SetVirtualPatchState Switch one virtual patch on or off for a site (adds or removes it from policy.virtual_patches.disabled)
+	// (PUT /sites/{site}/virtual-patches/{patch})
+	SetVirtualPatchState(w http.ResponseWriter, r *http.Request, site SiteID, patch string, params SetVirtualPatchStateParams)
 	// GetTimeseries Event counts per time bucket and action, from the per-minute rollups
 	// (GET /stats/timeseries)
 	GetTimeseries(w http.ResponseWriter, r *http.Request, params GetTimeseriesParams)
@@ -1950,6 +2700,9 @@ type ServerInterface interface {
 	// ResetUserMFA Clear a user's MFA enrolment (they re-enrol at next sign-in)
 	// (POST /users/{id}/reset-mfa)
 	ResetUserMFA(w http.ResponseWriter, r *http.Request, id UserID)
+	// ListVirtualPatches Virtual-patch catalogue (CVE rules) with per-site state and recent hits, plus the CVEs CRS already covers
+	// (GET /virtual-patches)
+	ListVirtualPatches(w http.ResponseWriter, r *http.Request, params ListVirtualPatchesParams)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -2461,6 +3214,130 @@ func (siw *ServerInterfaceWrapper) RollbackConfig(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RollbackConfig(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListCrsRules operation middleware
+func (siw *ServerInterfaceWrapper) ListCrsRules(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListCrsRulesParams
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "site" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "site", r.URL.Query(), &params.Site, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "site"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "site", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "category" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "category", r.URL.Query(), &params.Category, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "category"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "category", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "paranoia_level" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "paranoia_level", r.URL.Query(), &params.ParanoiaLevel, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "paranoia_level"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "paranoia_level", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "direction" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "direction", r.URL.Query(), &params.Direction, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "direction"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "direction", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "offset"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListCrsRules(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3081,6 +3958,108 @@ func (siw *ServerInterfaceWrapper) PatchSite(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
+// GetCustomRules operation middleware
+func (siw *ServerInterfaceWrapper) GetCustomRules(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "site" -------------
+	var site SiteID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "site", r.PathValue("site"), &site, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "site", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCustomRules(w, r, site)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutCustomRules operation middleware
+func (siw *ServerInterfaceWrapper) PutCustomRules(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "site" -------------
+	var site SiteID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "site", r.PathValue("site"), &site, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "site", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PutCustomRulesParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = &IfMatch
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutCustomRules(w, r, site, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ValidateCustomRules operation middleware
+func (siw *ServerInterfaceWrapper) ValidateCustomRules(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "site" -------------
+	var site SiteID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "site", r.PathValue("site"), &site, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "site", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ValidateCustomRules(w, r, site)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetEffectivePolicy operation middleware
 func (siw *ServerInterfaceWrapper) GetEffectivePolicy(w http.ResponseWriter, r *http.Request) {
 
@@ -3356,6 +4335,294 @@ func (siw *ServerInterfaceWrapper) PatchEndpoint(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PatchEndpoint(w, r, site, endpoint, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListExclusions operation middleware
+func (siw *ServerInterfaceWrapper) ListExclusions(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "site" -------------
+	var site SiteID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "site", r.PathValue("site"), &site, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "site", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListExclusions(w, r, site)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateExclusion operation middleware
+func (siw *ServerInterfaceWrapper) CreateExclusion(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "site" -------------
+	var site SiteID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "site", r.PathValue("site"), &site, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "site", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateExclusionParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = &IfMatch
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateExclusion(w, r, site, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ProposeExclusion operation middleware
+func (siw *ServerInterfaceWrapper) ProposeExclusion(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "site" -------------
+	var site SiteID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "site", r.PathValue("site"), &site, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "site", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ProposeExclusion(w, r, site)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteExclusion operation middleware
+func (siw *ServerInterfaceWrapper) DeleteExclusion(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "site" -------------
+	var site SiteID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "site", r.PathValue("site"), &site, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "site", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "exclusion" -------------
+	var exclusion string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "exclusion", r.PathValue("exclusion"), &exclusion, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "exclusion", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteExclusionParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = &IfMatch
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteExclusion(w, r, site, exclusion, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetParanoiaImpact operation middleware
+func (siw *ServerInterfaceWrapper) GetParanoiaImpact(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "site" -------------
+	var site SiteID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "site", r.PathValue("site"), &site, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "site", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetParanoiaImpactParams
+
+	// ------------- Required query parameter "target" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "target", r.URL.Query(), &params.Target, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "target"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "target", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetParanoiaImpact(w, r, site, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetVirtualPatchState operation middleware
+func (siw *ServerInterfaceWrapper) SetVirtualPatchState(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "site" -------------
+	var site SiteID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "site", r.PathValue("site"), &site, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "site", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "patch" -------------
+	var patch string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "patch", r.PathValue("patch"), &patch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "patch", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SetVirtualPatchStateParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = &IfMatch
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetVirtualPatchState(w, r, site, patch, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3779,6 +5046,91 @@ func (siw *ServerInterfaceWrapper) ResetUserMFA(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// ListVirtualPatches operation middleware
+func (siw *ServerInterfaceWrapper) ListVirtualPatches(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListVirtualPatchesParams
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "site" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "site", r.URL.Query(), &params.Site, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "site"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "site", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "severity" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "severity", r.URL.Query(), &params.Severity, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "severity"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "severity", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "kev" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "kev", r.URL.Query(), &params.Kev, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "kev"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "kev", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "days" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "days", r.URL.Query(), &params.Days, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "days"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "days", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListVirtualPatches(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -3958,6 +5310,17 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/reports/would-block", wrapper.GetWouldBlockReport)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/reports/would-block.csv", wrapper.ExportWouldBlockReport)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/system/status", wrapper.GetSystemStatus)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/sites/{site}/exclusions", wrapper.ListExclusions)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/sites/{site}/exclusions", wrapper.CreateExclusion)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/sites/{site}/exclusions/propose", wrapper.ProposeExclusion)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/sites/{site}/exclusions/{exclusion}", wrapper.DeleteExclusion)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/sites/{site}/custom-rules", wrapper.GetCustomRules)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/sites/{site}/custom-rules", wrapper.PutCustomRules)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/sites/{site}/custom-rules/validate", wrapper.ValidateCustomRules)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/sites/{site}/paranoia-impact", wrapper.GetParanoiaImpact)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/crs/rules", wrapper.ListCrsRules)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/virtual-patches", wrapper.ListVirtualPatches)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/sites/{site}/virtual-patches/{patch}", wrapper.SetVirtualPatchState)
 
 	return m
 }
@@ -4946,6 +6309,58 @@ func (response RollbackConfig428ApplicationProblemPlusJSONResponse) VisitRollbac
 	return err
 }
 
+type ListCrsRulesRequestObject struct {
+	Params ListCrsRulesParams
+}
+
+type ListCrsRulesResponseObject interface {
+	VisitListCrsRulesResponse(w http.ResponseWriter) error
+}
+
+type ListCrsRules200JSONResponse CrsRuleList
+
+func (response ListCrsRules200JSONResponse) VisitListCrsRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListCrsRules400ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListCrsRules400ApplicationProblemPlusJSONResponse) VisitListCrsRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListCrsRules404ApplicationProblemPlusJSONResponse Problem
+
+func (response ListCrsRules404ApplicationProblemPlusJSONResponse) VisitListCrsRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetDefaultsRequestObject struct {
 }
 
@@ -5675,6 +7090,178 @@ func (response PatchSite428ApplicationProblemPlusJSONResponse) VisitPatchSiteRes
 	return err
 }
 
+type GetCustomRulesRequestObject struct {
+	Site SiteID `json:"site"`
+}
+
+type GetCustomRulesResponseObject interface {
+	VisitGetCustomRulesResponse(w http.ResponseWriter) error
+}
+
+type GetCustomRules200ResponseHeaders struct {
+	ETag *string
+}
+
+type GetCustomRules200JSONResponse struct {
+	Body    CustomRules
+	Headers GetCustomRules200ResponseHeaders
+}
+
+func (response GetCustomRules200JSONResponse) VisitGetCustomRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCustomRules404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetCustomRules404ApplicationProblemPlusJSONResponse) VisitGetCustomRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutCustomRulesRequestObject struct {
+	Site   SiteID `json:"site"`
+	Params PutCustomRulesParams
+	Body   *PutCustomRulesJSONRequestBody
+}
+
+type PutCustomRulesResponseObject interface {
+	VisitPutCustomRulesResponse(w http.ResponseWriter) error
+}
+
+type PutCustomRules200JSONResponse struct{ ConfigVersionJSONResponse }
+
+func (response PutCustomRules200JSONResponse) VisitPutCustomRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutCustomRules404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response PutCustomRules404ApplicationProblemPlusJSONResponse) VisitPutCustomRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutCustomRules412ApplicationProblemPlusJSONResponse Problem
+
+func (response PutCustomRules412ApplicationProblemPlusJSONResponse) VisitPutCustomRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(412)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutCustomRules422ApplicationProblemPlusJSONResponse Problem
+
+func (response PutCustomRules422ApplicationProblemPlusJSONResponse) VisitPutCustomRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutCustomRules428ApplicationProblemPlusJSONResponse Problem
+
+func (response PutCustomRules428ApplicationProblemPlusJSONResponse) VisitPutCustomRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(428)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ValidateCustomRulesRequestObject struct {
+	Site SiteID `json:"site"`
+	Body *ValidateCustomRulesJSONRequestBody
+}
+
+type ValidateCustomRulesResponseObject interface {
+	VisitValidateCustomRulesResponse(w http.ResponseWriter) error
+}
+
+type ValidateCustomRules200JSONResponse CustomRulesValidation
+
+func (response ValidateCustomRules200JSONResponse) VisitValidateCustomRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ValidateCustomRules404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ValidateCustomRules404ApplicationProblemPlusJSONResponse) VisitValidateCustomRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetEffectivePolicyRequestObject struct {
 	Site   SiteID `json:"site"`
 	Params GetEffectivePolicyParams
@@ -6084,6 +7671,444 @@ func (response PatchEndpoint422ApplicationProblemPlusJSONResponse) VisitPatchEnd
 type PatchEndpoint428ApplicationProblemPlusJSONResponse Problem
 
 func (response PatchEndpoint428ApplicationProblemPlusJSONResponse) VisitPatchEndpointResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(428)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListExclusionsRequestObject struct {
+	Site SiteID `json:"site"`
+}
+
+type ListExclusionsResponseObject interface {
+	VisitListExclusionsResponse(w http.ResponseWriter) error
+}
+
+type ListExclusions200ResponseHeaders struct {
+	ETag *string
+}
+
+type ListExclusions200JSONResponse struct {
+	Body    ExclusionList
+	Headers ListExclusions200ResponseHeaders
+}
+
+func (response ListExclusions200JSONResponse) VisitListExclusionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListExclusions404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListExclusions404ApplicationProblemPlusJSONResponse) VisitListExclusionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateExclusionRequestObject struct {
+	Site   SiteID `json:"site"`
+	Params CreateExclusionParams
+	Body   *CreateExclusionJSONRequestBody
+}
+
+type CreateExclusionResponseObject interface {
+	VisitCreateExclusionResponse(w http.ResponseWriter) error
+}
+
+type CreateExclusion201JSONResponse struct{ ConfigVersionJSONResponse }
+
+func (response CreateExclusion201JSONResponse) VisitCreateExclusionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateExclusion404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CreateExclusion404ApplicationProblemPlusJSONResponse) VisitCreateExclusionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateExclusion409ApplicationProblemPlusJSONResponse Problem
+
+func (response CreateExclusion409ApplicationProblemPlusJSONResponse) VisitCreateExclusionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateExclusion412ApplicationProblemPlusJSONResponse Problem
+
+func (response CreateExclusion412ApplicationProblemPlusJSONResponse) VisitCreateExclusionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(412)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateExclusion422ApplicationProblemPlusJSONResponse Problem
+
+func (response CreateExclusion422ApplicationProblemPlusJSONResponse) VisitCreateExclusionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateExclusion428ApplicationProblemPlusJSONResponse Problem
+
+func (response CreateExclusion428ApplicationProblemPlusJSONResponse) VisitCreateExclusionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(428)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ProposeExclusionRequestObject struct {
+	Site SiteID `json:"site"`
+	Body *ProposeExclusionJSONRequestBody
+}
+
+type ProposeExclusionResponseObject interface {
+	VisitProposeExclusionResponse(w http.ResponseWriter) error
+}
+
+type ProposeExclusion200JSONResponse ExclusionProposal
+
+func (response ProposeExclusion200JSONResponse) VisitProposeExclusionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ProposeExclusion400ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ProposeExclusion400ApplicationProblemPlusJSONResponse) VisitProposeExclusionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ProposeExclusion404ApplicationProblemPlusJSONResponse Problem
+
+func (response ProposeExclusion404ApplicationProblemPlusJSONResponse) VisitProposeExclusionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ProposeExclusion422ApplicationProblemPlusJSONResponse Problem
+
+func (response ProposeExclusion422ApplicationProblemPlusJSONResponse) VisitProposeExclusionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteExclusionRequestObject struct {
+	Site      SiteID `json:"site"`
+	Exclusion string `json:"exclusion"`
+	Params    DeleteExclusionParams
+}
+
+type DeleteExclusionResponseObject interface {
+	VisitDeleteExclusionResponse(w http.ResponseWriter) error
+}
+
+type DeleteExclusion200JSONResponse struct{ ConfigVersionJSONResponse }
+
+func (response DeleteExclusion200JSONResponse) VisitDeleteExclusionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteExclusion404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteExclusion404ApplicationProblemPlusJSONResponse) VisitDeleteExclusionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteExclusion412ApplicationProblemPlusJSONResponse Problem
+
+func (response DeleteExclusion412ApplicationProblemPlusJSONResponse) VisitDeleteExclusionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(412)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteExclusion422ApplicationProblemPlusJSONResponse Problem
+
+func (response DeleteExclusion422ApplicationProblemPlusJSONResponse) VisitDeleteExclusionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteExclusion428ApplicationProblemPlusJSONResponse Problem
+
+func (response DeleteExclusion428ApplicationProblemPlusJSONResponse) VisitDeleteExclusionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(428)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetParanoiaImpactRequestObject struct {
+	Site   SiteID `json:"site"`
+	Params GetParanoiaImpactParams
+}
+
+type GetParanoiaImpactResponseObject interface {
+	VisitGetParanoiaImpactResponse(w http.ResponseWriter) error
+}
+
+type GetParanoiaImpact200JSONResponse ParanoiaImpact
+
+func (response GetParanoiaImpact200JSONResponse) VisitGetParanoiaImpactResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetParanoiaImpact400ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetParanoiaImpact400ApplicationProblemPlusJSONResponse) VisitGetParanoiaImpactResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetParanoiaImpact404ApplicationProblemPlusJSONResponse Problem
+
+func (response GetParanoiaImpact404ApplicationProblemPlusJSONResponse) VisitGetParanoiaImpactResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetVirtualPatchStateRequestObject struct {
+	Site   SiteID `json:"site"`
+	Patch  string `json:"patch"`
+	Params SetVirtualPatchStateParams
+	Body   *SetVirtualPatchStateJSONRequestBody
+}
+
+type SetVirtualPatchStateResponseObject interface {
+	VisitSetVirtualPatchStateResponse(w http.ResponseWriter) error
+}
+
+type SetVirtualPatchState200JSONResponse struct{ ConfigVersionJSONResponse }
+
+func (response SetVirtualPatchState200JSONResponse) VisitSetVirtualPatchStateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetVirtualPatchState404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SetVirtualPatchState404ApplicationProblemPlusJSONResponse) VisitSetVirtualPatchStateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetVirtualPatchState412ApplicationProblemPlusJSONResponse Problem
+
+func (response SetVirtualPatchState412ApplicationProblemPlusJSONResponse) VisitSetVirtualPatchStateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(412)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetVirtualPatchState422ApplicationProblemPlusJSONResponse Problem
+
+func (response SetVirtualPatchState422ApplicationProblemPlusJSONResponse) VisitSetVirtualPatchStateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetVirtualPatchState428ApplicationProblemPlusJSONResponse Problem
+
+func (response SetVirtualPatchState428ApplicationProblemPlusJSONResponse) VisitSetVirtualPatchStateResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -6711,6 +8736,58 @@ func (response ResetUserMFA404ApplicationProblemPlusJSONResponse) VisitResetUser
 	return err
 }
 
+type ListVirtualPatchesRequestObject struct {
+	Params ListVirtualPatchesParams
+}
+
+type ListVirtualPatchesResponseObject interface {
+	VisitListVirtualPatchesResponse(w http.ResponseWriter) error
+}
+
+type ListVirtualPatches200JSONResponse VirtualPatchCatalogue
+
+func (response ListVirtualPatches200JSONResponse) VisitListVirtualPatchesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListVirtualPatches400ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListVirtualPatches400ApplicationProblemPlusJSONResponse) VisitListVirtualPatchesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListVirtualPatches404ApplicationProblemPlusJSONResponse Problem
+
+func (response ListVirtualPatches404ApplicationProblemPlusJSONResponse) VisitListVirtualPatchesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// ListAudit The audit log, newest first
@@ -6782,6 +8859,9 @@ type StrictServerInterface interface {
 	// RollbackConfig Apply an earlier version's snapshot as a new version
 	// (POST /config/versions/{id}/rollback)
 	RollbackConfig(ctx context.Context, request RollbackConfigRequestObject) (RollbackConfigResponseObject, error)
+	// ListCrsRules OWASP CRS rule catalogue with descriptions, searchable, optionally with the state of each rule for a site
+	// (GET /crs/rules)
+	ListCrsRules(ctx context.Context, request ListCrsRulesRequestObject) (ListCrsRulesResponseObject, error)
 	// GetDefaults Global policy defaults
 	// (GET /defaults)
 	GetDefaults(ctx context.Context, request GetDefaultsRequestObject) (GetDefaultsResponseObject, error)
@@ -6824,6 +8904,15 @@ type StrictServerInterface interface {
 	// PatchSite Change fields of a site (JSON Merge Patch)
 	// (PATCH /sites/{site})
 	PatchSite(ctx context.Context, request PatchSiteRequestObject) (PatchSiteResponseObject, error)
+	// GetCustomRules The site's custom SecLang rules
+	// (GET /sites/{site}/custom-rules)
+	GetCustomRules(ctx context.Context, request GetCustomRulesRequestObject) (GetCustomRulesResponseObject, error)
+	// PutCustomRules Validate and save the site's custom rules (audited)
+	// (PUT /sites/{site}/custom-rules)
+	PutCustomRules(ctx context.Context, request PutCustomRulesRequestObject) (PutCustomRulesResponseObject, error)
+	// ValidateCustomRules Check custom rules without saving (static allow-list plus a compile in a throwaway engine)
+	// (POST /sites/{site}/custom-rules/validate)
+	ValidateCustomRules(ctx context.Context, request ValidateCustomRulesRequestObject) (ValidateCustomRulesResponseObject, error)
 	// GetEffectivePolicy The merged policy for a request, with the source of every value
 	// (GET /sites/{site}/effective-policy)
 	GetEffectivePolicy(ctx context.Context, request GetEffectivePolicyRequestObject) (GetEffectivePolicyResponseObject, error)
@@ -6842,6 +8931,24 @@ type StrictServerInterface interface {
 	// PatchEndpoint Change fields of an endpoint override (JSON Merge Patch)
 	// (PATCH /sites/{site}/endpoints/{endpoint})
 	PatchEndpoint(ctx context.Context, request PatchEndpointRequestObject) (PatchEndpointResponseObject, error)
+	// ListExclusions Exclusions defined at the site level (false-positive tuning)
+	// (GET /sites/{site}/exclusions)
+	ListExclusions(ctx context.Context, request ListExclusionsRequestObject) (ListExclusionsResponseObject, error)
+	// CreateExclusion Add an exclusion; the change is audited with the actor and, when created from an event, the event id
+	// (POST /sites/{site}/exclusions)
+	CreateExclusion(ctx context.Context, request CreateExclusionRequestObject) (CreateExclusionResponseObject, error)
+	// ProposeExclusion Propose the narrowest exclusion for an event, or preview one you edited, with past-event impact and warnings
+	// (POST /sites/{site}/exclusions/propose)
+	ProposeExclusion(ctx context.Context, request ProposeExclusionRequestObject) (ProposeExclusionResponseObject, error)
+	// DeleteExclusion Remove a site-level exclusion
+	// (DELETE /sites/{site}/exclusions/{exclusion})
+	DeleteExclusion(ctx context.Context, request DeleteExclusionRequestObject) (DeleteExclusionResponseObject, error)
+	// GetParanoiaImpact Predicted additional blocks if the blocking paranoia level is raised, from stored findings
+	// (GET /sites/{site}/paranoia-impact)
+	GetParanoiaImpact(ctx context.Context, request GetParanoiaImpactRequestObject) (GetParanoiaImpactResponseObject, error)
+	// SetVirtualPatchState Switch one virtual patch on or off for a site (adds or removes it from policy.virtual_patches.disabled)
+	// (PUT /sites/{site}/virtual-patches/{patch})
+	SetVirtualPatchState(ctx context.Context, request SetVirtualPatchStateRequestObject) (SetVirtualPatchStateResponseObject, error)
 	// GetTimeseries Event counts per time bucket and action, from the per-minute rollups
 	// (GET /stats/timeseries)
 	GetTimeseries(ctx context.Context, request GetTimeseriesRequestObject) (GetTimeseriesResponseObject, error)
@@ -6890,6 +8997,9 @@ type StrictServerInterface interface {
 	// ResetUserMFA Clear a user's MFA enrolment (they re-enrol at next sign-in)
 	// (POST /users/{id}/reset-mfa)
 	ResetUserMFA(ctx context.Context, request ResetUserMFARequestObject) (ResetUserMFAResponseObject, error)
+	// ListVirtualPatches Virtual-patch catalogue (CVE rules) with per-site state and recent hits, plus the CVEs CRS already covers
+	// (GET /virtual-patches)
+	ListVirtualPatches(ctx context.Context, request ListVirtualPatchesRequestObject) (ListVirtualPatchesResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -7558,6 +9668,32 @@ func (sh *strictHandler) RollbackConfig(w http.ResponseWriter, r *http.Request, 
 	}
 }
 
+// ListCrsRules operation middleware
+func (sh *strictHandler) ListCrsRules(w http.ResponseWriter, r *http.Request, params ListCrsRulesParams) {
+	var request ListCrsRulesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListCrsRules(ctx, request.(ListCrsRulesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListCrsRules")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListCrsRulesResponseObject); ok {
+		if err := validResponse.VisitListCrsRulesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetDefaults operation middleware
 func (sh *strictHandler) GetDefaults(w http.ResponseWriter, r *http.Request) {
 	var request GetDefaultsRequestObject
@@ -7942,6 +10078,99 @@ func (sh *strictHandler) PatchSite(w http.ResponseWriter, r *http.Request, site 
 	}
 }
 
+// GetCustomRules operation middleware
+func (sh *strictHandler) GetCustomRules(w http.ResponseWriter, r *http.Request, site SiteID) {
+	var request GetCustomRulesRequestObject
+
+	request.Site = site
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetCustomRules(ctx, request.(GetCustomRulesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetCustomRules")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetCustomRulesResponseObject); ok {
+		if err := validResponse.VisitGetCustomRulesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutCustomRules operation middleware
+func (sh *strictHandler) PutCustomRules(w http.ResponseWriter, r *http.Request, site SiteID, params PutCustomRulesParams) {
+	var request PutCustomRulesRequestObject
+
+	request.Site = site
+	request.Params = params
+
+	var body PutCustomRulesJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutCustomRules(ctx, request.(PutCustomRulesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutCustomRules")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutCustomRulesResponseObject); ok {
+		if err := validResponse.VisitPutCustomRulesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ValidateCustomRules operation middleware
+func (sh *strictHandler) ValidateCustomRules(w http.ResponseWriter, r *http.Request, site SiteID) {
+	var request ValidateCustomRulesRequestObject
+
+	request.Site = site
+
+	var body ValidateCustomRulesJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ValidateCustomRules(ctx, request.(ValidateCustomRulesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ValidateCustomRules")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ValidateCustomRulesResponseObject); ok {
+		if err := validResponse.VisitValidateCustomRulesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetEffectivePolicy operation middleware
 func (sh *strictHandler) GetEffectivePolicy(w http.ResponseWriter, r *http.Request, site SiteID, params GetEffectivePolicyParams) {
 	var request GetEffectivePolicyRequestObject
@@ -8112,6 +10341,189 @@ func (sh *strictHandler) PatchEndpoint(w http.ResponseWriter, r *http.Request, s
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PatchEndpointResponseObject); ok {
 		if err := validResponse.VisitPatchEndpointResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListExclusions operation middleware
+func (sh *strictHandler) ListExclusions(w http.ResponseWriter, r *http.Request, site SiteID) {
+	var request ListExclusionsRequestObject
+
+	request.Site = site
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListExclusions(ctx, request.(ListExclusionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListExclusions")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListExclusionsResponseObject); ok {
+		if err := validResponse.VisitListExclusionsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateExclusion operation middleware
+func (sh *strictHandler) CreateExclusion(w http.ResponseWriter, r *http.Request, site SiteID, params CreateExclusionParams) {
+	var request CreateExclusionRequestObject
+
+	request.Site = site
+	request.Params = params
+
+	var body CreateExclusionJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateExclusion(ctx, request.(CreateExclusionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateExclusion")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateExclusionResponseObject); ok {
+		if err := validResponse.VisitCreateExclusionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ProposeExclusion operation middleware
+func (sh *strictHandler) ProposeExclusion(w http.ResponseWriter, r *http.Request, site SiteID) {
+	var request ProposeExclusionRequestObject
+
+	request.Site = site
+
+	var body ProposeExclusionJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ProposeExclusion(ctx, request.(ProposeExclusionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ProposeExclusion")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ProposeExclusionResponseObject); ok {
+		if err := validResponse.VisitProposeExclusionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteExclusion operation middleware
+func (sh *strictHandler) DeleteExclusion(w http.ResponseWriter, r *http.Request, site SiteID, exclusion string, params DeleteExclusionParams) {
+	var request DeleteExclusionRequestObject
+
+	request.Site = site
+	request.Exclusion = exclusion
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteExclusion(ctx, request.(DeleteExclusionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteExclusion")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteExclusionResponseObject); ok {
+		if err := validResponse.VisitDeleteExclusionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetParanoiaImpact operation middleware
+func (sh *strictHandler) GetParanoiaImpact(w http.ResponseWriter, r *http.Request, site SiteID, params GetParanoiaImpactParams) {
+	var request GetParanoiaImpactRequestObject
+
+	request.Site = site
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetParanoiaImpact(ctx, request.(GetParanoiaImpactRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetParanoiaImpact")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetParanoiaImpactResponseObject); ok {
+		if err := validResponse.VisitGetParanoiaImpactResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SetVirtualPatchState operation middleware
+func (sh *strictHandler) SetVirtualPatchState(w http.ResponseWriter, r *http.Request, site SiteID, patch string, params SetVirtualPatchStateParams) {
+	var request SetVirtualPatchStateRequestObject
+
+	request.Site = site
+	request.Patch = patch
+	request.Params = params
+
+	var body SetVirtualPatchStateJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SetVirtualPatchState(ctx, request.(SetVirtualPatchStateRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetVirtualPatchState")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SetVirtualPatchStateResponseObject); ok {
+		if err := validResponse.VisitSetVirtualPatchStateResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -8543,162 +10955,261 @@ func (sh *strictHandler) ResetUserMFA(w http.ResponseWriter, r *http.Request, id
 	}
 }
 
+// ListVirtualPatches operation middleware
+func (sh *strictHandler) ListVirtualPatches(w http.ResponseWriter, r *http.Request, params ListVirtualPatchesParams) {
+	var request ListVirtualPatchesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListVirtualPatches(ctx, request.(ListVirtualPatchesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListVirtualPatches")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListVirtualPatchesResponseObject); ok {
+		if err := validResponse.VisitListVirtualPatchesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
 // Stored as a slice of fixed-width chunks rather than one concatenated
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"EnvW51Kv5lx7bpLA10ezznm1JxbM95/u//8A",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

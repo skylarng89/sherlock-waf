@@ -28,6 +28,10 @@ type EffectivePolicy struct {
 	RateLimits []RateLimit        `json:"rate_limits"`
 	AutoBan    EffectiveAutoBan   `json:"auto_ban"`
 	Bot        EffectiveBot       `json:"bot"`
+	// Stacks are the declared technologies; empty or ["auto"] activates
+	// generic virtual patches only.
+	Stacks         []string                `json:"stacks"`
+	VirtualPatches EffectiveVirtualPatches `json:"virtual_patches"`
 	// Sources maps a dotted field name (e.g. "waf.paranoia_level") to the
 	// layer that supplied its value.
 	Sources map[string]string `json:"sources"`
@@ -35,14 +39,18 @@ type EffectivePolicy struct {
 
 // EffectiveWAF is the resolved WAF tuning.
 type EffectiveWAF struct {
-	Enabled                  bool     `json:"enabled"`
-	ParanoiaLevel            int      `json:"paranoia_level"`
-	BlockingParanoiaLevel    int      `json:"blocking_paranoia_level"`
-	InboundThreshold         int      `json:"inbound_threshold"`
-	OutboundThreshold        int      `json:"outbound_threshold"`
-	OutboundInspection       bool     `json:"outbound_inspection"`
-	MaxBodyBytes             int64    `json:"max_body_bytes"`
-	SkipInspectionExtensions []string `json:"skip_inspection_extensions"`
+	Enabled                  bool        `json:"enabled"`
+	ParanoiaLevel            int         `json:"paranoia_level"`
+	BlockingParanoiaLevel    int         `json:"blocking_paranoia_level"`
+	InboundThreshold         int         `json:"inbound_threshold"`
+	OutboundThreshold        int         `json:"outbound_threshold"`
+	OutboundInspection       bool        `json:"outbound_inspection"`
+	MaxBodyBytes             int64       `json:"max_body_bytes"`
+	SkipInspectionExtensions []string    `json:"skip_inspection_extensions"`
+	OutboundMaxBodyBytes     int64       `json:"outbound_max_body_bytes"`
+	OutboundContentTypes     []string    `json:"outbound_content_types"`
+	Exclusions               []Exclusion `json:"exclusions"`
+	CustomRules              string      `json:"custom_rules,omitempty"`
 }
 
 // EffectiveBlockPage is the resolved block page selection.
@@ -62,17 +70,23 @@ func (r *Root) EffectivePolicy(s *Site, ep *Endpoint) EffectivePolicy {
 			OutboundThreshold:        DefaultOutboundThreshold,
 			MaxBodyBytes:             DefaultMaxBodyBytes,
 			SkipInspectionExtensions: DefaultSkipInspectionExtensions(),
+			OutboundMaxBodyBytes:     DefaultOutboundMaxBodyBytes,
+			OutboundContentTypes:     DefaultOutboundContentTypes(),
+			Exclusions:               []Exclusion{},
 		},
-		BlockPage:  EffectiveBlockPage{TemplateID: DefaultBlockPageTemplate},
-		ACL:        newEffectiveACL(),
-		RateLimits: []RateLimit{},
-		Bot:        newEffectiveBot(),
-		Sources:    map[string]string{},
+		Stacks:         []string{},
+		VirtualPatches: EffectiveVirtualPatches{Enabled: true, Disabled: []string{}},
+		BlockPage:      EffectiveBlockPage{TemplateID: DefaultBlockPageTemplate},
+		ACL:            newEffectiveACL(),
+		RateLimits:     []RateLimit{},
+		Bot:            newEffectiveBot(),
+		Sources:        map[string]string{},
 	}
 	for _, f := range []string{
 		"mode", "waf.enabled", "waf.paranoia_level", "waf.inbound_threshold",
 		"waf.outbound_threshold", "waf.outbound_inspection", "waf.max_body_bytes",
-		"waf.skip_inspection_extensions", "block_page.template_id",
+		"waf.skip_inspection_extensions", "waf.outbound_max_body_bytes", "waf.outbound_content_types",
+		"block_page.template_id", "virtual_patches.enabled",
 	} {
 		eff.Sources[f] = SourceDefault
 	}
@@ -99,6 +113,7 @@ func (r *Root) EffectivePolicy(s *Site, ep *Endpoint) EffectivePolicy {
 		eff.apply(l.pol, l.name, &failSet, &blockingSet)
 		eff.applyAccess(l.pol, l.name)
 		eff.applyBot(l.pol, l.name)
+		eff.applyRules(l.pol, l.name)
 	}
 	eff.sortRateLimits()
 	if !failSet {

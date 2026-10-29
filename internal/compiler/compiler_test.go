@@ -438,3 +438,70 @@ sites:
 	assert.Equal(t, []any{"KP"}, rule["countries"])
 	assert.Equal(t, true, rule["reputation"])
 }
+
+func wafHandlers(t *testing.T, out []byte) map[string][]map[string]any {
+	t.Helper()
+	bySite := map[string][]map[string]any{}
+	for _, chain := range handlersOf(t, out) {
+		for _, h := range chain {
+			if h["handler"] == "sherlock_waf" {
+				id, _ := h["site_id"].(string)
+				bySite[id] = append(bySite[id], h)
+			}
+		}
+	}
+	return bySite
+}
+
+func TestTuningPolicyReachesTheCompiledWAF(t *testing.T) {
+	sites := wafHandlers(t, compileFixture(t, "tuning"))
+	require.Len(t, sites["shop"], 2, "site default and the login endpoint")
+
+	var site, login map[string]any
+	for _, h := range sites["shop"] {
+		if h["paranoia_level"] == float64(3) {
+			login = h
+		} else {
+			site = h
+		}
+	}
+	require.NotNil(t, site)
+	require.NotNil(t, login)
+
+	assert.Equal(t, float64(2), site["paranoia_level"])
+	assert.Equal(t, float64(1), site["blocking_paranoia_level"], "findings above the blocking level are recorded, not enforced")
+	assert.Equal(t, true, site["outbound_inspection"])
+	assert.Equal(t, float64(65536), site["outbound_max_body_bytes"])
+	assert.Contains(t, site["custom_rules"], "id:10001")
+	assert.Contains(t, site["virtual_patches"], "SV-2020-0001", "the WordPress rule follows the declared stack")
+	assert.NotContains(t, site["virtual_patches"], "SV-2018-0001", "the Drupal rule stays off")
+
+	exIDs := func(h map[string]any) []string {
+		var ids []string
+		for _, e := range h["exclusions"].([]any) {
+			ids = append(ids, e.(map[string]any)["id"].(string))
+		}
+		return ids
+	}
+	assert.Equal(t, []string{"global-health", "search-box"}, exIDs(site))
+	assert.Equal(t, []string{"search-box"}, exIDs(login), "the endpoint opted out of the global exclusion")
+	assert.NotContains(t, login["virtual_patches"], "SV-2020-0001", "the endpoint disabled that patch")
+	assert.Contains(t, login["virtual_patches"], "SV-2019-0002")
+}
+
+// Acceptance criterion 5: exclusions are site-scoped.
+func TestExclusionsDoNotLeakToOtherSites(t *testing.T) {
+	sites := wafHandlers(t, compileFixture(t, "tuning"))
+	require.Len(t, sites["blog"], 1)
+	blog := sites["blog"][0]
+	assert.NotContains(t, blog, "custom_rules")
+	assert.NotContains(t, blog, "virtual_patches", "no declared stack: no product rules")
+	assert.NotContains(t, blog, "outbound_inspection")
+	ids := []string{}
+	if ex, ok := blog["exclusions"].([]any); ok {
+		for _, e := range ex {
+			ids = append(ids, e.(map[string]any)["id"].(string))
+		}
+	}
+	assert.Equal(t, []string{"global-health"}, ids, "only the global exclusion, never the shop's")
+}

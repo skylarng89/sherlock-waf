@@ -30,6 +30,8 @@ tags:
   - { name: setup }
   - { name: certificates }
   - { name: bans }
+  - { name: tuning }
+  - { name: rules }
 
 paths:
   /auth/login:
@@ -710,6 +712,176 @@ paths:
       responses:
         "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/SystemStatus" } } } }
 
+  /sites/{site}/exclusions:
+    parameters: [{ $ref: "#/components/parameters/SiteID" }]
+    get:
+      operationId: listExclusions
+      tags: [tuning]
+      summary: Exclusions defined at the site level (false-positive tuning)
+      x-sherlock-permission: config:read
+      responses:
+        "200":
+          description: OK
+          headers: { ETag: { $ref: "#/components/headers/ETag" } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/ExclusionList" } } }
+        "404": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: createExclusion
+      tags: [tuning]
+      summary: Add an exclusion; the change is audited with the actor and, when created from an event, the event id
+      description: |
+        Rejects with 422 when the exclusion has critical warnings (for example a
+        whole attack category) unless `acknowledge_warnings` is true.
+      x-sherlock-permission: config:write
+      parameters: [{ $ref: "#/components/parameters/IfMatch" }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/ExclusionCreate" } } } }
+      responses:
+        "201": { $ref: "#/components/responses/ConfigVersion" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "412": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "428": { $ref: "#/components/responses/Problem" }
+  /sites/{site}/exclusions/propose:
+    parameters: [{ $ref: "#/components/parameters/SiteID" }]
+    post:
+      operationId: proposeExclusion
+      tags: [tuning]
+      summary: Propose the narrowest exclusion for an event, or preview one you edited, with past-event impact and warnings
+      description: |
+        With `event_id` the server builds the narrowest exclusion (this rule,
+        this target, this path, this method). With `exclusion` it only evaluates
+        the given one (use it when the user widens the proposal in the wizard).
+        Nothing is saved.
+      x-sherlock-permission: events:read
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/ExclusionProposalRequest" } } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ExclusionProposal" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /sites/{site}/exclusions/{exclusion}:
+    parameters: [{ $ref: "#/components/parameters/SiteID" }, { name: exclusion, in: path, required: true, schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,62}$" } }]
+    delete:
+      operationId: deleteExclusion
+      tags: [tuning]
+      summary: Remove a site-level exclusion
+      x-sherlock-permission: config:write
+      parameters: [{ $ref: "#/components/parameters/IfMatch" }]
+      responses:
+        "200": { $ref: "#/components/responses/ConfigVersion" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "412": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "428": { $ref: "#/components/responses/Problem" }
+  /sites/{site}/custom-rules:
+    parameters: [{ $ref: "#/components/parameters/SiteID" }]
+    get:
+      operationId: getCustomRules
+      tags: [tuning]
+      summary: The site's custom SecLang rules
+      x-sherlock-permission: config:read
+      responses:
+        "200":
+          description: OK
+          headers: { ETag: { $ref: "#/components/headers/ETag" } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/CustomRules" } } }
+        "404": { $ref: "#/components/responses/Problem" }
+    put:
+      operationId: putCustomRules
+      tags: [tuning]
+      summary: Validate and save the site's custom rules (audited)
+      description: Saves only rules that pass validation; otherwise 422 with the issues in `errors` (path /custom_rules, message prefixed by the line).
+      x-sherlock-permission: config:write
+      parameters: [{ $ref: "#/components/parameters/IfMatch" }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/CustomRulesInput" } } } }
+      responses:
+        "200": { $ref: "#/components/responses/ConfigVersion" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "412": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "428": { $ref: "#/components/responses/Problem" }
+  /sites/{site}/custom-rules/validate:
+    parameters: [{ $ref: "#/components/parameters/SiteID" }]
+    post:
+      operationId: validateCustomRules
+      tags: [tuning]
+      summary: Check custom rules without saving (static allow-list plus a compile in a throwaway engine)
+      x-sherlock-permission: config:read
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/CustomRulesInput" } } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/CustomRulesValidation" } } } }
+        "404": { $ref: "#/components/responses/Problem" }
+  /sites/{site}/paranoia-impact:
+    parameters: [{ $ref: "#/components/parameters/SiteID" }]
+    get:
+      operationId: getParanoiaImpact
+      tags: [tuning]
+      summary: Predicted additional blocks if the blocking paranoia level is raised, from stored findings
+      description: |
+        Needs findings recorded above the current blocking level, i.e. the site's
+        `paranoia_level` (detection) must be at least `target`. When it is not,
+        `observable` is false and nothing can be predicted.
+      x-sherlock-permission: events:read
+      parameters:
+        - { name: target, in: query, required: true, schema: { type: integer, minimum: 1, maximum: 4 } }
+        - { name: from, in: query, required: false, description: Default 7 days before `to`, schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: false, description: Default now, schema: { type: string, format: date-time } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ParanoiaImpact" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /crs/rules:
+    get:
+      operationId: listCrsRules
+      tags: [rules]
+      summary: OWASP CRS rule catalogue with descriptions, searchable, optionally with the state of each rule for a site
+      x-sherlock-permission: config:read
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 100 }, description: "Matches id, description, category or tag" }
+        - { name: site, in: query, schema: { type: string }, description: "Adds `status` (enforcing, detect_only, inactive, disabled, partly_excluded) from the site's effective policy" }
+        - { name: category, in: query, schema: { type: string } }
+        - { name: paranoia_level, in: query, schema: { type: integer, minimum: 1, maximum: 4 } }
+        - { name: direction, in: query, schema: { type: string, enum: [request, response] } }
+        - { name: state, in: query, schema: { type: string, enum: [enforcing, detect_only, inactive, disabled, partly_excluded] }, description: "Requires site" }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 50 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/CrsRuleList" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /virtual-patches:
+    get:
+      operationId: listVirtualPatches
+      tags: [rules]
+      summary: Virtual-patch catalogue (CVE rules) with per-site state and recent hits, plus the CVEs CRS already covers
+      x-sherlock-permission: config:read
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 100 }, description: "Matches patch id, CVE, product, vendor or title" }
+        - { name: site, in: query, schema: { type: string }, description: "Limit the per-site state and hits to one site" }
+        - { name: severity, in: query, schema: { type: string, enum: [low, medium, high, critical] } }
+        - { name: kev, in: query, schema: { type: boolean } }
+        - { name: days, in: query, schema: { type: integer, minimum: 1, maximum: 90, default: 30 }, description: "Window for hit counts" }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/VirtualPatchCatalogue" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /sites/{site}/virtual-patches/{patch}:
+    parameters: [{ $ref: "#/components/parameters/SiteID" }, { name: patch, in: path, required: true, schema: { type: string, pattern: "^SV-[0-9]{4}-[0-9]{4}$" } }]
+    put:
+      operationId: setVirtualPatchState
+      tags: [rules]
+      summary: Switch one virtual patch on or off for a site (adds or removes it from policy.virtual_patches.disabled)
+      x-sherlock-permission: config:write
+      parameters: [{ $ref: "#/components/parameters/IfMatch" }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [enabled], additionalProperties: false, properties: { enabled: { type: boolean } } } } } }
+      responses:
+        "200": { $ref: "#/components/responses/ConfigVersion" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "412": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "428": { $ref: "#/components/responses/Problem" }
+
 components:
   securitySchemes:
     cookieAuth: { type: apiKey, in: cookie, name: __Host-sherlock_session, description: "Dashboard session. Non-GET requests also need the X-CSRF-Token header." }
@@ -810,7 +982,14 @@ components:
         rate_limits: { type: array, items: { $ref: "#/components/schemas/RateLimit" } }
         auto_ban: { $ref: "#/components/schemas/AutoBan" }
         bot: { $ref: "#/components/schemas/BotPolicy" }
-        opt_out: { type: array, items: { type: string }, description: 'Inherited named items to drop, "rate_limits:<name>"' }
+        stacks: { $ref: "#/components/schemas/NameList", description: "Declared technologies (wordpress, php, spring, ...). Product-specific virtual patches activate only for declared stacks; unset or [auto] activates generic patches only." }
+        virtual_patches:
+          type: object
+          additionalProperties: false
+          properties:
+            enabled: { type: boolean, description: "Switch the virtual-patch pack on or off at this level (default on)" }
+            disabled: { type: array, items: { type: string, pattern: "^SV-[0-9]{4}-[0-9]{4}$" }, description: "Patch ids switched off at this level; levels are unioned" }
+        opt_out: { type: array, items: { type: string }, description: 'Inherited named items to drop: "rate_limits:<name>", "exclusions:<id>" or "virtual_patches:<id>"' }
     SiteList:
       type: object
       required: [items]
@@ -1175,6 +1354,38 @@ components:
         outbound_inspection: { type: boolean }
         max_body_bytes: { type: integer, format: int64 }
         skip_inspection_extensions: { type: array, items: { type: string } }
+        outbound_max_body_bytes: { type: integer, format: int64, minimum: 1, description: "Response bytes kept for inspection when outbound_inspection is on (default 1048576); the rest streams through uninspected" }
+        outbound_content_types: { type: array, items: { type: string }, description: "Media types (prefix match, e.g. text/ or application/json) whose responses are inspected; default text/html, text/plain, application/json, application/xml, text/xml" }
+        exclusions: { type: array, items: { $ref: "#/components/schemas/Exclusion" }, description: "Named rule removals; levels are unioned by id, a lower level replaces the same id" }
+        custom_rules: { type: string, maxLength: 65536, description: "Operator SecLang (ids 10000-99999). Validated by compiling in a throwaway engine; exec, Lua, include, audit and unsafe ctl are rejected. The lowest level that sets it wins." }
+    Exclusion:
+      type: object
+      x-go-type: config.Exclusion
+      x-go-type-import: { path: github.com/skylarng89/sherlock-waf/internal/config, name: config }
+      additionalProperties: false
+      required: [id]
+      properties:
+        id: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,62}$" }
+        description: { type: string, maxLength: 500 }
+        match:
+          type: object
+          additionalProperties: false
+          description: Empty paths means every path, empty methods every method
+          properties:
+            paths: { type: array, items: { type: string }, description: "Globs; * stays inside a segment, a trailing /** matches the prefix and below" }
+            methods: { type: array, items: { type: string } }
+        remove_rule_ids: { type: array, items: { type: string }, description: 'Rule ids or ranges, e.g. "942100" or "942100-942199"' }
+        remove_tags: { type: array, items: { type: string } }
+        remove_targets:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [target]
+            properties:
+              rule_ids: { type: array, items: { type: string } }
+              tags: { type: array, items: { type: string } }
+              target: { type: string, description: "e.g. ARGS:q or REQUEST_COOKIES:/^_ga/" }
     NameList:
       description: A list of names that either replaces the inherited one (array) or edits it ({add, remove}).
       oneOf:
@@ -1316,3 +1527,203 @@ components:
         data_dir_bytes: { type: integer, format: int64 }
         data_dir_truncated: { type: boolean, description: "The size walk stopped early on a very large directory" }
         retention_days: { type: integer }
+    ExclusionList:
+      type: object
+      required: [items]
+      properties: { items: { type: array, items: { $ref: "#/components/schemas/Exclusion" } } }
+    ExclusionCreate:
+      type: object
+      additionalProperties: false
+      required: [exclusion]
+      properties:
+        exclusion: { $ref: "#/components/schemas/Exclusion" }
+        event_id: { type: string, description: "The event the exclusion was created from; recorded in the audit entry" }
+        acknowledge_warnings: { type: boolean, description: "Required when the proposal has critical warnings" }
+    ExclusionProposalRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        event_id: { type: string, description: "Build the narrowest exclusion for this event" }
+        rule_id: { type: string, description: "Which finding to exclude; default the highest-scoring one" }
+        scope: { type: string, enum: [target, rule], default: target, description: "target removes only the offending parameter from the rule; rule removes the rule on that path and method" }
+        exclusion: { $ref: "#/components/schemas/Exclusion", description: "Evaluate this exclusion instead of building one (event_id is then optional)" }
+        days: { type: integer, minimum: 1, maximum: 90, default: 30, description: "How far back the impact preview looks" }
+    ExclusionProposal:
+      type: object
+      required: [exclusion, impact, warnings, requires_acknowledgement]
+      properties:
+        exclusion: { $ref: "#/components/schemas/Exclusion" }
+        event_id: { type: string }
+        finding:
+          type: object
+          description: The finding the exclusion addresses
+          required: [rule_id]
+          properties:
+            rule_id: { type: string }
+            message: { type: string }
+            target: { type: string }
+            matched: { type: string }
+            score: { type: integer }
+        impact: { $ref: "#/components/schemas/ExclusionImpact" }
+        warnings: { type: array, items: { $ref: "#/components/schemas/ExclusionWarning" } }
+        requires_acknowledgement: { type: boolean, description: "True when a critical warning needs acknowledge_warnings on create" }
+    ExclusionImpact:
+      type: object
+      required: [from, to, events_scanned, matching_events, no_longer_triggering, no_longer_blocking, by_rule, sample_event_ids, truncated]
+      properties:
+        from: { type: string, format: date-time }
+        to: { type: string, format: date-time }
+        events_scanned: { type: integer }
+        matching_events: { type: integer, description: "Past events in the exclusion's scope that carried a finding it removes" }
+        no_longer_triggering: { type: integer, description: "Matching events left with no WAF finding at all" }
+        no_longer_blocking: { type: integer, description: "Matching events that were blocked (or would have been) and fall under the threshold" }
+        by_rule: { type: object, additionalProperties: { type: integer } }
+        sample_event_ids: { type: array, items: { type: string } }
+        truncated: { type: boolean, description: "More events existed than were analysed" }
+    ExclusionWarning:
+      type: object
+      required: [code, severity, message]
+      properties:
+        code: { type: string, enum: [whole_category, blocking_evaluation, unscoped_rule_removal, broad_scope, no_matching_events] }
+        severity: { type: string, enum: [info, warning, critical] }
+        message: { type: string }
+    CustomRulesInput:
+      type: object
+      additionalProperties: false
+      required: [rules]
+      properties:
+        rules: { type: string, maxLength: 65536 }
+    CustomRules:
+      type: object
+      required: [rules, rule_ids, source]
+      properties:
+        rules: { type: string }
+        rule_ids: { type: array, items: { type: integer } }
+        source: { type: string, description: "Which level supplies the rules for this site: site, global or none" }
+        reserved_id_range: { type: object, properties: { min: { type: integer }, max: { type: integer } } }
+    CustomRulesValidation:
+      type: object
+      required: [valid, issues, rule_ids]
+      properties:
+        valid: { type: boolean }
+        issues:
+          type: array
+          items:
+            type: object
+            required: [line, code, message]
+            properties:
+              line: { type: integer, description: "1-based; 0 for the whole input" }
+              code: { type: string, enum: [syntax, too_large, forbidden_directive, forbidden_action, forbidden_operator, forbidden_variable, forbidden_ctl, id_range, id_missing, id_duplicate, phase, compile] }
+              message: { type: string }
+        rule_ids: { type: array, items: { type: integer } }
+    ParanoiaImpact:
+      type: object
+      required: [site, from, to, detection_paranoia_level, blocking_paranoia_level, target_paranoia_level, inbound_threshold, observable, events_scanned, already_blocking, additional_blocks, by_rule, by_path, sample_event_ids, truncated]
+      properties:
+        site: { type: string }
+        from: { type: string, format: date-time }
+        to: { type: string, format: date-time }
+        detection_paranoia_level: { type: integer }
+        blocking_paranoia_level: { type: integer }
+        target_paranoia_level: { type: integer }
+        inbound_threshold: { type: integer }
+        observable: { type: boolean, description: "False when findings above the blocking level are not being recorded (target exceeds the detection level)" }
+        advice: { type: string, description: "Set when not observable: what to change first" }
+        events_scanned: { type: integer }
+        already_blocking: { type: integer }
+        additional_blocks: { type: integer }
+        by_rule: { type: array, items: { type: object, required: [rule_id, count], properties: { rule_id: { type: string }, count: { type: integer } } } }
+        by_path: { type: array, items: { type: object, required: [path, count], properties: { path: { type: string }, count: { type: integer } } } }
+        sample_event_ids: { type: array, items: { type: string } }
+        truncated: { type: boolean }
+    CrsRuleStatus:
+      type: object
+      required: [state]
+      properties:
+        state: { type: string, enum: [enforcing, detect_only, inactive, disabled, partly_excluded] }
+        reason: { type: string, enum: [waf_off, outbound_inspection_off, paranoia_level_too_low, exclusion, scoped_exclusion, above_blocking_paranoia_level] }
+        excluded_by: { type: array, items: { type: string }, description: "Exclusion ids" }
+    CrsRule:
+      type: object
+      required: [id, message, category, paranoia_level, direction, phase, tags, file]
+      properties:
+        id: { type: integer }
+        message: { type: string }
+        category: { type: string, description: "attack-sqli, attack-xss, ... or a protocol/method/scanner/data-leakage name" }
+        paranoia_level: { type: integer }
+        severity: { type: string }
+        direction: { type: string, enum: [request, response] }
+        phase: { type: integer }
+        tags: { type: array, items: { type: string } }
+        file: { type: string }
+        status: { $ref: "#/components/schemas/CrsRuleStatus" }
+    CrsRuleList:
+      type: object
+      required: [crs_version, total, items, categories]
+      properties:
+        crs_version: { type: string }
+        total: { type: integer, description: "Matches before limit and offset" }
+        categories: { type: array, items: { type: string } }
+        items: { type: array, items: { $ref: "#/components/schemas/CrsRule" } }
+    VirtualPatchSiteState:
+      type: object
+      required: [site, state, hits]
+      properties:
+        site: { type: string }
+        state: { type: string, enum: [active, stack_not_declared, disabled, pack_off], description: "active: the rule is loaded. stack_not_declared: product-specific and the site has not declared one of its stacks. disabled: in virtual_patches.disabled. pack_off: virtual_patches.enabled is false" }
+        hits: { type: integer, description: "Events with a finding from this patch in the window" }
+        last_hit: { type: string, format: date-time, nullable: true }
+    VirtualPatch:
+      type: object
+      required: [id, title, cves, vendor, product, versions, severity, cvss, kev, stacks, generic, references, false_positive_notes, verification, added_in, rule_ids, sites, hits]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        cves: { type: array, items: { type: string } }
+        vendor: { type: string }
+        product: { type: string }
+        versions: { type: string }
+        severity: { type: string, enum: [low, medium, high, critical] }
+        cvss: { type: number }
+        kev: { type: boolean, description: "In the CISA Known Exploited Vulnerabilities catalogue" }
+        kev_added: { type: string }
+        stacks: { type: array, items: { type: string } }
+        generic: { type: boolean, description: "No stack needed: active wherever the pack is on" }
+        references: { type: array, items: { type: string } }
+        false_positive_notes: { type: string }
+        verification: { type: string, enum: [synthetic, product-verified], description: "synthetic: tested with exploit requests rebuilt from public write-ups, not against a vulnerable product" }
+        added_in: { type: string, description: "Pack version (YYYY.MM.N)" }
+        rule_ids: { type: array, items: { type: integer } }
+        hits: { type: integer, description: "Total across the listed sites" }
+        sites: { type: array, items: { $ref: "#/components/schemas/VirtualPatchSiteState" } }
+    CoveredCve:
+      type: object
+      required: [cve, product, kev, severity, crs_rules]
+      properties:
+        cve: { type: string }
+        product: { type: string }
+        kev: { type: boolean }
+        severity: { type: string }
+        crs_rules: { type: array, items: { type: string } }
+        note: { type: string }
+    VirtualPatchSummary:
+      type: object
+      required: [patches, covered_cves, cves_with_rule, kev_cves, sites_protected, hits]
+      properties:
+        patches: { type: integer }
+        covered_cves: { type: integer, description: "CVEs CRS blocks without a patch" }
+        cves_with_rule: { type: integer, description: "Distinct CVEs with a Sherlock rule" }
+        kev_cves: { type: integer, description: "Distinct KEV CVEs across rules and CRS coverage" }
+        sites_protected: { type: integer, description: "Sites with at least one active patch" }
+        hits: { type: integer }
+    VirtualPatchCatalogue:
+      type: object
+      required: [pack_version, window_days, known_stacks, items, covered, summary, truncated]
+      properties:
+        pack_version: { type: string }
+        window_days: { type: integer }
+        known_stacks: { type: array, items: { type: string } }
+        items: { type: array, items: { $ref: "#/components/schemas/VirtualPatch" } }
+        covered: { type: array, items: { $ref: "#/components/schemas/CoveredCve" } }
+        summary: { $ref: "#/components/schemas/VirtualPatchSummary" }
+        truncated: { type: boolean, description: "Hit counts come from a capped scan of recent events" }

@@ -250,6 +250,7 @@ func (u *Upstreams) validate(p string, errs *Errors) {
 }
 
 func (pol *Policy) validate(p string, errs *Errors) {
+	pol.validateRules(p, errs)
 	if pol.Mode != nil && !slices.Contains([]Mode{ModeOff, ModeDetect, ModeBlock}, *pol.Mode) {
 		errs.add(p+"/mode", CodeInvalid, "must be one of off, detect, block")
 	}
@@ -275,9 +276,6 @@ func (pol *Policy) validate(p string, errs *Errors) {
 	}
 	if w.OutboundThreshold != nil && *w.OutboundThreshold < 1 {
 		errs.add(wp+"/outbound_threshold", CodeOutOfRange, "must be at least 1")
-	}
-	if w.OutboundInspection != nil && *w.OutboundInspection {
-		errs.add(wp+"/outbound_inspection", CodeUnsupported, "response inspection is not implemented yet")
 	}
 	if w.MaxBodyBytes != nil && (*w.MaxBodyBytes < 1 || *w.MaxBodyBytes > maxBodyBytesLimit) {
 		errs.add(wp+"/max_body_bytes", CodeOutOfRange, "must be between 1 and %d", maxBodyBytesLimit)

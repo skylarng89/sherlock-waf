@@ -247,12 +247,27 @@ type Policy struct {
 	RateLimits []RateLimit `yaml:"rate_limits,omitempty" json:"rate_limits,omitempty"`
 	AutoBan    *AutoBan    `yaml:"auto_ban,omitempty" json:"auto_ban,omitempty"`
 	Bot        *BotPolicy  `yaml:"bot,omitempty" json:"bot,omitempty"`
-	// OptOut removes inherited named items, written "rate_limits:<name>".
-	// It is the only way to drop a global item (and is audited with the change).
+	// Stacks declares the technologies behind the site (wordpress, php,
+	// spring, ...). Product-specific virtual patches activate only for
+	// declared stacks. Unset means "auto": generic patches only.
+	Stacks *NameList `yaml:"stacks,omitempty" json:"stacks,omitempty"`
+	// VirtualPatches switches the CVE rule pack (ADR-0013) per level.
+	VirtualPatches *VirtualPatchPolicy `yaml:"virtual_patches,omitempty" json:"virtual_patches,omitempty"`
+	// OptOut removes inherited named items, written "rate_limits:<name>",
+	// "exclusions:<id>" or "virtual_patches:<id>". It is the only way to drop a
+	// global item (and is audited with the change).
 	OptOut []string `yaml:"opt_out,omitempty" json:"opt_out,omitempty"`
 }
 
-// WAFPolicy tunes Coraza and CRS. Exclusions and custom rules arrive in M8.
+// VirtualPatchPolicy enables the virtual-patch pack and lists patches to skip.
+type VirtualPatchPolicy struct {
+	Enabled *bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
+	// Disabled are patch ids (SV-2021-0001) switched off at this level; levels
+	// are unioned and a global entry is removed only through opt_out.
+	Disabled []string `yaml:"disabled,omitempty" json:"disabled,omitempty"`
+}
+
+// WAFPolicy tunes Coraza and CRS.
 type WAFPolicy struct {
 	Enabled                  *bool    `yaml:"enabled,omitempty" json:"enabled,omitempty"`
 	ParanoiaLevel            *int     `yaml:"paranoia_level,omitempty" json:"paranoia_level,omitempty"`
@@ -262,6 +277,18 @@ type WAFPolicy struct {
 	OutboundInspection       *bool    `yaml:"outbound_inspection,omitempty" json:"outbound_inspection,omitempty"`
 	MaxBodyBytes             *int64   `yaml:"max_body_bytes,omitempty" json:"max_body_bytes,omitempty"`
 	SkipInspectionExtensions []string `yaml:"skip_inspection_extensions,omitempty" json:"skip_inspection_extensions,omitempty"`
+	// OutboundMaxBodyBytes bounds the response body kept for inspection when
+	// outbound_inspection is on; larger responses are inspected up to the limit.
+	OutboundMaxBodyBytes *int64 `yaml:"outbound_max_body_bytes,omitempty" json:"outbound_max_body_bytes,omitempty"`
+	// OutboundContentTypes are the media types whose responses are inspected
+	// (prefix match on the type, e.g. "text/" or "application/json").
+	OutboundContentTypes []string `yaml:"outbound_content_types,omitempty" json:"outbound_content_types,omitempty"`
+	// Exclusions are named, scoped rule removals (false-positive tuning).
+	// Levels are unioned by id; a lower level replaces an item with the same id.
+	Exclusions []Exclusion `yaml:"exclusions,omitempty" json:"exclusions,omitempty"`
+	// CustomRules is operator SecLang (ids 10000-99999) loaded before CRS.
+	// The lowest level that sets it wins; it is validated by customrules.
+	CustomRules *string `yaml:"custom_rules,omitempty" json:"custom_rules,omitempty"`
 }
 
 // BlockPage selects the page shown for terminated requests.

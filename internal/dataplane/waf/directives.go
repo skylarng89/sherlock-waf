@@ -2,9 +2,11 @@ package waf
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/skylarng89/sherlock-waf/internal/config"
+	"github.com/skylarng89/sherlock-waf/internal/vpatch"
 )
 
 // inMemoryBodyLimit is how much of a request body Coraza keeps in memory
@@ -24,6 +26,22 @@ type Settings struct {
 	InboundThreshold      int         `json:"inbound_threshold"`
 	OutboundThreshold     int         `json:"outbound_threshold"`
 	MaxBodyBytes          int64       `json:"max_body_bytes"`
+
+	// Exclusions are the effective, site-scoped rule removals (M8-T1). They
+	// compile to runtime exclusion rules placed before the CRS includes.
+	Exclusions []config.Exclusion `json:"exclusions,omitempty"`
+	// CustomRules is validated operator SecLang (ids 10000-99999).
+	CustomRules string `json:"custom_rules,omitempty"`
+	// VirtualPatches are the ids of the patches active for this endpoint,
+	// resolved by the compiler from stacks and policy (M8-T6b).
+	VirtualPatches []string `json:"virtual_patches,omitempty"`
+
+	// OutboundInspection adds the CRS response rules (RESPONSE-*.conf) and
+	// response body access, limited to OutboundContentTypes and
+	// OutboundMaxBodyBytes (M8-T4).
+	OutboundInspection   bool     `json:"outbound_inspection,omitempty"`
+	OutboundMaxBodyBytes int64    `json:"outbound_max_body_bytes,omitempty"`
+	OutboundContentTypes []string `json:"outbound_content_types,omitempty"`
 }
 
 // Directives renders the SecLang configuration for one WAF instance. The
@@ -52,12 +70,25 @@ func (s Settings) Directives() (string, error) {
 		return "", fmt.Errorf("thresholds and body limit must be positive")
 	}
 
+	if s.OutboundInspection && (s.OutboundMaxBodyBytes < 1 || len(s.OutboundContentTypes) == 0) {
+		return "", fmt.Errorf("outbound inspection needs a body limit and at least one content type")
+	}
+
 	var b strings.Builder
 	line := func(format string, args ...any) { fmt.Fprintf(&b, format+"\n", args...) }
 
 	line("SecRuleEngine %s", engine)
 	line("SecRequestBodyAccess On")
-	line("SecResponseBodyAccess Off")
+	if s.OutboundInspection {
+		line("SecResponseBodyAccess On")
+		line("SecResponseBodyLimit %d", s.OutboundMaxBodyBytes)
+		line("SecResponseBodyLimitAction ProcessPartial")
+		// The handler filters by content type itself (prefix match); this
+		// makes the engine accept whatever the handler hands over.
+		line(`SecAction "id:200010,phase:3,pass,nolog,t:none,ctl:forceResponseBodyVariable=On"`)
+	} else {
+		line("SecResponseBodyAccess Off")
+	}
 	line("SecAuditEngine Off")
 	line("SecRequestBodyLimit %d", s.MaxBodyBytes)
 	line("SecRequestBodyInMemoryLimit %d", min(s.MaxBodyBytes, inMemoryBodyLimit))
@@ -80,7 +111,107 @@ func (s Settings) Directives() (string, error) {
 	if extraDirectives != "" {
 		line("%s", extraDirectives)
 	}
-	// Only request rules: response inspection is out of scope for M1.
+	// Virtual patches, then operator rules, then exclusions: all before CRS so
+	// that ctl:ruleRemove* takes effect and patches run even if CRS interrupts.
+	vp, err := vpatch.Directives(s.VirtualPatches)
+	if err != nil {
+		return "", fmt.Errorf("loading virtual patches: %w", err)
+	}
+	if vp != "" {
+		line("%s", strings.TrimRight(vp, "\n"))
+	}
+	if cr := strings.TrimSpace(strings.ReplaceAll(s.CustomRules, "\r\n", "\n")); cr != "" {
+		line("%s", cr)
+	}
+	ex, err := exclusionDirectives(s.Exclusions)
+	if err != nil {
+		return "", err
+	}
+	if ex != "" {
+		line("%s", ex)
+	}
 	line("Include @owasp_crs/REQUEST-*.conf")
+	if s.OutboundInspection {
+		line("Include @owasp_crs/RESPONSE-*.conf")
+	}
 	return b.String(), nil
+}
+
+// firstExclusionRuleID is the id of the first generated exclusion rule. CRS
+// reserves 9,000,000-9,999,999 for third parties; Sherlock uses 9,100,000+ for
+// exclusions, 9,500,000+ for virtual patches.
+const firstExclusionRuleID = 9_100_000
+
+// exclusionDirectives renders the exclusions in id order as CRS-style runtime
+// exclusion rules. Every value that reaches the output has passed
+// config validation; the escaping here is defence in depth.
+func exclusionDirectives(exclusions []config.Exclusion) (string, error) {
+	sorted := slices.Clone(exclusions)
+	slices.SortFunc(sorted, func(a, b config.Exclusion) int { return strings.Compare(a.ID, b.ID) })
+	var b strings.Builder
+	for i, x := range sorted {
+		ctls, err := exclusionActions(x)
+		if err != nil {
+			return "", fmt.Errorf("exclusion %q: %w", x.ID, err)
+		}
+		id := firstExclusionRuleID + i
+		pathRE, err := config.PathsRegexp(x.Match.Paths)
+		if err != nil {
+			return "", fmt.Errorf("exclusion %q: %w", x.ID, err)
+		}
+		methodRE := ""
+		if len(x.Match.Methods) > 0 {
+			methodRE = "^(?:" + strings.Join(x.Match.Methods, "|") + ")$"
+		}
+		head := fmt.Sprintf("id:%d,phase:1,pass,nolog,t:none", id)
+		switch {
+		case pathRE == "" && methodRE == "":
+			fmt.Fprintf(&b, "SecAction \"%s,%s\"\n", head, ctls)
+		case pathRE != "" && methodRE != "":
+			fmt.Fprintf(&b, "SecRule REQUEST_FILENAME \"@rx %s\" \"%s,chain\"\n", pathRE, head)
+			fmt.Fprintf(&b, "  SecRule REQUEST_METHOD \"@rx %s\" \"t:none,%s\"\n", methodRE, ctls)
+		case pathRE != "":
+			fmt.Fprintf(&b, "SecRule REQUEST_FILENAME \"@rx %s\" \"%s,%s\"\n", pathRE, head, ctls)
+		default:
+			fmt.Fprintf(&b, "SecRule REQUEST_METHOD \"@rx %s\" \"%s,%s\"\n", methodRE, head, ctls)
+		}
+	}
+	return strings.TrimRight(b.String(), "\n"), nil
+}
+
+func exclusionActions(x config.Exclusion) (string, error) {
+	var ctls []string
+	for _, id := range x.RemoveRuleIDs {
+		if _, _, ok := config.ParseRuleIDRange(id); !ok {
+			return "", fmt.Errorf("invalid rule id %q", id)
+		}
+		ctls = append(ctls, "ctl:ruleRemoveById="+id)
+	}
+	for _, t := range x.RemoveTags {
+		if strings.ContainsAny(t, `,;'"\ `) {
+			return "", fmt.Errorf("invalid tag %q", t)
+		}
+		ctls = append(ctls, "ctl:ruleRemoveByTag="+t)
+	}
+	for _, t := range x.RemoveTargets {
+		if strings.ContainsAny(t.Target, `;'"\ `) {
+			return "", fmt.Errorf("invalid target %q", t.Target)
+		}
+		for _, id := range t.RuleIDs {
+			if _, _, ok := config.ParseRuleIDRange(id); !ok {
+				return "", fmt.Errorf("invalid rule id %q", id)
+			}
+			ctls = append(ctls, "ctl:ruleRemoveTargetById="+id+";"+t.Target)
+		}
+		for _, tag := range t.Tags {
+			if strings.ContainsAny(tag, `,;'"\ `) {
+				return "", fmt.Errorf("invalid tag %q", tag)
+			}
+			ctls = append(ctls, "ctl:ruleRemoveTargetByTag="+tag+";"+t.Target)
+		}
+	}
+	if len(ctls) == 0 {
+		return "", fmt.Errorf("removes nothing")
+	}
+	return strings.Join(ctls, ","), nil
 }

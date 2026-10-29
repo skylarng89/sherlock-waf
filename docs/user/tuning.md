@@ -53,3 +53,7 @@ Each patch lists false-positive notes. Several protect install or admin endpoint
 - **Custom rules tab.** A SecLang editor with live validation. Issues are listed by line, and Save stays disabled until the rules are valid. Press Tab to leave the editor.
 - **CRS rules** (sidebar) lists every CRS rule with search, category, paranoia level and direction filters, and the enforcement state per site.
 - **Virtual patches** (sidebar) lists CVE rules with product, severity, a known-exploited badge, hits and a per-site switch; the overview shows a "Covered CVEs" tile. Declare a site's stacks and virtual-patch options under its Settings tab.
+
+## Static assets and virtual patches
+
+By default GET and HEAD requests for static asset extensions (`.js`, `.css`, images) without a query string skip inspection. A site that declares a product stack with active virtual patches inspects every request instead, because some exploits (for example ProxyLogon) travel on asset-looking paths with the payload in a cookie. Sites without a declared stack keep the skip.

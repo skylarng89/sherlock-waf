@@ -16,6 +16,7 @@ import (
 
 	"github.com/skylarng89/sherlock-waf/internal/config"
 	"github.com/skylarng89/sherlock-waf/internal/dataplane/waf"
+	"github.com/skylarng89/sherlock-waf/internal/vpatch"
 )
 
 // Options carries deployment settings that are not part of the user config.
@@ -334,6 +335,10 @@ func (c *compilation) chain(s config.Site, eff config.EffectivePolicy) ([]obj, e
 	}
 
 	if eff.Mode != config.ModeOff && eff.WAF.Enabled {
+		patches, err := vpatch.Select(eff.VirtualPatches.Enabled, eff.VirtualPatches.Disabled, eff.DeclaredStacks())
+		if err != nil {
+			return nil, err
+		}
 		settings := waf.Settings{
 			Mode:                  eff.Mode,
 			ParanoiaLevel:         eff.WAF.ParanoiaLevel,
@@ -341,6 +346,14 @@ func (c *compilation) chain(s config.Site, eff config.EffectivePolicy) ([]obj, e
 			InboundThreshold:      eff.WAF.InboundThreshold,
 			OutboundThreshold:     eff.WAF.OutboundThreshold,
 			MaxBodyBytes:          eff.WAF.MaxBodyBytes,
+			Exclusions:            eff.WAF.Exclusions,
+			CustomRules:           eff.WAF.CustomRules,
+			VirtualPatches:        patches,
+		}
+		if eff.WAF.OutboundInspection {
+			settings.OutboundInspection = true
+			settings.OutboundMaxBodyBytes = eff.WAF.OutboundMaxBodyBytes
+			settings.OutboundContentTypes = eff.WAF.OutboundContentTypes
 		}
 		if _, err := settings.Directives(); err != nil {
 			return nil, err
@@ -355,7 +368,21 @@ func (c *compilation) chain(s config.Site, eff config.EffectivePolicy) ([]obj, e
 			"inbound_threshold":          settings.InboundThreshold,
 			"outbound_threshold":         settings.OutboundThreshold,
 			"max_body_bytes":             settings.MaxBodyBytes,
-			"skip_inspection_extensions": eff.WAF.SkipInspectionExtensions,
+			"skip_inspection_extensions": skipExtensions(eff, patches),
+		}
+		if len(settings.Exclusions) > 0 {
+			w["exclusions"] = settings.Exclusions
+		}
+		if settings.CustomRules != "" {
+			w["custom_rules"] = settings.CustomRules
+		}
+		if len(settings.VirtualPatches) > 0 {
+			w["virtual_patches"] = settings.VirtualPatches
+		}
+		if settings.OutboundInspection {
+			w["outbound_inspection"] = true
+			w["outbound_max_body_bytes"] = settings.OutboundMaxBodyBytes
+			w["outbound_content_types"] = settings.OutboundContentTypes
 		}
 		if id := eff.BlockPage.TemplateID; id != config.DefaultBlockPageTemplate {
 			w["block_page_id"] = id
@@ -571,4 +598,15 @@ func botHandler(siteID string, b config.EffectiveBot) obj {
 		h["rules"] = rules
 	}
 	return h
+}
+
+// skipExtensions returns the static-asset extensions that bypass inspection.
+// A site that declares a product stack with active virtual patches inspects
+// everything: exploits such as ProxyLogon ride on innocuous-looking asset paths
+// with the payload in a cookie, which the skip would otherwise hide from the patch.
+func skipExtensions(eff config.EffectivePolicy, patches []string) []string {
+	if len(patches) > 0 && len(eff.DeclaredStacks()) > 0 {
+		return nil
+	}
+	return eff.WAF.SkipInspectionExtensions
 }
