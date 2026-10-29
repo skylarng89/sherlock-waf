@@ -7,6 +7,7 @@ import { useApi } from '@/api/useApi'
 import SkEmptyState from '@/components/SkEmptyState.vue'
 import SkPageHeader from '@/components/SkPageHeader.vue'
 import SkStatusBadge from '@/components/SkStatusBadge.vue'
+import BotStats from '@/pages/bot/BotStats.vue'
 import { useSessionStore } from '@/stores/session'
 import TrafficChart from './TrafficChart.vue'
 
@@ -150,6 +151,7 @@ onBeforeUnmount(() => timer && clearInterval(timer))
         </p>
       </section>
     </template>
+    <BotStats v-if="canEvents" />
   </div>
 
   <TrafficChart v-if="canEvents" :sites="siteIds" />

@@ -15,6 +15,11 @@ const PAGES = [
   '/audit',
   '/users',
   '/tokens',
+  '/sites/demo/bot',
+  '/events',
+  '/analytics',
+  '/reports/would-block',
+  '/system',
 ]
 
 test.describe('CSP and network isolation @smoke', () => {

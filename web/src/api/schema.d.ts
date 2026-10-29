@@ -524,6 +524,69 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/system/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check whether a newer signed release is available
+         * @description Fetches the signed release manifest through the SSRF-safe client, verifies its signature
+         *     with the release key built into the binary and compares versions. Results are cached for
+         *     five minutes. A failed check is a 502, never a stale "up to date".
+         */
+        get: operations["getUpdateStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/system/update/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Download, verify and stage or install the latest signed release
+         * @description Verifies the manifest signature and archive checksum, refuses downgrades, then either replaces
+         *     the binary (when the process may write it) or stages the verified bundle in the data directory,
+         *     where the service unit installs it, after verifying it again as root, at the next start.
+         *     Never restarts the process: the response says what to do. Audited as `system.update`. Refused
+         *     inside containers, where the image is updated instead.
+         */
+        post: operations["applyUpdate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/system/backups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The node's own backups (scheduled and manual), newest first */
+        get: operations["listBackups"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/stats/timeseries": {
         parameters: {
             query?: never;
@@ -997,6 +1060,38 @@ export interface components {
             /** Format: password */
             password: string;
         };
+        UpdateStatus: {
+            current: string;
+            latest: string;
+            /** @description CRS version shipped with the latest release */
+            crs_version?: string;
+            available: boolean;
+            /** @description Why the available release cannot be installed from here (for example min_upgrade_from) */
+            reason?: string;
+            /** @description A verified update waiting for the next service start */
+            staged_version?: string;
+            /** @description Containers update by pulling a new image; apply is refused */
+            in_container: boolean;
+        };
+        UpdateApplyResult: {
+            from: string;
+            to: string;
+            /** @enum {string} */
+            state: "staged" | "installed";
+            /** @description What the operator does next to run the new version */
+            restart: string;
+        };
+        Backup: {
+            name: string;
+            /** Format: int64 */
+            bytes: number;
+            /** Format: date-time */
+            created_at: string;
+            encrypted: boolean;
+        };
+        BackupList: {
+            items: components["schemas"]["Backup"][];
+        };
         TestUpstreamRequest: {
             /** @description host:port of the upstream */
             target: string;
@@ -1013,7 +1108,7 @@ export interface components {
             /** @description HTTP status of HEAD /, when one was received */
             status?: number;
             latency_ms: number;
-            /** @description Short reason class: dns, refused, timeout, tls, protocol */
+            /** @description Short reason class: dns, refused, timeout, tls, protocol, blocked (link-local, multicast or unspecified address) */
             error?: string;
         };
         Timeseries: {
@@ -2305,6 +2400,72 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem"];
+        };
+    };
+    getUpdateStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateStatus"];
+                };
+            };
+            501: components["responses"]["Problem"];
+            502: components["responses"]["Problem"];
+        };
+    };
+    applyUpdate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Staged or installed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateApplyResult"];
+                };
+            };
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            501: components["responses"]["Problem"];
+            502: components["responses"]["Problem"];
+        };
+    };
+    listBackups: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupList"];
+                };
+            };
         };
     };
     getTimeseries: {

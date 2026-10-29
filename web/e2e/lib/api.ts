@@ -35,6 +35,18 @@ export class ApiClient {
     return this.ctx.post(`/api/v1${path}`, { data, headers: await this.headers() })
   }
 
+  /** POST with extra headers (If-Match for config writes). */
+  async postWith(
+    path: string,
+    data: unknown,
+    headers: Record<string, string>,
+  ): Promise<APIResponse> {
+    return this.ctx.post(`/api/v1${path}`, {
+      data,
+      headers: { ...(await this.headers()), ...headers },
+    })
+  }
+
   async json<T>(res: APIResponse, expected = 200): Promise<T> {
     if (res.status() !== expected) {
       throw new Error(`${res.url()} answered ${res.status()}: ${await res.text()}`)
@@ -56,6 +68,7 @@ export function dataPlaneGet(
   httpPort: number,
   host: string,
   path: string,
+  extraHeaders: Record<string, string> = {},
 ): Promise<{ status: number; body: string; headers: Record<string, string> }> {
   return new Promise((resolve, reject) => {
     const req = httpRequest(
@@ -64,7 +77,7 @@ export function dataPlaneGet(
         port: httpPort,
         path,
         method: 'GET',
-        headers: { Host: host },
+        headers: { ...extraHeaders, Host: host },
         agent: false,
       },
       (res) => {

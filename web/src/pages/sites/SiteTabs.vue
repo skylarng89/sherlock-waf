@@ -9,6 +9,7 @@ const tabs = [
   { route: 'site-endpoints', label: 'sites.tabs.endpoints' },
   { route: 'site-acl', label: 'access.tabs.acl' },
   { route: 'site-rate-limits', label: 'access.tabs.rateLimits' },
+  { route: 'site-bot', label: 'bot.tab' },
 ]
 </script>
 

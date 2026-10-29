@@ -21,6 +21,12 @@ const ADMIN_PAGES: { name: string; path: string; title: RegExp }[] = [
   { name: 'audit', path: '/audit', title: /audit/i },
   { name: 'history', path: '/history', title: /history/i },
   { name: 'history-detail', path: '/history/:version', title: /./ },
+  { name: 'site-bot', path: '/sites/demo/bot', title: /Demo shop/ },
+  { name: 'events', path: '/events', title: /^Attack explorer$/ },
+  { name: 'event-detail', path: '/events/:event', title: /^Event detail$/ },
+  { name: 'analytics', path: '/analytics', title: /^Analytics$/ },
+  { name: 'would-block', path: '/reports/would-block', title: /^Would-block report$/ },
+  { name: 'system', path: '/system', title: /^System$/ },
   { name: 'forbidden', path: '/403', title: /^Access denied$/ },
   { name: 'not-found', path: '/no-such-page', title: /^Page not found$/ },
 ]
@@ -34,6 +40,19 @@ test.describe('axe: signed-in pages', () => {
       const versions = await api.json<{ items: { id: string }[] }>(
         await api.get('/config/versions'),
       )
+      let event = ''
+      await expect
+        .poll(
+          async () => {
+            const page = await api.json<{ items: { id: string }[] }>(
+              await api.get('/events?limit=1'),
+            )
+            event = page.items[0]?.id ?? ''
+            return event
+          },
+          { message: 'the seeded events are stored', timeout: 30_000 },
+        )
+        .not.toBe('')
       await api.dispose()
       const version = versions.items[0]?.id ?? ''
       expect(version).not.toBe('')
@@ -44,7 +63,7 @@ test.describe('axe: signed-in pages', () => {
       for (const p of ADMIN_PAGES) {
         await test.step(`${p.name}`, async () => {
           try {
-            await shell.goto(p.path.replace(':version', version), p.title)
+            await shell.goto(p.path.replace(':version', version).replace(':event', event), p.title)
             await expectAccessible(adminPage, testInfo, `${p.name}-${theme}`)
           } catch (e) {
             failures.push(`${p.name} (${theme}): ${(e as Error).message}`)

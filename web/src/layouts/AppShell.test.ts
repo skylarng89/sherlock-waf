@@ -37,10 +37,14 @@ describe('AppShell', () => {
       'Access',
       'Bans',
       'Certificates',
+      'Attack explorer',
+      'Analytics',
+      'Would-block report',
       'Config history',
       'Audit log',
       'Users',
       'API tokens',
+      'System',
     ])
     admin.wrapper.unmount()
 
