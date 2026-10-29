@@ -9,6 +9,8 @@ import (
 	"runtime"
 
 	"github.com/spf13/cobra"
+
+	"github.com/skylarng89/sherlock-waf/pkg/extension"
 )
 
 // BuildInfo identifies a build. The values are injected with -ldflags at link time.
@@ -19,7 +21,8 @@ type BuildInfo struct {
 }
 
 type options struct {
-	ui http.Handler
+	ui         http.Handler
+	extensions []extension.Extension
 }
 
 // Option customises the command tree.
@@ -29,6 +32,12 @@ type Option func(*options)
 // supplies its own, so an edition can embed a different dashboard build.
 func WithUI(h http.Handler) Option {
 	return func(o *options) { o.ui = h }
+}
+
+// WithExtensions registers extensions with the server. The open-source binary
+// registers none (extension.None()); another edition passes its own.
+func WithExtensions(exts ...extension.Extension) Option {
+	return func(o *options) { o.extensions = append(o.extensions, exts...) }
 }
 
 // Execute builds the command tree for info and runs it with ctx.
@@ -50,7 +59,12 @@ func NewRootCommand(info BuildInfo, opts ...Option) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: false,
 	}
-	root.AddCommand(newVersionCommand(info), newRunCommand(o))
+	var sf stateFlags
+	sf.bind(root)
+	root.AddCommand(
+		newVersionCommand(info), newRunCommand(o, &sf, info),
+		newUserCommand(&sf), newHashPasswordCommand(), newTokenCommand(&sf), newConfigCommand(&sf), newAuditCommand(&sf), newSecretsCommand(&sf),
+	)
 	return root
 }
 
