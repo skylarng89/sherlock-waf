@@ -11,7 +11,9 @@ jobs:
   goreleaser:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write   # create the GitHub Release and upload assets
+      packages: write   # push the container image to GHCR
+      id-token: write   # keyless cosign signing with the workflow's OIDC identity
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -28,6 +30,21 @@ jobs:
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
       - run: pnpm --dir web install --frozen-lockfile
+      # arm64 image layers are assembled with buildx; install emulation for them.
+      - run: docker run --privileged --rm tonistiigi/binfmt --install arm64
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
       - run: go tool -modfile=tools/go.mod goreleaser release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # The manifest needs the final checksums, so it is built after GoReleaser,
+      # signed the same way, and attached to the release.
+      - name: Release manifest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          scripts/release-manifest.sh dist "$version"
+          go tool -modfile=tools/go.mod cosign sign-blob --yes \
+            --bundle dist/release-manifest.json.sigstore.json dist/release-manifest.json
+          gh release upload "$GITHUB_REF_NAME" dist/release-manifest.json dist/release-manifest.json.sigstore.json
