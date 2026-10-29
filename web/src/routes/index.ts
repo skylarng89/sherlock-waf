@@ -1,14 +1,19 @@
 import type { RouteRecordRaw } from 'vue-router'
 import access from './access'
+import analytics from './analytics'
 import audit from './audit'
 import auth from './auth'
 import bans from './bans'
+import bot from './bot'
 import certificates from './certificates'
 import defaults from './defaults'
+import events from './events'
 import history from './history'
 import overview from './overview'
+import reports from './reports'
 import setup from './setup'
 import sites from './sites'
+import system from './system'
 import tokens from './tokens'
 import type { AreaModule, NavItem } from './types'
 import users from './users'
@@ -27,6 +32,11 @@ const areas: AreaModule[] = [
   setup,
   access,
   bans,
+  bot,
+  events,
+  analytics,
+  reports,
+  system,
 ]
 
 const shared: RouteRecordRaw[] = [
