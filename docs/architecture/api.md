@@ -63,7 +63,10 @@ Operational conventions: errors are RFC 9457 `application/problem+json` with a `
 | `GET/POST /users`, `PATCH/DELETE /users/{id}`, `POST /users/{id}/reset-mfa` | Users | admin | M3 |
 | `GET/POST /tokens`, `DELETE /tokens/{id}` | API tokens (own; admin sees all) | any / admin | M3 |
 | `GET /audit` | Audit log | admin | M3 |
-| `GET /system/health`, `/system/info`, `/system/update`, `POST /system/update/apply`, `POST /system/backup` | System | viewer / admin | M7 |
+| `GET /system/health`, `/system/info` | System | viewer | M7 |
+| `GET /system/update` | Is a newer signed release available (verified, cached 5 min; 502 when the check fails) | viewer (`system:read`) | M7 |
+| `POST /system/update/apply` | Download, verify (ADR-0017) and stage or install the latest release; never restarts; audited | admin (`system:update`; the `admin` token scope only) | M7 |
+| `GET /system/backups` | The node's own backups, newest first | viewer (`system:read`) | M7 |
 | `GET /setup/status`, `POST /setup/admin` | First-run setup: whether it is open; create the first admin with the one-time setup token | public (token-guarded, closes itself) | M4 |
 | `POST /system/test-upstream` | Reachability check for an upstream (connect + `HEAD /`, no redirects, 3 s, no response content returned) | admin | M4 |
 | `GET /stats/timeseries?from&to&step&site` | Event counts per bucket and action from the minute rollups (dense buckets, at most 2000) | viewer | M4 |

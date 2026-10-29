@@ -58,6 +58,6 @@ Until the event store exists (M3), security events are written as JSON lines, on
 - optionally `$DATA_DIR/access.jsonl`: a sampled log of *clean* requests (`global.events.access_log`, off by default), kept apart from security events.
 
 The data directory defaults to `$XDG_DATA_HOME/sherlock` or `~/.local/share/sherlock`; override with `--data-dir`. Only whole lines are ever written, so a log shipper tailing the file never sees a truncated event.
-- Backups: daily automatic to `$DATA_DIR/backups`, keep 7; copy off-host with your own tooling.
+- Backups: daily automatic to `$DATA_DIR/backups`, keep 7 (`SHERLOCK_BACKUP=off`, `SHERLOCK_BACKUP_KEEP=N`, `SHERLOCK_BACKUP_PASSPHRASE_FILE=<file>` to encrypt); copy off-host with your own tooling. Keep a separate copy of `node.key`. Details: [backup and restore](../user/backup-restore.md).
 - Logs: JSON to stdout/journald.
-- Upgrades: `sherlock update` (online) or `sherlock update --bundle sherlock-X.Y.Z-linux-amd64.tar.gz` (offline). Both verify signatures, back up, migrate, restart with zero downtime for proxied connections that finish within 30 s.
+- Upgrades: `sherlock update` (online) or `sherlock update --bundle sherlock-X.Y.Z-linux-amd64.tar.gz` (offline). Both verify the Ed25519-signed release manifest and the archive checksum, refuse downgrades, back up, swap the binary atomically and restart the unit (a binary that does not stay up is rolled back). Proxied connections that finish within 30 s drain on restart. The dashboard/API path (`POST /system/update/apply`) stages the verified update and the unit installs it as root at the next start. Containers update by pulling a new image. See [upgrade](../user/upgrade.md) and [ADR-0017](../architecture/adr/0017-update-verification.md).

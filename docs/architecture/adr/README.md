@@ -19,5 +19,7 @@ We record significant decisions as ADRs (Michael Nygard format). An ADR is immut
 | [0013](0013-virtual-patching-rule-pack.md) | Virtual-patching rule pack for exploited CVEs | Accepted |
 | [0014](0014-throughput-budget.md) | Throughput budget (NFR-2) | **Proposed** |
 | [0015](0015-single-codegen-store.md) | One set of queries, run on both databases | Accepted |
+| [0016](0016-first-run-setup-and-uploaded-assets.md) | First-run setup token and uploaded assets | Accepted |
+| [0017](0017-update-verification.md) | Update verification (Ed25519 manifest), atomic swap, restart | Accepted |
 
 New ADRs: copy [template.md](template.md), take the next number, open a PR titled `docs(adr): NNNN <title>`.

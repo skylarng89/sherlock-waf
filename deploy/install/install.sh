@@ -43,7 +43,7 @@ else
 fi
 
 if [ -z "$VERSION" ]; then
-	VERSION="$(curl -fsSLI -o /dev/null -w '%{url_effective}' "https://github.com/$REPO/releases/latest" | sed 's|.*/tag/||')"
+	VERSION="$(curl --proto =https --tlsv1.2 -fsSLI -o /dev/null -w '%{url_effective}' "https://github.com/$REPO/releases/latest" | sed 's|.*/tag/||')"
 fi
 case "$VERSION" in
 	v[0-9]*) ;;
@@ -57,9 +57,9 @@ BASE="https://github.com/$REPO/releases/download/$VERSION"
 PKG="sherlock_${VER}_linux_${ARCH}.${KIND}"
 
 echo "Downloading $PKG and checksums for $VERSION..."
-curl -fsSL -o "$WORK/$PKG" "$BASE/$PKG"
-curl -fsSL -o "$WORK/checksums.txt" "$BASE/checksums.txt"
-curl -fsSL -o "$WORK/checksums.txt.sigstore.json" "$BASE/checksums.txt.sigstore.json" || true
+curl --proto =https --tlsv1.2 -fsSL -o "$WORK/$PKG" "$BASE/$PKG"
+curl --proto =https --tlsv1.2 -fsSL -o "$WORK/checksums.txt" "$BASE/checksums.txt"
+curl --proto =https --tlsv1.2 -fsSL -o "$WORK/checksums.txt.sigstore.json" "$BASE/checksums.txt.sigstore.json" || true
 
 if command -v cosign >/dev/null; then
 	echo "Verifying the checksum signature..."
@@ -76,7 +76,7 @@ else
 fi
 
 echo "Verifying the package checksum..."
-(cd "$WORK" && grep " $PKG\$" checksums.txt | sha256sum -c -) || { echo "checksum mismatch: refusing to install" >&2; exit 1; }
+(cd "$WORK" && awk -v f="$PKG" '$2 == f' checksums.txt | sha256sum -c -) || { echo "checksum mismatch: refusing to install" >&2; exit 1; }
 
 echo "Installing..."
 if [ "$KIND" = deb ]; then

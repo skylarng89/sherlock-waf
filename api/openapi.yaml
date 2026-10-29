@@ -502,6 +502,46 @@ paths:
       responses:
         "200": { description: Result (a failed check is still 200 with reachable=false), content: { application/json: { schema: { $ref: "#/components/schemas/TestUpstreamResult" } } } }
         "400": { $ref: "#/components/responses/Problem" }
+  /system/update:
+    get:
+      operationId: getUpdateStatus
+      tags: [system]
+      summary: Check whether a newer signed release is available
+      description: |
+        Fetches the signed release manifest through the SSRF-safe client, verifies its signature
+        with the release key built into the binary and compares versions. Results are cached for
+        five minutes. A failed check is a 502, never a stale "up to date".
+      x-sherlock-permission: system:read
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/UpdateStatus" } } } }
+        "501": { $ref: "#/components/responses/Problem" }
+        "502": { $ref: "#/components/responses/Problem" }
+  /system/update/apply:
+    post:
+      operationId: applyUpdate
+      tags: [system]
+      summary: Download, verify and stage or install the latest signed release
+      description: |
+        Verifies the manifest signature and archive checksum, refuses downgrades, then either replaces
+        the binary (when the process may write it) or stages the verified bundle in the data directory,
+        where the service unit installs it, after verifying it again as root, at the next start.
+        Never restarts the process: the response says what to do. Audited as `system.update`. Refused
+        inside containers, where the image is updated instead.
+      x-sherlock-permission: system:update
+      responses:
+        "200": { description: Staged or installed, content: { application/json: { schema: { $ref: "#/components/schemas/UpdateApplyResult" } } } }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "501": { $ref: "#/components/responses/Problem" }
+        "502": { $ref: "#/components/responses/Problem" }
+  /system/backups:
+    get:
+      operationId: listBackups
+      tags: [system]
+      summary: The node's own backups (scheduled and manual), newest first
+      x-sherlock-permission: system:read
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/BackupList" } } } }
   /stats/timeseries:
     get:
       operationId: getTimeseries
@@ -968,6 +1008,38 @@ components:
         setup_token: { type: string, maxLength: 256 }
         username: { type: string, minLength: 3, maxLength: 64, pattern: "^[A-Za-z0-9._-]+$" }
         password: { type: string, minLength: 12, maxLength: 1024, format: password }
+    UpdateStatus:
+      type: object
+      required: [current, latest, available, in_container]
+      properties:
+        current: { type: string }
+        latest: { type: string }
+        crs_version: { type: string, description: "CRS version shipped with the latest release" }
+        available: { type: boolean }
+        reason: { type: string, description: "Why the available release cannot be installed from here (for example min_upgrade_from)" }
+        staged_version: { type: string, description: "A verified update waiting for the next service start" }
+        in_container: { type: boolean, description: "Containers update by pulling a new image; apply is refused" }
+    UpdateApplyResult:
+      type: object
+      required: [from, to, state, restart]
+      properties:
+        from: { type: string }
+        to: { type: string }
+        state: { type: string, enum: [staged, installed] }
+        restart: { type: string, description: "What the operator does next to run the new version" }
+    Backup:
+      type: object
+      required: [name, bytes, created_at, encrypted]
+      properties:
+        name: { type: string }
+        bytes: { type: integer, format: int64 }
+        created_at: { type: string, format: date-time }
+        encrypted: { type: boolean }
+    BackupList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Backup" } }
     TestUpstreamRequest:
       type: object
       required: [target]
@@ -982,7 +1054,7 @@ components:
         reachable: { type: boolean }
         status: { type: integer, description: "HTTP status of HEAD /, when one was received" }
         latency_ms: { type: integer }
-        error: { type: string, description: "Short reason class: dns, refused, timeout, tls, protocol" }
+        error: { type: string, description: "Short reason class: dns, refused, timeout, tls, protocol, blocked (link-local, multicast or unspecified address)" }
     Timeseries:
       type: object
       required: [from, to, step, points]

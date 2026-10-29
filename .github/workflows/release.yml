@@ -38,13 +38,22 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # The manifest needs the final checksums, so it is built after GoReleaser,
-      # signed the same way, and attached to the release.
+      # signed with cosign (extra, for humans) and with the Ed25519 release key that
+      # `sherlock update` verifies offline (ADR-0017), and attached to the release.
+      # RELEASE_SIGNING_KEY is the base64 Ed25519 seed; its public half is committed
+      # in internal/updater/release_key.pub, which the build embeds.
       - name: Release manifest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
         run: |
+          umask 077
+          keyfile="$(mktemp)"
+          trap 'rm -f "$keyfile"' EXIT
+          printf '%s' "$RELEASE_SIGNING_KEY" > "$keyfile"
           version="${GITHUB_REF_NAME#v}"
           scripts/release-manifest.sh dist "$version"
           go tool -modfile=tools/go.mod cosign sign-blob --yes \
             --bundle dist/release-manifest.json.sigstore.json dist/release-manifest.json
-          gh release upload "$GITHUB_REF_NAME" dist/release-manifest.json dist/release-manifest.json.sigstore.json
+          go run ./internal/updater/cmd/sign-manifest "$keyfile" dist/release-manifest.json dist/release-manifest.json.sig
+          gh release upload "$GITHUB_REF_NAME" dist/release-manifest.json dist/release-manifest.json.sig dist/release-manifest.json.sigstore.json

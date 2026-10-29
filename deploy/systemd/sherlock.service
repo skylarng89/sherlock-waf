@@ -9,6 +9,9 @@ Type=simple
 User=sherlock
 Group=sherlock
 EnvironmentFile=-/etc/sherlock/sherlock.env
+# "-+": run as root outside the sandbox below, and never block start-up if it fails. It installs an update
+# staged through the API (POST /system/update/apply) after verifying it again against the built-in release key.
+ExecStartPre=-+/usr/bin/sherlock update --apply-staged --data-dir /var/lib/sherlock
 ExecStart=/usr/bin/sherlock run --data-dir /var/lib/sherlock
 Restart=on-failure
 RestartSec=2s

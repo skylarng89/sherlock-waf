@@ -37,7 +37,7 @@ A WAF sits in front of financial applications and sees every request, including 
 | T9 | Malicious custom SecLang rule exfiltrating data or executing commands | 2 | Disallow `exec`, `SecRuleScript` Lua, `SecAuditLog` directives in user rules; validator with allow-list of actions; admins only | M8 |
 | T10 | Tampering with config or audit logs | 2, 5 | Every change audited with actor; hash-chained audit rows (Enterprise adds signing and WORM) | M3 |
 | T11 | Secrets at rest disclosed | 5 | Secrets encrypted with node key; data dir 0700; key separate from backups by default | M3, M7 |
-| T12 | Malicious update / supply-chain compromise | 4 | cosign-signed artefacts verified by `sherlock update` against a pinned public key / identity; SBOM; pinned dependencies with Renovate; `govulncheck` in CI | M0, M7 |
+| T12 | Malicious update / supply-chain compromise | 4 | release manifest signed with an Ed25519 key embedded in the binary, verified offline by `sherlock update` with checksums, downgrade refusal and a re-verifying root apply step ([ADR-0017](../architecture/adr/0017-update-verification.md)); cosign signatures in CI as an extra; SBOM; pinned dependencies with Renovate; `govulncheck` in CI | M0, M7 |
 | T13 | SSRF via user-configured URLs (JWKS, webhooks, feeds) | 2→4 | Outbound HTTP client with deny-list for link-local, metadata IPs (169.254.169.254), loopback, unless explicitly allowed; timeouts | M9, M10 |
 | T14 | Sensitive data in Sherlock's logs and events | 1 | Redaction rules (events.md); no request bodies by default; PAN masking | M2, M11 |
 | T15 | Denial of service of the admin plane affecting traffic | 2 | Separate listener and goroutine pools; data plane independent of control plane (NFR-4) | M3 |

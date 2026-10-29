@@ -41,7 +41,13 @@ sherlock config apply  sherlock.yaml            # replace; no-op when identical
 sherlock hash-password                          # argon2id hash for a site password gate
 sherlock audit verify                           # checks the audit hash chain
 sherlock secrets rotate-key                     # re-encrypt secrets under a new node key
+sherlock backup [--output F] [--include-key] [--passphrase-stdin] [--files-only]   # safe while running
+sherlock backup verify FILE | list              # check an archive end to end; list <data-dir>/backups
+sherlock restore FILE [--force] [--passphrase-stdin]   # server stopped
+sherlock update [--check | --bundle FILE | --rollback]  # signed releases; see upgrade.md
 ```
+
+Guides: [install](install.md), [first site](first-site.md), [detect to block](detect-to-block.md), [backup and restore](backup-restore.md), [upgrade](upgrade.md).
 
 Passwords are read from a prompt, or from stdin with `--password-stdin`; never from a flag or the environment. `token create` prints the secret once on stdout.
 
@@ -56,3 +62,16 @@ Rotating the node key needs the server stopped.
 ## Export and import
 
 `config export` followed by `config import` on a fresh node reproduces the same configuration, and therefore the same compiled proxy configuration.
+
+## Secrets in API responses
+
+A site's password gate stores an argon2id hash (`policy.acl.password_gate.password_hash`, at the global defaults, site and endpoint level). The API never returns it: `GET /config`, `/defaults`, `/sites`, `/sites/{site}`, `/sites/{site}/endpoints[/{endpoint}]` and `/config/versions/{id}` show the literal string `<redacted>` instead, for every caller including administrators. Writes treat the field like this:
+
+| You send | Result |
+| --- | --- |
+| a real `$argon2id$...` hash | it replaces the stored one |
+| `"<redacted>"` (a read-modify-write round trip) | the stored hash for the same site and endpoint id is kept |
+| the field omitted | the stored hash is kept |
+| `"<redacted>"` or nothing for a gate that has no stored hash (a new site, another site's id) | no hash: validation says the hash is required |
+
+The hash is matched by site and endpoint id, so it can never move to another site, and the stored value is never overwritten with the placeholder. A hash cannot be removed by omitting it: disable the gate (`enabled: false`) or delete the site. Note that JSON encoders in some languages escape `<` and `>` (`"\u003credacted\u003e"`); that decodes to the same string. `sherlock config export` on the node (no `--server`) still writes the real hashes, because it reads the database directly with operator access; over `--server` it receives the placeholder.

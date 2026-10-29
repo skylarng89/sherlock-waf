@@ -45,4 +45,13 @@ cosign verify-blob --certificate-identity-regexp 'https://github.com/skylarng89/
   --bundle checksums.txt.sigstore.json checksums.txt
 ```
 
-`sherlock update` performs the same verification automatically and refuses unsigned or mismatched artefacts.
+`sherlock update` does not need cosign: it verifies `release-manifest.json` against the Ed25519 release key embedded in the binary, then the SHA-256 of the archive, and refuses unsigned, mismatched, older or too-old-to-upgrade releases ([ADR-0017](../architecture/adr/0017-update-verification.md)). The workflow signs the manifest with `RELEASE_SIGNING_KEY` (base64 Ed25519 seed, repository secret) using `go run ./internal/updater/cmd/sign-manifest`, and uploads `release-manifest.json`, `release-manifest.json.sig` and the cosign bundle.
+
+### Release signing key (one-time setup, before the first public release)
+
+```bash
+(umask 077; head -c 32 /dev/urandom | base64 > release-seed.b64)   # keep offline; paste into the RELEASE_SIGNING_KEY secret
+go run ./internal/updater/cmd/sign-manifest -public release-seed.b64 > internal/updater/release_key.pub   # commit this
+```
+
+Until `release_key.pub` holds a real key, every build refuses to update (fail closed). Rotating the key needs a release signed with the old key that embeds the new one.

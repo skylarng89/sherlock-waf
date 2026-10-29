@@ -22,9 +22,11 @@ Written: 2026-10-28. Status: approved plan, pre-implementation.
 | 12 | [security/threat-model.md](security/threat-model.md) | Any change to auth, the admin surface, parsing or updates |
 | 13 | [security/secure-development.md](security/secure-development.md) | Every pull request |
 | 13b | [security/virtual-patching-process.md](security/virtual-patching-process.md) | Adding protection for an exploited CVE |
+| 13c | [security/asvs-review-m7.md](security/asvs-review-m7.md) | Auditing the control plane; open security findings and tickets |
 | 14 | [engineering/](engineering/) | Repo layout, coding standards, testing, CI/CD, dev environment |
 | 15 | [release/](release/) | Versioning, releases, upgrades and support |
 | 16 | [operations/deployment.md](operations/deployment.md) | Installing and running Sherlock |
+| 16b | [user/](user/) | Install, first site, detect-to-block rollout, backup and restore, upgrade |
 | 17 | [plan/roadmap.md](plan/roadmap.md) | Choosing the next milestone |
 | 18 | [plan/milestones/](plan/milestones/) | Building. One file per milestone with tasks and acceptance criteria |
 
