@@ -23,6 +23,10 @@ type Options struct {
 	HTTPPort  int    // default 80
 	HTTPSPort int    // default 443
 	DataDir   string // certificate storage; empty means Caddy's default
+	// CertFiles resolves an uploaded certificate id to PEM files on disk, which
+	// Caddy loads. Nil means no uploaded certificates are available and a
+	// config that references one fails to compile.
+	CertFiles func(id string) (certFile, keyFile string, err error)
 }
 
 type obj = map[string]any
@@ -60,6 +64,17 @@ type compilation struct {
 	opts Options
 }
 
+func (c *compilation) resolveCert(id string) (certFile, keyFile string, err error) {
+	if c.opts.CertFiles == nil {
+		return "", "", fmt.Errorf("certificate %q is not available on this node", id)
+	}
+	certFile, keyFile, err = c.opts.CertFiles(id)
+	if err != nil {
+		return "", "", fmt.Errorf("certificate %q: %w", id, err)
+	}
+	return certFile, keyFile, nil
+}
+
 func (c *compilation) build() (obj, error) {
 	sites := orderSites(c.root.Sites)
 
@@ -83,9 +98,16 @@ func (c *compilation) build() (obj, error) {
 		switch s.TLS.Mode {
 		case config.TLSFile:
 			fileHosts = append(fileHosts, s.Hosts...)
-			if k := s.TLS.CertFile + "\x00" + s.TLS.KeyFile; !seenFile[k] {
+			certFile, keyFile := s.TLS.CertFile, s.TLS.KeyFile
+			if s.TLS.CertID != "" {
+				var err error
+				if certFile, keyFile, err = c.resolveCert(s.TLS.CertID); err != nil {
+					return nil, fmt.Errorf("site %q: %w", s.ID, err)
+				}
+			}
+			if k := certFile + "\x00" + keyFile; !seenFile[k] {
 				seenFile[k] = true
-				files = append(files, obj{"certificate": s.TLS.CertFile, "key": s.TLS.KeyFile, "format": "pem"})
+				files = append(files, obj{"certificate": certFile, "key": keyFile, "format": "pem"})
 			}
 		case config.TLSACME:
 			acmeHosts = append(acmeHosts, s.Hosts...)
@@ -134,7 +156,10 @@ func (c *compilation) build() (obj, error) {
 	apps["http"] = obj{
 		"http_port":  c.opts.HTTPPort,
 		"https_port": c.opts.HTTPSPort,
-		"servers":    servers,
+		// A reload stops the old servers gracefully; without a bound, a
+		// long-lived connection could hold the reload up indefinitely.
+		"grace_period": "10s",
+		"servers":      servers,
 	}
 
 	cfg := obj{
@@ -291,7 +316,22 @@ func (c *compilation) chain(s config.Site, eff config.EffectivePolicy) ([]obj, e
 		core["trusted_proxies"] = g.TrustedProxies
 		core["client_ip_headers"] = g.ClientIPHeaders
 	}
+	if ws := s.Upstreams.WebSockets; ws != nil && !*ws {
+		core["block_websockets"] = true
+	}
 	chain := []obj{core}
+	if acl := c.aclHandler(s.ID, eff); acl != nil {
+		chain = append(chain, acl)
+	}
+	// Auto-ban is a per-site setting: it always comes from the site-level policy,
+	// so every route of the site registers the same values.
+	siteEff := c.root.EffectivePolicy(&s, nil)
+	if rl := rateLimitHandler(s.ID, eff, siteEff.AutoBan); rl != nil {
+		chain = append(chain, rl)
+	}
+	if bot := botHandler(s.ID, eff.Bot); bot != nil {
+		chain = append(chain, bot)
+	}
 
 	if eff.Mode != config.ModeOff && eff.WAF.Enabled {
 		settings := waf.Settings{
@@ -317,13 +357,20 @@ func (c *compilation) chain(s config.Site, eff config.EffectivePolicy) ([]obj, e
 			"max_body_bytes":             settings.MaxBodyBytes,
 			"skip_inspection_extensions": eff.WAF.SkipInspectionExtensions,
 		}
+		if id := eff.BlockPage.TemplateID; id != config.DefaultBlockPageTemplate {
+			w["block_page_id"] = id
+		}
 		chain = append(chain, w)
 	}
 
 	if h := responseHeaders(s); h != nil {
 		chain = append(chain, h)
 	}
-	return append(chain, reverseProxy(s.Upstreams)), nil
+	rp, err := c.reverseProxy(s.Upstreams)
+	if err != nil {
+		return nil, err
+	}
+	return append(chain, rp), nil
 }
 
 func responseHeaders(s config.Site) obj {
@@ -347,7 +394,7 @@ func responseHeaders(s config.Site) obj {
 	}
 }
 
-func reverseProxy(u config.Upstreams) obj {
+func (c *compilation) reverseProxy(u config.Upstreams) (obj, error) {
 	upstreams := make([]obj, len(u.Targets))
 	for i, t := range u.Targets {
 		upstreams[i] = obj{"dial": t}
@@ -359,7 +406,19 @@ func reverseProxy(u config.Upstreams) obj {
 		"write_timeout": dur(u.Timeouts.Write),
 	}
 	if u.TLS.Enabled {
-		transport["tls"] = obj{"insecure_skip_verify": u.TLS.InsecureSkipVerify}
+		t := obj{"insecure_skip_verify": u.TLS.InsecureSkipVerify}
+		if id := u.TLS.ClientCertID; id != "" {
+			certFile, keyFile, err := c.resolveCert(id)
+			if err != nil {
+				return nil, fmt.Errorf("upstream client %w", err)
+			}
+			t["client_certificate_file"] = certFile
+			t["client_certificate_key_file"] = keyFile
+		}
+		transport["tls"] = t
+	}
+	if u.HTTPVersion != "" {
+		transport["versions"] = []string{u.HTTPVersion}
 	}
 	rp := obj{
 		"handler":        "reverse_proxy",
@@ -372,7 +431,7 @@ func reverseProxy(u config.Upstreams) obj {
 			"uri": hc.Path, "interval": dur(hc.Interval), "timeout": dur(hc.Timeout),
 		}}
 	}
-	return rp
+	return rp, nil
 }
 
 func dur(d config.Duration) string { return d.Std().Round(time.Millisecond).String() }
@@ -411,4 +470,105 @@ func merge(a, b obj) obj {
 		a[k] = v
 	}
 	return a
+}
+
+// aclHandler emits sherlock_acl, or nil when the policy asks for nothing.
+func (c *compilation) aclHandler(siteID string, eff config.EffectivePolicy) obj {
+	a := eff.ACL
+	countries := a.CountryMode != config.CountryOff && (a.CountryMode == config.CountryAllow || len(a.Countries) > 0)
+	if len(a.AllowLists) == 0 && len(a.DenyLists) == 0 && !countries && !a.Reputation && !a.PasswordGate && !a.AllowBypassWAF {
+		// Temporary bans still apply to every site, so the module is always present.
+		return obj{"handler": "sherlock_acl", "site_id": siteID}
+	}
+	h := obj{"handler": "sherlock_acl", "site_id": siteID}
+	if len(a.AllowLists) > 0 {
+		h["allow_lists"] = a.AllowLists
+	}
+	if len(a.DenyLists) > 0 {
+		h["deny_lists"] = a.DenyLists
+	}
+	if countries {
+		h["country_mode"] = a.CountryMode
+		h["countries"] = a.Countries
+	}
+	if a.Reputation {
+		h["reputation"] = true
+		h["reputation_action"] = a.ReputationAct
+	}
+	if a.PasswordGate {
+		h["gate_username"] = a.GateUsername
+		h["gate_hash"] = a.GateHash
+	}
+	if a.AllowBypassWAF {
+		h["allow_bypass_waf"] = true
+	}
+	return h
+}
+
+// rateLimitHandler emits sherlock_ratelimit, or nil without limits or auto-ban.
+func rateLimitHandler(siteID string, eff config.EffectivePolicy, ab config.EffectiveAutoBan) obj {
+	if len(eff.RateLimits) == 0 && !ab.Enabled {
+		return nil
+	}
+	h := obj{"handler": "sherlock_ratelimit", "site_id": siteID}
+	if eff.Bot.Enabled {
+		h["challenge_handoff"] = true // rate limits with action challenge hand over to the bot module
+	}
+	if len(eff.RateLimits) > 0 {
+		rules := make([]obj, len(eff.RateLimits))
+		for i, r := range eff.RateLimits {
+			rule := obj{"name": r.Name, "key": r.Key, "limit": r.Limit, "window": dur(r.Window), "action": r.Action}
+			if len(r.Match.Paths) > 0 {
+				rule["paths"] = r.Match.Paths
+			}
+			if len(r.Match.Methods) > 0 {
+				rule["methods"] = r.Match.Methods
+			}
+			rules[i] = rule
+		}
+		h["rules"] = rules
+	}
+	if ab.Enabled {
+		h["auto_ban"] = obj{
+			"blocks_threshold": ab.BlocksThreshold,
+			"window":           ab.Window.String(),
+			"ban_duration":     ab.BanDuration.String(),
+		}
+	}
+	return h
+}
+
+// botHandler emits sherlock_bot, or nil while bot defence is off.
+func botHandler(siteID string, b config.EffectiveBot) obj {
+	if !b.Enabled {
+		return nil
+	}
+	h := obj{
+		"handler": "sherlock_bot", "site_id": siteID, "challenge": b.Challenge, "difficulty": b.Difficulty,
+		"clearance_ttl": b.ClearanceTTL.String(), "verified_bots": b.VerifiedBots,
+	}
+	if b.SiteKey != "" {
+		h["site_key"] = b.SiteKey
+	}
+	if len(b.Rules) > 0 {
+		rules := make([]obj, len(b.Rules))
+		for i, r := range b.Rules {
+			rule := obj{"action": r.Action}
+			if len(r.Match.Paths) > 0 {
+				rule["paths"] = r.Match.Paths
+			}
+			if len(r.Match.Methods) > 0 {
+				rule["methods"] = r.Match.Methods
+			}
+			if len(r.Match.Countries) > 0 {
+				rule["countries"] = r.Match.Countries
+			}
+			if r.Match.Reputation != nil && *r.Match.Reputation {
+				rule["reputation"] = true
+			}
+			rules[i] = rule
+		}
+		h["rules"] = rules
+	}
+	return h
 }

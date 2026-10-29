@@ -7,6 +7,7 @@
   },
   "apps": {
     "http": {
+      "grace_period": "10s",
       "http_port": 80,
       "https_port": 443,
       "servers": {
@@ -39,6 +40,10 @@
                           "trusted_proxies": [
                             "10.0.0.0/8"
                           ]
+                        },
+                        {
+                          "handler": "sherlock_acl",
+                          "site_id": "shop"
                         },
                         {
                           "blocking_paranoia_level": 1,
@@ -133,6 +138,10 @@
                           "trusted_proxies": [
                             "10.0.0.0/8"
                           ]
+                        },
+                        {
+                          "handler": "sherlock_acl",
+                          "site_id": "blog"
                         },
                         {
                           "blocking_paranoia_level": 1,

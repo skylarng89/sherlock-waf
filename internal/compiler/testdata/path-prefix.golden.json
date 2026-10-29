@@ -7,6 +7,7 @@
   },
   "apps": {
     "http": {
+      "grace_period": "10s",
       "http_port": 80,
       "https_port": 443,
       "servers": {
@@ -29,6 +30,10 @@
                           "fail_mode": "closed",
                           "handler": "sherlock_core",
                           "mode": "block",
+                          "site_id": "api"
+                        },
+                        {
+                          "handler": "sherlock_acl",
                           "site_id": "api"
                         },
                         {
@@ -117,6 +122,10 @@
                           "fail_mode": "open",
                           "handler": "sherlock_core",
                           "mode": "detect",
+                          "site_id": "web"
+                        },
+                        {
+                          "handler": "sherlock_acl",
                           "site_id": "web"
                         },
                         {
