@@ -1,7 +1,11 @@
-import { createRouter, createWebHistory } from 'vue-router'
-import PlaceholderPage from '@/pages/PlaceholderPage.vue'
+import { createRouter, createWebHistory, type Router, type RouterHistory } from 'vue-router'
+import { bindRouter } from '@/extensions'
+import { builtinRoutes } from '@/routes'
+import { installGuards } from './guard'
 
-export const router = createRouter({
-  history: createWebHistory(),
-  routes: [{ path: '/', name: 'placeholder', component: PlaceholderPage }],
-})
+export function createAppRouter(history: RouterHistory = createWebHistory()): Router {
+  const router = createRouter({ history, routes: builtinRoutes })
+  installGuards(router)
+  bindRouter(router)
+  return router
+}
