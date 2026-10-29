@@ -1,0 +1,27 @@
+# Exclusion package: JSON and query-language APIs.
+#
+# Four independent entries; keep only the ones your API needs. Each names one
+# rule and one parameter on one endpoint, so SQL injection and other attacks in
+# the remaining parameters are still caught.
+# Tested by TestAppExclusionPackages.
+exclusions:
+  - id: api-mongo-style-filters
+    description: Query-by-example bodies use $gte, $in, ... as member names
+    match: { paths: ["/api/v1/*/search"], methods: [POST] }
+    remove_targets:
+      - { rule_ids: ["942290"], target: "ARGS_NAMES:/^json[.]filter[.]/" }
+  - id: api-odata-system-options
+    description: OData system query options ($filter, $select, $top) are parameter names
+    match: { paths: ["/odata/**"], methods: [GET] }
+    remove_targets:
+      - { rule_ids: ["942290"], target: "ARGS_NAMES:/^[$](?:filter|select|top|skip|orderby|expand|count)$/" }
+  - id: api-comment-free-text
+    description: Free-text comments that read like SQL
+    match: { paths: ["/api/v1/comments"], methods: [POST] }
+    remove_targets:
+      - { rule_ids: ["942350"], target: "ARGS:json.body" }
+  - id: api-graphql-selection
+    description: GraphQL selections such as images { url }
+    match: { paths: ["/graphql"], methods: [POST] }
+    remove_targets:
+      - { rule_ids: ["932370"], target: "ARGS:json.query" }

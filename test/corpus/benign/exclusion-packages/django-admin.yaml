@@ -1,0 +1,12 @@
+# Exclusion package: Django admin with a rich-text editor (CKEditor, TinyMCE).
+#
+# Removes only the XSS family from the `body` field of change forms under
+# /admin/. Adapt `body` to the name of your rich-text field. Search boxes, list
+# filters and every other field keep full protection.
+# Tested by TestAppExclusionPackages.
+exclusions:
+  - id: django-admin-rich-text-body
+    description: Rich-text editor posts HTML in the body field
+    match: { paths: ["/admin/**"], methods: [POST] }
+    remove_targets:
+      - { tags: [attack-xss], target: "ARGS:body" }

@@ -1,0 +1,18 @@
+# Exclusion package: WordPress (block and classic editor).
+#
+# Paste under `policy.waf.exclusions` of the site that serves WordPress. Each
+# entry removes only the XSS family (tag attack-xss) from the post-content
+# parameter, only on the editor endpoints and only for the methods the editor
+# uses. Every other parameter and every other rule family still applies.
+# Tested by TestAppExclusionPackages (benign samples pass, attacks still block).
+exclusions:
+  - id: wp-classic-editor-content
+    description: Classic editor posts HTML (embeds, scripts) in the content field
+    match: { paths: ["/wp-admin/post.php", "/wp-admin/post-new.php"], methods: [POST] }
+    remove_targets:
+      - { tags: [attack-xss], target: "ARGS:content" }
+  - id: wp-rest-post-content
+    description: Block editor saves block markup through the REST API
+    match: { paths: ["/wp-json/wp/v2/posts", "/wp-json/wp/v2/posts/*", "/wp-json/wp/v2/pages", "/wp-json/wp/v2/pages/*"], methods: [POST, PUT, PATCH] }
+    remove_targets:
+      - { tags: [attack-xss], target: "ARGS:json.content" }

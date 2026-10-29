@@ -1,0 +1,28 @@
+{
+  "positive": [
+    {
+      "name": "trailing slash",
+      "method": "GET",
+      "path": "/SetupWizard.aspx/"
+    },
+    {
+      "name": "extra segment",
+      "method": "POST",
+      "path": "/SetupWizard.aspx/x",
+      "content_type": "application/x-www-form-urlencoded",
+      "body": "a=b"
+    }
+  ],
+  "negative": [
+    {
+      "name": "login",
+      "method": "GET",
+      "path": "/Login"
+    },
+    {
+      "name": "wizard without suffix",
+      "method": "GET",
+      "path": "/SetupWizard.aspx"
+    }
+  ]
+}

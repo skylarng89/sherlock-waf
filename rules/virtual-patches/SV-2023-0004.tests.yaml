@@ -1,0 +1,28 @@
+{
+  "positive": [
+    {
+      "name": "exploit request",
+      "method": "POST",
+      "path": "/goanywhere/lic/accept",
+      "content_type": "application/x-www-form-urlencoded",
+      "body": "bundle=AAAAAAAA"
+    },
+    {
+      "name": "GET probe",
+      "method": "GET",
+      "path": "/goanywhere/lic/accept/;x"
+    }
+  ],
+  "negative": [
+    {
+      "name": "login page",
+      "method": "GET",
+      "path": "/goanywhere/auth/Login.xhtml"
+    },
+    {
+      "name": "web client",
+      "method": "GET",
+      "path": "/webclient/Login.xhtml"
+    }
+  ]
+}

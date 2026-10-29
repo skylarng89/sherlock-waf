@@ -43,7 +43,33 @@ sites:
       mode: block
       # Like the CRS project's own run: thresholds so high nothing is blocked, so
       # tests judge detection by the rule IDs in the event log.
-      waf: { paranoia_level: ${pl}, blocking_paranoia_level: ${pl}, inbound_threshold: 10000, outbound_threshold: 10000 }
+      # Sample tuning (M8-T7). The regression must pass with exclusions, custom
+      # rules and every virtual patch configured: they are scoped to paths the
+      # CRS tests never use, and the second site below carries a broad
+      # exclusion that must not leak into this one (exclusions are per site).
+      stacks: [wordpress, php, drupal, spring, java, confluence, atlassian, fortinet, vmware, f5, exchange, weblogic, oracle, manageengine, screenconnect, papercut, goanywhere, citrix, paloalto]
+      waf:
+        paranoia_level: ${pl}
+        blocking_paranoia_level: ${pl}
+        inbound_threshold: 10000
+        outbound_threshold: 10000
+        exclusions:
+          - id: ftw-sample-scoped
+            match: { paths: ["/sherlock-sample-app/**"], methods: [POST] }
+            remove_targets: [{ rule_ids: ["942100"], target: "ARGS:q" }]
+        custom_rules: |
+          SecRule REQUEST_FILENAME "@streq /sherlock-sample-blocked" "id:10001,phase:1,pass,nolog"
+    upstreams: { targets: ["127.0.0.1:${backend_port}"] }
+  - id: ftw-other
+    hosts: [other.invalid]
+    tls: { mode: none }
+    policy:
+      mode: block
+      waf:
+        paranoia_level: ${pl}
+        blocking_paranoia_level: ${pl}
+        exclusions:
+          - { id: everything-sqli-xss-rce, remove_tags: [attack-sqli, attack-xss, attack-rce, attack-lfi, attack-protocol] }
     upstreams: { targets: ["127.0.0.1:${backend_port}"] }
 YAML
 "$work/sherlock" run --config "$work/sherlock.yaml" --http-port "$sherlock_port" --https-port 18443 \

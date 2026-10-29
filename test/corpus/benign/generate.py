@@ -148,6 +148,94 @@ for i in range(20):
     known_fp.append({"method": "POST", "path": "/graphql", "content_type": JSON, "body": json.dumps({
         "query": "query Product($id: ID!) { product(id: $id) { id name images { url } } }", "variables": {"id": str(1000 + i)}}),
         "reason": "GraphQL selection `images { url }` matches CRS 932370 (Windows command injection) at PL1"})
+# App-specific samples (M8-T7). Each belongs to an application with an exclusion
+# package in exclusion-packages/<app>.yaml. `blocked_without_package` records
+# whether CRS blocks the request at PL1 without the package (a documented false
+# positive); every benign sample must pass WITH the package, and every attack
+# sample must still be blocked WITH it, so a package can be shown not to hide
+# real attacks. The test is TestAppExclusionPackages.
+apps = []
+
+
+def app(name, kind, method, path, ct="", body="", headers=None, blocked=False, note=""):
+    r = {"app": name, "kind": kind, "method": method, "path": path, "content_type": ct, "body": body,
+         "blocked_without_package": blocked}
+    if headers:
+        r["headers"] = headers
+    if note:
+        r["note"] = note
+    apps.append(r)
+
+
+def form(**kv):
+    return "&".join(f"{k}={up.quote_plus(str(v))}" for k, v in kv.items())
+
+
+# WordPress: the block editor and classic editor post HTML on purpose.
+for i in range(10):
+    app("wordpress", "benign", "POST", "/wp-admin/post.php", FORM, form(
+        post_ID=40 + i, action="editpost", post_title=f"Post {i}", content=f'<p>Hello <a href="https://example.com/{i}">world</a></p>',
+        _wpnonce="abc123", _wp_http_referer=f"/wp-admin/post.php?post={40 + i}&action=edit"))
+for i in range(5):
+    app("wordpress", "benign", "POST", "/wp-admin/post.php", FORM, form(
+        post_ID=60 + i, action="editpost", content=f'<iframe src="https://www.youtube.com/embed/abc{i}"></iframe><script src="https://platform.twitter.com/widgets.js"></script>'),
+        blocked=True, note="embeds (iframe, script) in post content match CRS 941100/941110/941160 on ARGS:content")
+for i in range(5):
+    app("wordpress", "benign", "POST", f"/wp-json/wp/v2/posts/{70 + i}", JSON, json.dumps({
+        "title": f"Hello {i}", "content": "<!-- wp:paragraph --><p>Select the best option from the list</p><!-- /wp:paragraph -->", "status": "publish"}),
+        blocked=True, note="block-editor comment markup matches CRS 941180 on ARGS:json.content")
+for i in range(5):
+    app("wordpress", "benign", "POST", "/wp-admin/admin-ajax.php", FORM, form(action="heartbeat", _nonce="abc", interval=60, screen_id="post"))
+for i in range(5):
+    app("wordpress", "benign", "GET", "/wp-admin/", headers={"Cookie": "wordpress_logged_in_0a1b2c=admin%7C1796000000%7CabcDEF123%7Cdeadbeef; wp-settings-1=libraryContent%3Dbrowse%26editor%3Dtinymce%26hidetb%3D1"})
+# The package must not hide real attacks on the same endpoints.
+app("wordpress", "attack", "POST", "/wp-admin/post.php", FORM, form(post_ID=1, action="editpost", content="<p>ok</p>", post_title="x' OR '1'='1"))
+app("wordpress", "attack", "POST", "/wp-admin/admin-ajax.php", FORM, form(action="x", data="<script>alert(1)</script>"))
+app("wordpress", "attack", "GET", "/wp-admin/post.php?post=1&action=edit&x=" + up.quote("<script>alert(1)</script>"))
+app("wordpress", "attack", "POST", "/wp-json/wp/v2/posts/9", JSON, json.dumps({"content": "<p>ok</p>", "slug": "../../etc/passwd"}))
+
+# Django admin: rich-text fields (CKEditor/TinyMCE) post HTML bodies.
+for i in range(10):
+    app("django-admin", "benign", "GET", f"/admin/auth/user/?q={up.quote(['O\'Brien', 'select', 'drop', 'union station'][i % 4])}&o=-1.2&is_staff__exact=1")
+for i in range(5):
+    app("django-admin", "benign", "POST", f"/admin/blog/post/{i + 1}/change/", FORM, form(
+        csrfmiddlewaretoken="abcDEF", title=f"Intro {i}", body="<p>Plain paragraph with <strong>bold</strong> text.</p>", _save="Save"))
+for i in range(5):
+    app("django-admin", "benign", "POST", f"/admin/blog/post/{i + 10}/change/", FORM, form(
+        csrfmiddlewaretoken="abcDEF", title=f"Video {i}", body=f'<p><iframe src="https://www.youtube.com/embed/abc{i}"></iframe></p>', _save="Save"),
+        blocked=True, note="CKEditor embed in the body field matches CRS 941100/941160 on ARGS:body")
+for i in range(5):
+    app("django-admin", "benign", "POST", "/admin/shop/order/", FORM, form(csrfmiddlewaretoken="abc", action="delete_selected", _selected_action=i + 1, post="yes"))
+app("django-admin", "attack", "POST", "/admin/blog/post/1/change/", FORM, form(csrfmiddlewaretoken="x", title="<script>alert(1)</script>", body="<p>ok</p>"))
+app("django-admin", "attack", "POST", "/admin/blog/post/1/change/", FORM, form(csrfmiddlewaretoken="x", title="x", body="<p>ok</p>", _save="1' OR '1'='1"))
+app("django-admin", "attack", "GET", "/admin/auth/user/?q=" + up.quote("1' UNION SELECT username,password FROM auth_user--"))
+
+# JSON APIs: query-by-example bodies and filter languages look like NoSQL operators.
+for i in range(10):
+    app("json-api", "benign", "POST", "/api/v1/products/search", JSON, json.dumps({
+        "filter": {"price": {"$gte": 10 + i, "$lte": 50 + i}, "tags": {"$in": ["a", "b"]}}, "sort": {"price": 1}}),
+        blocked=True, note="MongoDB-style operators in JSON member names match CRS 942290")
+for i in range(5):
+    app("json-api", "benign", "GET", f"/odata/Products?$filter=Price%20gt%20{20 + i}%20and%20contains(Name,'bike')&$select=Name,Price&$top=10",
+        blocked=True, note="OData system query options ($filter, $select) match CRS 942290 on the parameter names")
+for i in range(5):
+    app("json-api", "benign", "POST", "/api/v1/comments", JSON, json.dumps({"body": "You can use UNION to merge results; drop me a line at help@example.com", "post_id": i}),
+        blocked=True, note="free text that reads like SQL matches CRS 942350 on ARGS:json.body")
+for i in range(5):
+    app("json-api", "benign", "POST", "/graphql", JSON, json.dumps({
+        "query": "query Product($id: ID!) { product(id: $id) { id name images { url } } }", "variables": {"id": str(1000 + i)}}),
+        blocked=True, note="GraphQL selection `images { url }` matches CRS 932370 on ARGS:json.query")
+for i in range(5):
+    app("json-api", "benign", "GET", f"/api/v1/items?filter=status%20eq%20%27active%27%20and%20price%20gt%20{i}&orderby=name%20asc")
+app("json-api", "attack", "POST", "/api/v1/products/search", JSON, json.dumps({"filter": {"name": "x' OR '1'='1"}}))
+app("json-api", "attack", "POST", "/api/v1/comments", JSON, json.dumps({"body": "1' UNION SELECT username,password FROM users--", "post_id": 1}))
+app("json-api", "attack", "GET", "/odata/Products?$filter=" + up.quote("1' OR '1'='1") + "&$top=10")
+app("json-api", "attack", "POST", "/graphql", JSON, json.dumps({"query": "{ product(id: \"1' OR '1'='1\") { id } }"}))
+
+with open("apps.jsonl", "w") as f:
+    for r in apps:
+        f.write(json.dumps(r, sort_keys=True, ensure_ascii=False) + "\n")
+
 with open("known-false-positives.jsonl", "w") as f:
     for r in known_fp:
         f.write(json.dumps(r, sort_keys=True, ensure_ascii=False) + "\n")

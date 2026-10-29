@@ -74,3 +74,11 @@ So failed tests are re-run, up to `FTW_ATTEMPTS` (default 3) attempts in total,
 and **only tests that fail on every attempt count**. Tests that recovered are
 printed ("recovered on retry"), never hidden. A real failure fails every attempt.
 Run with `FTW_ATTEMPTS=1` to see the raw flake rate.
+
+## Tuning features stay out of the way
+
+`run.sh` configures the regression site with a scoped sample exclusion, a
+custom rule, every virtual-patch stack declared, and a second site with a broad
+exclusion (all attack tags removed). The suite must pass unchanged: exclusions
+and patches never alter what CRS detects on another path or another site
+(M8 acceptance criterion 5).

