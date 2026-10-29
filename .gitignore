@@ -40,3 +40,14 @@ web/node_modules/
 # Dashboard build is emitted into the Go embed directory; the placeholder keeps `go build` working on a clean clone.
 internal/webui/dist/*
 !internal/webui/dist/.gitkeep
+
+# local benchmark output
+bench*.txt
+test/nuclei/out/
+test/k6/out/
+test/zap/out/
+.image-ctx/
+
+# Playwright output
+web/e2e/test-results/
+web/e2e/report/

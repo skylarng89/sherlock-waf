@@ -28,8 +28,12 @@ setup: ## Download Go modules, pinned tools and web dependencies
 	$(WEB) install --frozen-lockfile
 
 .PHONY: gen
-gen: ## Run code generators (sqlc, oapi-codegen, openapi-typescript)
-	$(call not_yet,gen,M1)
+gen: ## Run code generators (event schema, sqlc, oapi-codegen, openapi-typescript)
+	mkdir -p docs/reference
+	go run ./internal/events/schemagen docs/reference/event.schema.json
+	$(GOTOOL) sqlc generate
+	$(GOTOOL) oapi-codegen -config api/oapi-codegen.yaml api/openapi.yaml
+	cd web && pnpm exec openapi-typescript ../api/openapi.yaml -o src/api/schema.d.ts
 
 .PHONY: web
 web: ## Build the dashboard into internal/webui/dist
@@ -43,6 +47,14 @@ build: web ## Build web then the Go binary into bin/sherlock
 .PHONY: run
 run: build ## Run the placeholder server on :9443
 	./bin/sherlock run
+
+.PHONY: image
+image: ## Build a local container image for this machine's architecture as sherlock:dev
+	rm -rf .image-ctx && mkdir -p .image-ctx/linux/$(shell go env GOARCH)
+	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o .image-ctx/linux/$(shell go env GOARCH)/sherlock ./cmd/sherlock
+	cp Dockerfile .image-ctx/
+	docker build --build-arg TARGETPLATFORM=linux/$(shell go env GOARCH) -t sherlock:dev .image-ctx
+	rm -rf .image-ctx
 
 .PHONY: fmt
 fmt: ## Format Go and web sources
@@ -64,21 +76,52 @@ test-web:
 test-integration: ## Store tests on SQLite and Postgres
 	$(call not_yet,test-integration,M3)
 
+.PHONY: corpus
+corpus: ## Replay the benign corpus at PL1 (zero blocks) and the known-false-positive tripwire
+	go test -count=1 -run 'TestBenignCorpusHasNoBlocksAtPL1|TestKnownFalsePositivesStayDocumented' ./internal/dataplane/waf
+
 .PHONY: ftw
-ftw: ## CRS regression with go-ftw
-	$(call not_yet,ftw,M2)
+ftw: ## CRS regression (go-ftw) at one paranoia level: make ftw [PL=1..4]
+	test/ftw/run.sh $(or $(PL),1)
+
+.PHONY: ftw-all
+ftw-all: ## CRS regression at paranoia levels 1 to 4 (nightly)
+	@for pl in 1 2 3 4; do test/ftw/run.sh $$pl || exit 1; done
+
+E2E_COMPOSE := docker compose -f test/e2e-compose/compose.yaml
+export SHERLOCK_HTTP_PORT ?= 18080
+export SHERLOCK_ADMIN_PORT ?= 19443
+export JUICE_DIRECT_PORT ?= 13000
+
+.PHONY: e2e-up
+e2e-up: ## Build the binary and start Sherlock + Juice Shop + httpbin (waits until healthy)
+	CGO_ENABLED=0 go build -trimpath -o bin/sherlock ./cmd/sherlock
+	$(E2E_COMPOSE) up --build -d --wait --wait-timeout 180
+
+.PHONY: e2e-down
+e2e-down: ## Stop and remove the compose stack
+	$(E2E_COMPOSE) down -v --remove-orphans
 
 .PHONY: e2e
-e2e: ## Compose stack and Playwright
-	$(call not_yet,e2e,M2)
+e2e: e2e-up ## Compose smoke test (Playwright joins in M4); always tears the stack down
+	@trap '$(MAKE) --no-print-directory e2e-down' EXIT; test/e2e-compose/smoke.sh
+
+.PHONY: e2e-ui
+e2e-ui: ## Browser e2e + axe suite (Playwright); builds dashboard and binary, fresh data dirs
+	$(WEB) e2e
 
 .PHONY: bench
-bench: ## Go benchmarks
-	$(call not_yet,bench,M2)
+bench: ## Go benchmarks; writes bench.txt (use BASE=<file> with bench-gate to compare)
+	go test -run '^$$' -bench . -benchmem -count 6 ./internal/... | tee bench.txt
+
+.PHONY: bench-gate
+bench-gate: ## Fail if bench.txt is >10% slower than BASE (a previous bench.txt)
+	@test -n "$(BASE)" || { echo "usage: make bench-gate BASE=path/to/old-bench.txt"; exit 2; }
+	scripts/bench-gate.sh "$(BASE)" bench.txt
 
 .PHONY: k6
-k6: ## Latency and throughput budgets
-	$(call not_yet,k6,M2)
+k6: ## NFR-1/NFR-2 latency and throughput (needs Docker for k6; see docs/plan/benchmarks.md)
+	test/k6/run.sh all
 
 .PHONY: lint
 lint: lint-go lint-web lint-secrets ## All linters
