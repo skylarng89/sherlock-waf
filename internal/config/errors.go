@@ -14,6 +14,7 @@ const (
 	CodeDuplicate    = "duplicate"
 	CodeOutOfRange   = "out_of_range"
 	CodeUnsupported  = "unsupported"
+	CodeNotFound     = "not_found"
 	CodeAmbiguous    = "ambiguous"
 )
 

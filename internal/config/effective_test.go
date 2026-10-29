@@ -183,3 +183,26 @@ func TestOrderedEndpoints(t *testing.T) {
 }
 
 func sprintf(f string, a ...any) string { return fmt.Sprintf(f, a...) }
+
+func TestMatchEndpointPicksMostSpecificAndHonoursMethods(t *testing.T) {
+	site := &Site{Endpoints: []Endpoint{
+		{ID: "api", Match: EndpointMatch{PathPrefix: "/api/"}},
+		{ID: "login", Match: EndpointMatch{Path: "/api/login"}},
+		{ID: "upload-post", Match: EndpointMatch{PathGlob: "/api/*/upload", Methods: []string{"POST"}}},
+		{ID: "bad-glob", Match: EndpointMatch{PathGlob: "/[x"}},
+	}}
+	for _, tc := range []struct{ path, method, want string }{
+		{"/api/login", "POST", "login"},
+		{"/api/users", "GET", "api"},
+		{"/api/files/upload", "POST", "upload-post"},
+		{"/api/files/upload", "GET", "api"}, // the method-bound glob must not match GET
+		{"/other", "GET", ""},
+		{"/[x", "GET", ""}, // an invalid glob matches nothing
+	} {
+		got := ""
+		if ep := site.MatchEndpoint(tc.path, tc.method); ep != nil {
+			got = ep.ID
+		}
+		assert.Equal(t, tc.want, got, "%s %s", tc.method, tc.path)
+	}
+}

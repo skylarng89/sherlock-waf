@@ -1,6 +1,7 @@
 package config
 
 import (
+	"path"
 	"slices"
 	"sort"
 	"strings"
@@ -19,30 +20,34 @@ func EndpointSource(id string) string { return "endpoint:" + id }
 
 // EffectivePolicy is a fully resolved policy: no field is unset.
 type EffectivePolicy struct {
-	Mode      Mode
-	FailMode  FailMode
-	WAF       EffectiveWAF
-	BlockPage EffectiveBlockPage
+	Mode       Mode               `json:"mode"`
+	FailMode   FailMode           `json:"fail_mode"`
+	WAF        EffectiveWAF       `json:"waf"`
+	BlockPage  EffectiveBlockPage `json:"block_page"`
+	ACL        EffectiveACL       `json:"acl"`
+	RateLimits []RateLimit        `json:"rate_limits"`
+	AutoBan    EffectiveAutoBan   `json:"auto_ban"`
+	Bot        EffectiveBot       `json:"bot"`
 	// Sources maps a dotted field name (e.g. "waf.paranoia_level") to the
 	// layer that supplied its value.
-	Sources map[string]string
+	Sources map[string]string `json:"sources"`
 }
 
 // EffectiveWAF is the resolved WAF tuning.
 type EffectiveWAF struct {
-	Enabled                  bool
-	ParanoiaLevel            int
-	BlockingParanoiaLevel    int
-	InboundThreshold         int
-	OutboundThreshold        int
-	OutboundInspection       bool
-	MaxBodyBytes             int64
-	SkipInspectionExtensions []string
+	Enabled                  bool     `json:"enabled"`
+	ParanoiaLevel            int      `json:"paranoia_level"`
+	BlockingParanoiaLevel    int      `json:"blocking_paranoia_level"`
+	InboundThreshold         int      `json:"inbound_threshold"`
+	OutboundThreshold        int      `json:"outbound_threshold"`
+	OutboundInspection       bool     `json:"outbound_inspection"`
+	MaxBodyBytes             int64    `json:"max_body_bytes"`
+	SkipInspectionExtensions []string `json:"skip_inspection_extensions"`
 }
 
 // EffectiveBlockPage is the resolved block page selection.
 type EffectiveBlockPage struct {
-	TemplateID string
+	TemplateID string `json:"template_id"`
 }
 
 // EffectivePolicy resolves defaults → global → site → endpoint. ep may be
@@ -58,8 +63,11 @@ func (r *Root) EffectivePolicy(s *Site, ep *Endpoint) EffectivePolicy {
 			MaxBodyBytes:             DefaultMaxBodyBytes,
 			SkipInspectionExtensions: DefaultSkipInspectionExtensions(),
 		},
-		BlockPage: EffectiveBlockPage{TemplateID: DefaultBlockPageTemplate},
-		Sources:   map[string]string{},
+		BlockPage:  EffectiveBlockPage{TemplateID: DefaultBlockPageTemplate},
+		ACL:        newEffectiveACL(),
+		RateLimits: []RateLimit{},
+		Bot:        newEffectiveBot(),
+		Sources:    map[string]string{},
 	}
 	for _, f := range []string{
 		"mode", "waf.enabled", "waf.paranoia_level", "waf.inbound_threshold",
@@ -89,7 +97,10 @@ func (r *Root) EffectivePolicy(s *Site, ep *Endpoint) EffectivePolicy {
 	var failSet, blockingSet bool
 	for _, l := range layers {
 		eff.apply(l.pol, l.name, &failSet, &blockingSet)
+		eff.applyAccess(l.pol, l.name)
+		eff.applyBot(l.pol, l.name)
 	}
+	eff.sortRateLimits()
 	if !failSet {
 		eff.FailMode = FailOpen
 		if eff.Mode == ModeBlock {
@@ -228,4 +239,33 @@ func (s *Site) OrderedEndpoints() []Endpoint {
 	out := slices.Clone(s.Endpoints)
 	sort.SliceStable(out, func(i, j int) bool { return out[i].Match.key().less(out[j].Match.key()) })
 	return out
+}
+
+// Matches reports whether a request with the given path and method selects
+// this match. Globs use path.Match syntax; an invalid glob matches nothing
+// (validation rejects it before it can be stored).
+func (m EndpointMatch) Matches(reqPath, method string) bool {
+	if len(m.Methods) > 0 && !slices.ContainsFunc(m.Methods, func(v string) bool { return strings.EqualFold(v, method) }) {
+		return false
+	}
+	switch {
+	case m.Path != "":
+		return reqPath == m.Path
+	case m.PathPrefix != "":
+		return strings.HasPrefix(reqPath, m.PathPrefix)
+	default:
+		ok, err := path.Match(m.PathGlob, reqPath)
+		return err == nil && ok
+	}
+}
+
+// MatchEndpoint returns the endpoint override that applies to a request, or
+// nil when the site policy applies: the most specific matching endpoint wins.
+func (s *Site) MatchEndpoint(reqPath, method string) *Endpoint {
+	for _, ep := range s.OrderedEndpoints() {
+		if ep.Match.Matches(reqPath, method) {
+			return &ep
+		}
+	}
+	return nil
 }

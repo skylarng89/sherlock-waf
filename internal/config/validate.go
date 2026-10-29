@@ -55,6 +55,7 @@ func (r *Root) Validate() Errors {
 			hosts[k] = s.ID
 		}
 	}
+	r.validateAccess(&errs)
 	return errs
 }
 
@@ -75,7 +76,47 @@ func (g *Global) validate(p string, errs *Errors) {
 			errs.add(p+"/acme/ca", CodeInvalid, "must be an https URL")
 		}
 	}
+	g.Admin.validate(p+"/admin", errs)
+	g.Events.validate(p+"/events", errs)
 	g.Defaults.validate(p+"/defaults", errs)
+}
+
+func (a *Admin) validate(p string, errs *Errors) {
+	if a.Listen != AdminOff {
+		_, port, err := net.SplitHostPort(a.Listen)
+		n, perr := strconv.Atoi(port)
+		if err != nil || perr != nil || n < 0 || n > 65535 {
+			errs.add(p+"/listen", CodeInvalid, "%q must be host:port or %q", a.Listen, AdminOff)
+		}
+	}
+	if _, err := policy.ParseCIDRSet(a.AllowedCIDRs); err != nil {
+		errs.add(p+"/allowed_cidrs", CodeInvalid, "%v", err)
+	}
+}
+
+func (e *Events) validate(p string, errs *Errors) {
+	if len(e.NodeName) > 128 || strings.ContainsAny(e.NodeName, "\r\n\t") {
+		errs.add(p+"/node_name", CodeInvalid, "must be at most 128 characters without control characters")
+	}
+	if e.RetentionDays < 0 || e.RetentionDays > 3650 {
+		errs.add(p+"/retention_days", CodeOutOfRange, "must be between 1 and 3650")
+	}
+	if r := e.AccessLog.SampleRate; r != nil && (*r < 0 || *r > 1) {
+		errs.add(p+"/access_log/sample_rate", CodeOutOfRange, "must be between 0 and 1")
+	}
+	for i, pat := range e.Redaction.Patterns {
+		if len(pat) > 256 {
+			errs.add(p+"/redaction/patterns/"+strconv.Itoa(i), CodeInvalid, "longer than 256 bytes")
+		} else if _, err := regexp.Compile(pat); err != nil {
+			errs.add(p+"/redaction/patterns/"+strconv.Itoa(i), CodeInvalid, "invalid pattern: %v", err)
+		}
+	}
+	if e.Sinks.FileMaxMB < 0 || e.Sinks.FileMaxMB > 10240 {
+		errs.add(p+"/sinks/file_max_mb", CodeOutOfRange, "must be between 1 and 10240")
+	}
+	if e.Sinks.FileKeep < 0 || e.Sinks.FileKeep > 100 {
+		errs.add(p+"/sinks/file_keep", CodeOutOfRange, "must be between 1 and 100")
+	}
 }
 
 func (s *Site) validate(p string, r *Root, errs *Errors) {
@@ -127,15 +168,24 @@ func (r *Root) checkEffective(s *Site, ep *Endpoint, p string, errs *Errors) {
 func (t *TLS) validate(p string, errs *Errors) {
 	switch t.Mode {
 	case TLSACME, TLSNone:
-		if t.CertFile != "" || t.KeyFile != "" {
-			errs.add(p, CodeInvalid, "cert_file and key_file are only valid with mode \"file\"")
+		if t.CertFile != "" || t.KeyFile != "" || t.CertID != "" {
+			errs.add(p, CodeInvalid, "cert_file, key_file and cert_id are only valid with mode \"file\"")
 		}
 	case TLSFile:
-		if t.CertFile == "" {
-			errs.add(p+"/cert_file", CodeRequired, "cert_file is required with mode \"file\"")
-		}
-		if t.KeyFile == "" {
-			errs.add(p+"/key_file", CodeRequired, "key_file is required with mode \"file\"")
+		switch {
+		case t.CertID != "" && (t.CertFile != "" || t.KeyFile != ""):
+			errs.add(p+"/cert_id", CodeInvalid, "use either cert_id or cert_file and key_file, not both")
+		case t.CertID != "":
+			if !validID(t.CertID) {
+				errs.add(p+"/cert_id", CodeInvalid, "must be a certificate id")
+			}
+		default:
+			if t.CertFile == "" {
+				errs.add(p+"/cert_file", CodeRequired, "cert_file (with key_file) or cert_id is required with mode \"file\"")
+			}
+			if t.KeyFile == "" {
+				errs.add(p+"/key_file", CodeRequired, "key_file (with cert_file) or cert_id is required with mode \"file\"")
+			}
 		}
 	default:
 		errs.add(p+"/mode", CodeInvalid, "must be one of acme, file, none")
@@ -176,7 +226,21 @@ func (u *Upstreams) validate(p string, errs *Errors) {
 		}
 	}
 	if u.TLS.ClientCertID != "" {
-		errs.add(p+"/tls/client_cert_id", CodeUnsupported, "upstream client certificates arrive with the certificate store")
+		if !validID(u.TLS.ClientCertID) {
+			errs.add(p+"/tls/client_cert_id", CodeInvalid, "must be a certificate id")
+		}
+		if !u.TLS.Enabled {
+			errs.add(p+"/tls/client_cert_id", CodeInvalid, "a client certificate needs upstream tls to be enabled")
+		}
+	}
+	switch u.HTTPVersion {
+	case "", "1.1", "2":
+	case "h2c":
+		if u.TLS.Enabled {
+			errs.add(p+"/http_version", CodeInvalid, "h2c is cleartext HTTP/2 and cannot be combined with upstream tls; use \"2\"")
+		}
+	default:
+		errs.add(p+"/http_version", CodeInvalid, "must be one of 1.1, 2, h2c")
 	}
 	for name, d := range map[string]Duration{"dial": u.Timeouts.Dial, "read": u.Timeouts.Read, "write": u.Timeouts.Write} {
 		if d < 0 {
@@ -192,8 +256,8 @@ func (pol *Policy) validate(p string, errs *Errors) {
 	if pol.FailMode != nil && !slices.Contains([]FailMode{FailOpen, FailClosed}, *pol.FailMode) {
 		errs.add(p+"/fail_mode", CodeInvalid, "must be one of open, closed")
 	}
-	if pol.BlockPage != nil && pol.BlockPage.TemplateID != nil && *pol.BlockPage.TemplateID != DefaultBlockPageTemplate {
-		errs.add(p+"/block_page/template_id", CodeUnsupported, "only the %q template exists until custom pages arrive", DefaultBlockPageTemplate)
+	if pol.BlockPage != nil && pol.BlockPage.TemplateID != nil && !validID(*pol.BlockPage.TemplateID) {
+		errs.add(p+"/block_page/template_id", CodeInvalid, "must be %q or the id of an uploaded block page", DefaultBlockPageTemplate)
 	}
 	w := pol.WAF
 	if w == nil {
@@ -314,3 +378,9 @@ func validHost(h string) bool {
 	}
 	return true
 }
+
+// validID matches the slug form used for stored objects (block pages, uploaded
+// certificate ids are ULIDs, which also match).
+func validID(s string) bool { return idPattern.MatchString(s) }
+
+var idPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9-]{0,62}$`)

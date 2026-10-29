@@ -90,8 +90,8 @@ sites:
   - id: a
     hosts: [a.example.com]
     upstreams: { targets: ["h:1"] }
-    policy: { rate_limits: [] }
-`, "/sites/0/policy/rate_limits", CodeUnknownField},
+    policy: { api: { enabled: true } }
+`, "/sites/0/policy/api", CodeUnknownField},
 		{"wrong version", "schema_version: 2\nsites: []\n", "/schema_version", CodeInvalid},
 		{"no sites", "schema_version: 1\n", "/sites", CodeRequired},
 		{"alias", "schema_version: 1\nx: &a 1\nsites: *a\n", "/sites", CodeSyntax},
@@ -142,4 +142,72 @@ func FuzzParse(f *testing.F) {
 			_ = r.Sites[i].OrderedEndpoints()
 		}
 	})
+}
+
+func TestSnapshotRoundTripIsLossless(t *testing.T) {
+	r, err := Parse([]byte(`
+schema_version: 1
+global:
+  trusted_proxies: ["10.0.0.0/8"]
+  defaults: { mode: detect, waf: { paranoia_level: 2 } }
+  events: { access_log: { enabled: true, sample_rate: 0.5 }, redaction: { patterns: ["(?i)iban"] } }
+sites:
+  - id: shop
+    hosts: [shop.example.com]
+    tls: { mode: none }
+    policy: { mode: block, fail_mode: open, block_page: { template_id: default } }
+    upstreams:
+      targets: ["10.0.0.1:80"]
+      health_check: { path: /h, interval: 5s, timeout: 1s }
+      timeouts: { dial: 3s, read: 30s, write: 30s }
+    endpoints:
+      - { id: login, match: { path: /login, methods: [POST] }, policy: { waf: { paranoia_level: 3 } } }
+`))
+	require.NoError(t, err)
+	snap, err := Snapshot(r)
+	require.NoError(t, err)
+	assert.Contains(t, string(snap), `"dial":"3s"`, "durations are strings, as in YAML")
+
+	back, err := FromSnapshot(snap)
+	require.NoError(t, err)
+	again, err := Snapshot(back)
+	require.NoError(t, err)
+	assert.JSONEq(t, string(snap), string(again))
+	assert.Equal(t, string(snap), string(again), "equal configurations encode to identical bytes")
+	assert.Equal(t, r.Sites[0].Endpoints[0].Policy.WAF.ParanoiaLevel, back.Sites[0].Endpoints[0].Policy.WAF.ParanoiaLevel)
+}
+
+func TestFromSnapshotRejectsWhatItDoesNotUnderstand(t *testing.T) {
+	_, err := FromSnapshot([]byte(`{"schema_version":2,"sites":[]}`))
+	require.ErrorContains(t, err, "needs a migration")
+	_, err = FromSnapshot([]byte(`{"schema_version":1,"mystery":true,"sites":[]}`))
+	require.Error(t, err, "unknown fields are refused")
+	_, err = FromSnapshot([]byte(`not json`))
+	require.Error(t, err)
+	_, err = FromSnapshot([]byte(`{"schema_version":1,"sites":[]}`))
+	require.Error(t, err, "a snapshot that no longer validates is refused")
+}
+
+func TestDurationJSON(t *testing.T) {
+	var d Duration
+	require.NoError(t, d.UnmarshalJSON([]byte(`"1m30s"`)))
+	assert.Equal(t, 90*time.Second, d.Std())
+	b, err := d.MarshalJSON()
+	require.NoError(t, err)
+	assert.Equal(t, `"1m30s"`, string(b))
+	require.Error(t, d.UnmarshalJSON([]byte(`30`)))
+	require.Error(t, d.UnmarshalJSON([]byte(`"soon"`)))
+}
+
+func TestYAMLExportRoundTrips(t *testing.T) {
+	src := "schema_version: 1\nsites:\n  - id: shop\n    hosts: [shop.example.test]\n    tls: { mode: none }\n    upstreams: { targets: [\"127.0.0.1:9\"] }\n    policy: { mode: block, waf: { paranoia_level: 2 } }\n    endpoints:\n      - id: login\n        match: { path: /login, methods: [POST] }\n        policy: { waf: { paranoia_level: 3 } }\n"
+	a, err := Parse([]byte(src))
+	require.NoError(t, err)
+	out, err := MarshalYAML(a)
+	require.NoError(t, err)
+	b, err := Parse(out)
+	require.NoError(t, err, string(out))
+	sa, _ := Snapshot(a)
+	sb, _ := Snapshot(b)
+	assert.JSONEq(t, string(sa), string(sb), "export then import must reproduce the same configuration")
 }

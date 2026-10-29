@@ -3,6 +3,7 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -71,6 +72,25 @@ func (d *Duration) UnmarshalYAML(n *yaml.Node) error {
 // MarshalYAML implements yaml.Marshaler.
 func (d Duration) MarshalYAML() (any, error) { return time.Duration(d).String(), nil }
 
+// MarshalJSON writes the Go duration string ("10s"), matching the YAML form.
+func (d Duration) MarshalJSON() ([]byte, error) {
+	return json.Marshal(time.Duration(d).String())
+}
+
+// UnmarshalJSON accepts a duration string ("10s").
+func (d *Duration) UnmarshalJSON(b []byte) error {
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return fmt.Errorf("duration must be a string such as \"10s\": %w", err)
+	}
+	v, err := time.ParseDuration(s)
+	if err != nil {
+		return fmt.Errorf("invalid duration %q: %w", s, err)
+	}
+	*d = Duration(v)
+	return nil
+}
+
 // Std returns the value as a time.Duration.
 func (d Duration) Std() time.Duration { return time.Duration(d) }
 
@@ -83,10 +103,56 @@ type Root struct {
 
 // Global holds settings shared by every site.
 type Global struct {
+	Admin           Admin    `yaml:"admin,omitempty" json:"admin"`
 	TrustedProxies  []string `yaml:"trusted_proxies,omitempty" json:"trusted_proxies,omitempty"`
 	ClientIPHeaders []string `yaml:"client_ip_headers,omitempty" json:"client_ip_headers,omitempty"`
 	ACME            ACME     `yaml:"acme,omitempty" json:"acme"`
+	Events          Events   `yaml:"events,omitempty" json:"events"`
 	Defaults        Policy   `yaml:"defaults,omitempty" json:"defaults"`
+	IPLists         []IPList `yaml:"ip_lists,omitempty" json:"ip_lists,omitempty"`
+	Feeds           Feeds    `yaml:"feeds,omitempty" json:"feeds"`
+}
+
+// AdminOff disables the admin listener when used as Admin.Listen.
+const AdminOff = "off"
+
+// Admin configures the node's admin listener, which serves /metrics,
+// /healthz and /readyz (the control plane joins it in M3). It is separate
+// from proxied traffic.
+type Admin struct {
+	Listen       string   `yaml:"listen,omitempty" json:"listen,omitempty"`
+	AllowedCIDRs []string `yaml:"allowed_cidrs,omitempty" json:"allowed_cidrs,omitempty"`
+}
+
+// Events configures the event pipeline.
+type Events struct {
+	NodeName string `yaml:"node_name,omitempty" json:"node_name,omitempty"`
+	// RetentionDays is how long stored events are kept (control-plane database only).
+	RetentionDays int       `yaml:"retention_days,omitempty" json:"retention_days,omitempty"`
+	AccessLog     AccessLog `yaml:"access_log,omitempty" json:"access_log"`
+	BodyExcerpt   bool      `yaml:"body_excerpt,omitempty" json:"body_excerpt,omitempty"`
+	Redaction     Redaction `yaml:"redaction,omitempty" json:"redaction"`
+	Sinks         Sinks     `yaml:"sinks,omitempty" json:"sinks"`
+}
+
+// AccessLog is the optional sampled log of clean requests (FR-EVT-3).
+type AccessLog struct {
+	Enabled    bool     `yaml:"enabled,omitempty" json:"enabled,omitempty"`
+	SampleRate *float64 `yaml:"sample_rate,omitempty" json:"sample_rate,omitempty"`
+}
+
+// Redaction adds operator patterns to the built-in ones.
+type Redaction struct {
+	// Patterns match parameter names (case-sensitive RE2; use (?i) for case-insensitive).
+	Patterns []string `yaml:"patterns,omitempty" json:"patterns,omitempty"`
+}
+
+// Sinks selects the temporary event outputs used until the store exists.
+type Sinks struct {
+	Stdout    *bool `yaml:"stdout,omitempty" json:"stdout,omitempty"`
+	File      *bool `yaml:"file,omitempty" json:"file,omitempty"`
+	FileMaxMB int   `yaml:"file_max_mb,omitempty" json:"file_max_mb,omitempty"`
+	FileKeep  int   `yaml:"file_keep,omitempty" json:"file_keep,omitempty"`
 }
 
 // ACME configures automatic certificate issuance.
@@ -108,13 +174,14 @@ type Site struct {
 	Endpoints  []Endpoint `yaml:"endpoints,omitempty" json:"endpoints,omitempty"`
 }
 
-// TLS configures a site's certificates and transport security.
-// CertFile and KeyFile are the file-config form of the future uploaded
-// certificate reference (cert_id) and are only valid with mode "file".
+// TLS configures a site's certificates and transport security. With mode
+// "file" the certificate is either a pair of files on the node (CertFile and
+// KeyFile) or an uploaded certificate (CertID); never both.
 type TLS struct {
 	Mode       TLSMode `yaml:"mode,omitempty" json:"mode,omitempty"`
 	CertFile   string  `yaml:"cert_file,omitempty" json:"cert_file,omitempty"`
 	KeyFile    string  `yaml:"key_file,omitempty" json:"key_file,omitempty"`
+	CertID     string  `yaml:"cert_id,omitempty" json:"cert_id,omitempty"`
 	MinVersion string  `yaml:"min_version,omitempty" json:"min_version,omitempty"`
 	HSTS       HSTS    `yaml:"hsts,omitempty" json:"hsts"`
 }
@@ -133,6 +200,12 @@ type Upstreams struct {
 	HealthCheck HealthCheck `yaml:"health_check,omitempty" json:"health_check"`
 	TLS         UpstreamTLS `yaml:"tls,omitempty" json:"tls"`
 	Timeouts    Timeouts    `yaml:"timeouts,omitempty" json:"timeouts"`
+	// HTTPVersion pins the protocol spoken to the origin: "" (Caddy's default),
+	// "1.1", "2", or "h2c" (cleartext HTTP/2, which gRPC origins need).
+	HTTPVersion string `yaml:"http_version,omitempty" json:"http_version,omitempty"`
+	// WebSockets allows connection upgrades through to the origin (default
+	// true). The WAF cannot inspect frames, so deny is the strict choice.
+	WebSockets *bool `yaml:"websockets,omitempty" json:"websockets,omitempty"`
 }
 
 // HealthCheck is an active upstream health probe; it is off when Path is empty.
@@ -168,6 +241,15 @@ type Policy struct {
 	FailMode  *FailMode  `yaml:"fail_mode,omitempty" json:"fail_mode,omitempty"`
 	WAF       *WAFPolicy `yaml:"waf,omitempty" json:"waf,omitempty"`
 	BlockPage *BlockPage `yaml:"block_page,omitempty" json:"block_page,omitempty"`
+	ACL       *ACLPolicy `yaml:"acl,omitempty" json:"acl,omitempty"`
+	// RateLimits are named items: levels are unioned by name, and a lower
+	// level may replace an item that has the same name.
+	RateLimits []RateLimit `yaml:"rate_limits,omitempty" json:"rate_limits,omitempty"`
+	AutoBan    *AutoBan    `yaml:"auto_ban,omitempty" json:"auto_ban,omitempty"`
+	Bot        *BotPolicy  `yaml:"bot,omitempty" json:"bot,omitempty"`
+	// OptOut removes inherited named items, written "rate_limits:<name>".
+	// It is the only way to drop a global item (and is audited with the change).
+	OptOut []string `yaml:"opt_out,omitempty" json:"opt_out,omitempty"`
 }
 
 // WAFPolicy tunes Coraza and CRS. Exclusions and custom rules arrive in M8.

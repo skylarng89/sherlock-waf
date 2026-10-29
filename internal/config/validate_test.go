@@ -44,8 +44,11 @@ func TestValidateSiteErrors(t *testing.T) {
 		{"outbound unsupported", siteYAML("    policy: { waf: { outbound_inspection: true } }\n"), "/sites/0/policy/waf/outbound_inspection", CodeUnsupported},
 		{"body limit", siteYAML("    policy: { waf: { max_body_bytes: 0 } }\n"), "/sites/0/policy/waf/max_body_bytes", CodeOutOfRange},
 		{"bad ext", siteYAML("    policy: { waf: { skip_inspection_extensions: [css] } }\n"), "/sites/0/policy/waf/skip_inspection_extensions/0", CodeInvalid},
-		{"template", siteYAML("    policy: { block_page: { template_id: fancy } }\n"), "/sites/0/policy/block_page/template_id", CodeUnsupported},
-		{"client cert", withUpstreams(`{ targets: ["h:1"], tls: { client_cert_id: c } }`), "/sites/0/upstreams/tls/client_cert_id", CodeUnsupported},
+		{"template id shape", siteYAML("    policy: { block_page: { template_id: \"not a slug!\" } }\n"), "/sites/0/policy/block_page/template_id", CodeInvalid},
+		{"client cert needs upstream tls", withUpstreams(`{ targets: ["h:1"], tls: { client_cert_id: c } }`), "/sites/0/upstreams/tls/client_cert_id", CodeInvalid},
+		{"client cert id shape", withUpstreams(`{ targets: ["h:1"], tls: { enabled: true, client_cert_id: "a b" } }`), "/sites/0/upstreams/tls/client_cert_id", CodeInvalid},
+		{"http version", withUpstreams(`{ targets: ["h:1"], http_version: "3" }`), "/sites/0/upstreams/http_version", CodeInvalid},
+		{"h2c with upstream tls", withUpstreams(`{ targets: ["h:1"], http_version: h2c, tls: { enabled: true } }`), "/sites/0/upstreams/http_version", CodeInvalid},
 		{"health timeout > interval", withUpstreams(`{ targets: ["h:1"], health_check: { path: /h, interval: 1s, timeout: 5s } }`), "/sites/0/upstreams/health_check/timeout", CodeOutOfRange},
 		{"path prefix", siteYAML("    path_prefix: app\n"), "/sites/0/path_prefix", CodeInvalid},
 		{"global proxy cidr", "schema_version: 1\nglobal: { trusted_proxies: [\"10.0.0.0/40\"] }\nsites:\n  - {id: a, hosts: [a.b], upstreams: {targets: [\"h:1\"]}}\n", "/global/trusted_proxies", CodeInvalid},
@@ -143,4 +146,89 @@ func TestEndpointCap(t *testing.T) {
 func TestErrorsString(t *testing.T) {
 	e := Errors{{Path: "/a", Code: CodeInvalid, Message: "bad"}, {Code: CodeSyntax, Message: "oops"}}
 	assert.Equal(t, "invalid configuration: /a: bad (invalid); /: oops (syntax)", e.Error())
+}
+
+func globalYAML(global string) string {
+	return "schema_version: 1\nglobal:\n" + global + "sites:\n  - {id: a, hosts: [a.example.com], upstreams: {targets: [\"h:1\"]}}\n"
+}
+
+func TestAdminAndEventsDefaults(t *testing.T) {
+	r, err := Parse([]byte(globalYAML("  trusted_proxies: [\"10.0.0.0/8\"]\n")))
+	require.NoError(t, err)
+	g := r.Global
+	assert.Equal(t, "127.0.0.1:9444", g.Admin.Listen)
+	assert.InDelta(t, 0.01, *g.Events.AccessLog.SampleRate, 1e-9)
+	assert.False(t, g.Events.AccessLog.Enabled, "access log is opt-in")
+	assert.True(t, *g.Events.Sinks.Stdout)
+	assert.True(t, *g.Events.Sinks.File)
+	assert.Equal(t, 100, g.Events.Sinks.FileMaxMB)
+	assert.Equal(t, 5, g.Events.Sinks.FileKeep)
+	assert.False(t, g.Events.BodyExcerpt, "body excerpts are off by default")
+}
+
+func TestAdminAndEventsErrors(t *testing.T) {
+	tests := []struct {
+		name, global, wantPath, wantCode string
+	}{
+		{"bad listen", "  admin: { listen: nonsense }\n", "/global/admin/listen", CodeInvalid},
+		{"port range", "  admin: { listen: \"127.0.0.1:99999\" }\n", "/global/admin/listen", CodeInvalid},
+		{"bad cidr", "  admin: { allowed_cidrs: [\"nope\"] }\n", "/global/admin/allowed_cidrs", CodeInvalid},
+		{"sample rate high", "  events: { access_log: { sample_rate: 1.5 } }\n", "/global/events/access_log/sample_rate", CodeOutOfRange},
+		{"sample rate negative", "  events: { access_log: { sample_rate: -0.1 } }\n", "/global/events/access_log/sample_rate", CodeOutOfRange},
+		{"bad redaction regex", "  events: { redaction: { patterns: [\"(\"] } }\n", "/global/events/redaction/patterns/0", CodeInvalid},
+		{"file size", "  events: { sinks: { file_max_mb: 99999 } }\n", "/global/events/sinks/file_max_mb", CodeOutOfRange},
+		{"node name", "  events: { node_name: \"a\\nb\" }\n", "/global/events/node_name", CodeInvalid},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := Parse([]byte(globalYAML(tc.global)))
+			var errs Errors
+			require.ErrorAs(t, err, &errs)
+			assert.NotEmpty(t, findMsg(errs, tc.wantPath, tc.wantCode), "got %v", errs)
+		})
+	}
+}
+
+func TestAdminOffAndCustom(t *testing.T) {
+	r, err := Parse([]byte(globalYAML("  admin: { listen: \"off\" }\n  events: { access_log: { enabled: true, sample_rate: 0.5 }, sinks: { stdout: false } }\n")))
+	require.NoError(t, err)
+	assert.Equal(t, AdminOff, r.Global.Admin.Listen)
+	assert.True(t, r.Global.Events.AccessLog.Enabled)
+	assert.False(t, *r.Global.Events.Sinks.Stdout)
+}
+
+func TestEventRetentionDaysDefaultsAndBounds(t *testing.T) {
+	r := &Root{SchemaVersion: 1}
+	r.ApplyDefaults()
+	assert.Equal(t, DefaultEventRetentionDays, r.Global.Events.RetentionDays)
+
+	for _, days := range []int{-1, 3651} {
+		bad := &Root{SchemaVersion: 1, Global: Global{Events: Events{RetentionDays: days}}}
+		bad.ApplyDefaults()
+		errs := bad.Validate()
+		require.NotEmpty(t, errs, "%d", days)
+		assert.Equal(t, "/global/events/retention_days", errs[0].Path)
+	}
+}
+
+func TestNewProxyOptionsAreAcceptedWhenWellFormed(t *testing.T) {
+	for name, y := range map[string]string{
+		"uploaded certificate": siteYAML("    tls: { mode: file, cert_id: 01KB5ZA1V8M0E7YJQ8T5N7W9XQ }\n"),
+		"block page template":  siteYAML("    policy: { block_page: { template_id: corporate-403 } }\n"),
+		"upstream mtls":        withUpstreams(`{ targets: ["h:443"], tls: { enabled: true, client_cert_id: 01KB5ZA1V8M0E7YJQ8T5N7W9XQ } }`),
+		"grpc over h2c":        withUpstreams(`{ targets: ["h:50051"], http_version: h2c }`),
+		"websockets denied":    withUpstreams(`{ targets: ["h:1"], websockets: false }`),
+	} {
+		_, err := Parse([]byte(y))
+		assert.NoError(t, err, name)
+	}
+
+	_, err := Parse([]byte(siteYAML("    tls: { mode: file, cert_id: abc, cert_file: /x, key_file: /y }\n")))
+	var errs Errors
+	require.ErrorAs(t, err, &errs)
+	assert.NotEmpty(t, findMsg(errs, "/sites/0/tls/cert_id", CodeInvalid), "cert_id and files are mutually exclusive: %v", errs)
+
+	_, err = Parse([]byte(siteYAML("    tls: { mode: acme, cert_id: abc }\n")))
+	require.ErrorAs(t, err, &errs)
+	assert.NotEmpty(t, findMsg(errs, "/sites/0/tls", CodeInvalid))
 }
