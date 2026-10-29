@@ -14,7 +14,7 @@
 | --- | --- | --- |
 | Script (Debian/Ubuntu/RHEL family) | `curl -fsSL https://get.sherlockwaf.dev/install.sh \| sudo sh` (domain TBD; script verifies cosign signature before installing) | M7 |
 | Packages | `.deb` / `.rpm` from GitHub Releases | M7 |
-| Docker Compose | `deploy/docker/compose.yaml` | M7 |
+| Docker Compose | `deploy/compose/docker-compose.yml` | M7 |
 | Kubernetes | Helm chart | M12 |
 
 ## Filesystem layout (packages)
@@ -28,15 +28,21 @@
 
 ## Bootstrap settings (environment)
 
-| Variable | Default |
+| Setting | Default |
 | --- | --- |
-| `SHERLOCK_DATA_DIR` | `/var/lib/sherlock` |
-| `SHERLOCK_DB` | `sqlite:///var/lib/sherlock/sherlock.db` or `postgres://…` |
-| `SHERLOCK_ADMIN_LISTEN` | `0.0.0.0:9443` |
-| `SHERLOCK_HTTP_LISTEN` / `SHERLOCK_HTTPS_LISTEN` | `:80` / `:443` |
-| `SHERLOCK_NODE_NAME` | hostname |
-| `SHERLOCK_NODE_KEY_FILE` | `$DATA_DIR/node.key` |
-| `SHERLOCK_LOG_LEVEL` | `info` |
+| `--data-dir` (flag; all commands) | the OS user data dir; packages and the unit use `/var/lib/sherlock` |
+| `SHERLOCK_DATABASE_URL` (or `--database-url`) | SQLite file `<data-dir>/sherlock.db`; `postgres://…` selects PostgreSQL |
+| `SHERLOCK_ADMIN_LISTEN` (or `run --listen`) | `127.0.0.1:9443` (the package unit keeps it on loopback; the Docker example sets `0.0.0.0:9443`) |
+| `SHERLOCK_ADMIN_ALLOWED_CIDRS` | unset (no network restriction) |
+| `SHERLOCK_ADMIN_TLS_CERT` / `SHERLOCK_ADMIN_TLS_KEY` | unset (self-signed identity in the data dir) |
+| `run --http-port` / `run --https-port` (flags) | `80` / `443` |
+| `SHERLOCK_NODE_KEY_FILE` / `SHERLOCK_NODE_KEY` | `<data-dir>/node.key` |
+| `SHERLOCK_BACKUP`, `SHERLOCK_BACKUP_KEEP`, `SHERLOCK_BACKUP_PASSPHRASE_FILE` | daily, keep 7, unencrypted |
+| `SHERLOCK_TURNSTILE_SECRET`, `SHERLOCK_HCAPTCHA_SECRET` | unset (bot-defence provider secrets) |
+| `SHERLOCK_CROWDSEC_API_KEY`, `SHERLOCK_MAXMIND_LICENSE_KEY` | unset (optional feeds) |
+| `SHERLOCK_API_URL`, `SHERLOCK_TOKEN`, `SHERLOCK_TLS_PIN` | CLI client settings for `sherlock config … --server` |
+
+There is no `SHERLOCK_DATA_DIR`, `SHERLOCK_DB`, `SHERLOCK_HTTP_LISTEN`, `SHERLOCK_NODE_NAME` or `SHERLOCK_LOG_LEVEL`.
 
 Everything else is configuration in the store, managed via API/dashboard/YAML.
 

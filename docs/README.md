@@ -26,7 +26,7 @@ Written: 2026-10-28. Status: approved plan, pre-implementation.
 | 14 | [engineering/](engineering/) | Repo layout, coding standards, testing, CI/CD, dev environment |
 | 15 | [release/](release/) | Versioning, releases, upgrades and support |
 | 16 | [operations/deployment.md](operations/deployment.md) | Installing and running Sherlock |
-| 16b | [user/](user/) | Install, first site, detect-to-block rollout, backup and restore, upgrade |
+| 16b | [user/](user/) | Install, first site, detect-to-block rollout, backup and restore, upgrade, investigating attacks in the dashboard ([dashboard-events](user/dashboard-events.md)) |
 | 17 | [plan/roadmap.md](plan/roadmap.md) | Choosing the next milestone |
 | 18 | [plan/milestones/](plan/milestones/) | Building. One file per milestone with tasks and acceptance criteria |
 

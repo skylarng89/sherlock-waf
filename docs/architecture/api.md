@@ -46,9 +46,13 @@ Operational conventions: errors are RFC 9457 `application/problem+json` with a `
 | `GET/PUT /defaults` | Global policy defaults | viewer / admin | M3 |
 | `GET/POST /sites/{site}/endpoints`, `GET/PATCH/DELETE …/{endpoint}` | Endpoint overrides | viewer / admin | M3 |
 | `GET /sites/{site}/effective-policy?path=&method=` | Merged policy with source of each value; shows matched endpoint | viewer | M3 |
-| `GET /virtual-patches`, `GET /virtual-patches/{id}` | Rule-pack catalogue: CVE, product, severity, state per site, hit counts | viewer | M8 |
-| `GET/POST /sites/{site}/exclusions`, `…/{id}` | WAF exclusions | viewer / admin | M8 |
-| `POST /sites/{site}/exclusions/from-event/{event_id}` | Suggest an exclusion from an event | admin | M8 |
+| `GET /virtual-patches?q&site&severity&kev&days` | Rule-pack catalogue: CVE, product, severity, KEV, state per site (`active`, `stack_not_declared`, `disabled`, `pack_off`), hit counts, CVEs covered by CRS, summary for the overview | viewer | M8 |
+| `PUT /sites/{site}/virtual-patches/{patch}` | Switch one patch on or off for a site (audited) | admin | M8 |
+| `GET/POST /sites/{site}/exclusions`, `DELETE …/{exclusion}` | Site-level WAF exclusions; creating is audited with the actor and source event; critical warnings need `acknowledge_warnings` | viewer / admin | M8 |
+| `POST /sites/{site}/exclusions/propose` | Narrowest exclusion for an event (or a preview of an edited one): past-event impact and warnings; saves nothing | viewer (`events:read`) | M8 |
+| `GET/PUT /sites/{site}/custom-rules`, `POST …/validate` | Custom SecLang rules (ids 10000-99999); validated by static allow-list and a throwaway Coraza compile before saving | viewer / admin | M8 |
+| `GET /sites/{site}/paranoia-impact?target&from&to` | Predicted additional blocks if the blocking paranoia level is raised, from stored findings | viewer (`events:read`) | M8 |
+| `GET /crs/rules?q&site&category&paranoia_level&direction&state&limit&offset` | CRS rule catalogue with descriptions, searchable, with per-site state | viewer | M8 |
 | `GET/POST /sites/{site}/rate-limits`, `…/{name}` | Rate limits | viewer / admin | M5 |
 | `GET/PUT /sites/{site}/openapi` | OpenAPI doc for API protection | viewer / admin | M9 |
 | `GET/POST /certificates`, `DELETE /certificates/{id}` | Uploaded certs; ACME status | viewer / admin | M4 |

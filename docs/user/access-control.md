@@ -69,3 +69,7 @@ Outbound feed requests refuse loopback, private, link-local (including the cloud
 ## Bans
 
 `GET/POST /api/v1/bans` and `DELETE /api/v1/bans/{id}` (the Bans page in the dashboard). A manual ban takes effect immediately without a reload. The server refuses to ban the address you are connecting from.
+
+## Password gate hashes in the dashboard
+
+The server never returns a stored password hash: API and dashboard show the literal `<redacted>` in its place. In the site's access tab the field then reads "Hash set (hidden)". Leave it empty to keep the stored hash, or paste a new argon2id hash to replace it. Sending `<redacted>` back, or omitting the field, keeps the stored hash on the server.

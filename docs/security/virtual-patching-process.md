@@ -33,3 +33,12 @@ Decide one of:
 ## Retirement
 
 Rules stay while the CVE is relevant. After 24 months, review rules with zero hits across opt-in telemetry/design partners; retire only with a changelog note.
+
+## Implementation notes (M8)
+
+- Files per patch in `rules/virtual-patches/`: `SV-<year>-<n>.conf` (SecLang, ids 9,500,000-9,599,999), `SV-<year>-<n>.yaml` (metadata, strict schema in `internal/vpatch`), `SV-<year>-<n>.tests.yaml` (positive exploit requests and benign negatives). `covered-by-crs.yaml` lists CVEs CRS blocks, each with the replayed request.
+- `verification`: `synthetic` means the exploit request was rebuilt from public write-ups and tested against Sherlock only; `product-verified` means it was also replayed against a vulnerable instance. The initial pack is all `synthetic`; upgrade a patch only after a real replay.
+- `kev: true` is checked by the `verify` job of `.github/workflows/kev-watch.yml` against the CISA catalogue.
+- Tests: `go test ./internal/dataplane/waf -run 'EveryVirtualPatch|CoveredByCRS|ProductRules|EveryPatch'` (exploits blocked, benign requests clean, CRS-covered claims still true, zero blocks on the benign corpus with every patch enabled). go-ftw is the CRS suite; patch tests are Go tests because Coraza and the handler are in-process.
+- Coraza does not expose multipart file contents, so exploits that hide in an uploaded file (for example CVE-2021-22205) cannot be matched by rule; they stay in the triage backlog.
+- Rules read request paths from `REQUEST_FILENAME`. Static-asset skipping (`skip_inspection_extensions`) applies to GET/HEAD without a query string, so an exploit that sends its payload in a header on a `.js` path (ProxyLogon uses `/ecp/x.js`) is not inspected; the pack's own test uses a non-static path. Review that setting for Exchange sites.

@@ -153,7 +153,7 @@ global:
   defaults:                      # policy block applied to every site
     mode: detect
     waf: { paranoia_level: 1, inbound_threshold: 5 }
-    virtual_patches: { enabled: true, stacks: auto }
+    virtual_patches: { enabled: true }   # stacks are declared with policy.stacks (unset = auto: generic patches only)
     rate_limits:
       - name: global-per-ip
         match: { paths: ["/*"] }
@@ -208,7 +208,7 @@ In the YAML of the full example above, the protection fields shown directly unde
 
 ## Milestone 1 subset
 
-The file loader accepts `schema_version`, `global` (`trusted_proxies`, `client_ip_headers`, `acme`, `defaults`) and `sites` (`id`, `name`, `hosts`, `path_prefix`, `tls`, `upstreams`, `headers.security_headers`, `policy` with `mode`, `fail_mode`, `waf` (no exclusions or custom rules) and `block_page`, `endpoints`). **Any other key is a hard validation error** (`unknown_field`) so typos cannot silently disable protection; later milestones add their fields. `fail_mode` defaults to `closed` for `block` and `open` otherwise. `blocking_paranoia_level` defaults to the resolved `paranoia_level`. Endpoint `path_glob` uses Go `path.Match` syntax.
+The file loader accepts `schema_version`, `global` (`trusted_proxies`, `client_ip_headers`, `acme`, `defaults`) and `sites` (`id`, `name`, `hosts`, `path_prefix`, `tls`, `upstreams`, `headers.security_headers`, `policy` with `mode`, `fail_mode`, `waf` and `block_page`, `endpoints`). **Any other key is a hard validation error** (`unknown_field`) so typos cannot silently disable protection; later milestones add their fields. `fail_mode` defaults to `closed` for `block` and `open` otherwise. `blocking_paranoia_level` defaults to the resolved `paranoia_level`. Endpoint `path_glob` uses Go `path.Match` syntax.
 
 ## Rules
 
@@ -217,3 +217,19 @@ The file loader accepts `schema_version`, `global` (`trusted_proxies`, `client_i
 - Durations use Go duration strings. Sizes are bytes (integers).
 - Every field has a default in `internal/config/defaults.go`; the API returns the effective (defaulted) config.
 - Validation errors are returned as a list of `{path, code, message}` with JSON-pointer paths so the dashboard can attach errors to form fields.
+
+## M8 tuning fields
+
+All are part of the policy block, so they exist at global, site and endpoint level.
+
+| Field | Meaning |
+| --- | --- |
+| `waf.exclusions[]` | `{id, description, match: {paths, methods}, remove_rule_ids, remove_tags, remove_targets: [{rule_ids, tags, target}]}`. Compiled to CRS-style runtime exclusion rules (ids from 9,100,000) placed before the CRS includes. Paths are globs (`*` stays inside a segment, trailing `/**` matches the prefix and below). Rule ids may be ranges (`942100-942199`). Rules 200000-200099 (body parsers), the virtual-patch range and custom rule ids cannot be excluded. Exclusions are part of one site's Coraza instance, so they never affect another site. |
+| `waf.custom_rules` | Operator SecLang, ids 10000-99999, loaded after virtual patches and before the exclusions and CRS. Only `SecRule`, `SecAction` and `SecMarker`; actions are allow-listed (`exec`, `allow`, `redirect`, `initcol`, ... are refused); `ctl` only for `ruleRemove*` (never on Sherlock's own rules); `setvar` only on `tx.` and not on CRS control variables; operators that read files, run programs or use the network are refused. Validated by compiling in a throwaway Coraza instance. Scalar: the lowest level that sets it wins. |
+| `waf.outbound_inspection` | Response inspection (CRS `RESPONSE-*` rules). `outbound_max_body_bytes` (default 1 MiB) bounds what is held and inspected; the rest streams through. `outbound_content_types` (prefix match, default `text/html`, `text/plain`, `application/json`, `application/xml`, `text/xml`) filters by media type. Compressed responses are not inspected; `Accept-Encoding` is removed from the upstream request while the feature is on. |
+| `waf.blocking_paranoia_level` | May be lower than `paranoia_level`: rules above it still run and are recorded as findings (score and `paranoia-level/N` tag) but do not count towards blocking. The paranoia helper reads these findings back. |
+| `stacks` | Declared technologies (`wordpress`, `php`, `spring`, ...). List semantics as for ACL lists (`[..]` replaces, `{add, remove}` edits). Unset or `[auto]`: generic patches only. |
+| `virtual_patches` | `{enabled, disabled: [SV-YYYY-NNNN]}`. `disabled` is a named list (unioned across levels; drop an inherited entry with `opt_out: ["virtual_patches:<id>"]`). A product-specific patch is active only if the pack is enabled, the patch is not disabled and one of its `stacks` is declared. |
+| `opt_out` | Besides `rate_limits:<name>`: `exclusions:<id>` and `virtual_patches:<id>`. |
+
+Auto-detection of stacks (ADR-0013 `stacks: auto`) is not implemented: `auto` currently means "no stack declared".
