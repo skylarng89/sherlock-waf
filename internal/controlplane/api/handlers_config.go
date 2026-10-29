@@ -86,6 +86,7 @@ func (h *handlers) mutate(ctx context.Context, match *string, fn func(*config.Ro
 	if err := fn(next); err != nil {
 		return store.ConfigVersion{}, err
 	}
+	next.RestoreRedacted(live) // a client that echoes "<redacted>" keeps the stored hash
 	return h.s.Config.Apply(ctx, configsvc.Request{Root: next, Expected: expected, Conditional: present, Actor: actorOf(ctx), Source: configsvc.SourceAPI})
 }
 
@@ -98,7 +99,7 @@ func (h *handlers) GetConfig(ctx context.Context, _ apigen.GetConfigRequestObjec
 	if err != nil {
 		return nil, err
 	}
-	return apigen.GetConfig200JSONResponse{Body: *root, Headers: apigen.GetConfig200ResponseHeaders{ETag: etag(v.ID)}}, nil
+	return apigen.GetConfig200JSONResponse{Body: *root.Redacted(), Headers: apigen.GetConfig200ResponseHeaders{ETag: etag(v.ID)}}, nil
 }
 
 func (h *handlers) PutConfig(ctx context.Context, req apigen.PutConfigRequestObject) (apigen.PutConfigResponseObject, error) {
@@ -109,6 +110,8 @@ func (h *handlers) PutConfig(ctx context.Context, req apigen.PutConfigRequestObj
 	if err != nil {
 		return nil, err
 	}
+	_, live, _ := h.current(ctx) // no stored configuration: live is nil and placeholders are cleared
+	req.Body.RestoreRedacted(live)
 	v, err := h.s.Config.Apply(ctx, configsvc.Request{Root: req.Body, Expected: expected, Conditional: present, Actor: actorOf(ctx), Source: configsvc.SourceAPI})
 	if err != nil {
 		return nil, err
@@ -128,6 +131,8 @@ func (h *handlers) ValidateConfig(ctx context.Context, req apigen.ValidateConfig
 	if req.Body == nil {
 		return nil, errBadRequest("A JSON body is required.")
 	}
+	_, live, _ := h.current(ctx) // no stored configuration: live is nil and placeholders are cleared
+	req.Body.RestoreRedacted(live)
 	errs := h.s.Config.Check(ctx, req.Body)
 	return apigen.ValidateConfig200JSONResponse{Valid: len(errs) == 0, Errors: validationErrors(errs)}, nil
 }
@@ -199,7 +204,7 @@ func (h *handlers) GetConfigVersion(ctx context.Context, req apigen.GetConfigVer
 	d := versionDTO(v)
 	return apigen.GetConfigVersion200JSONResponse{
 		Id: d.Id, ParentId: d.ParentId, CreatedAt: d.CreatedAt, AuthorType: d.AuthorType, AuthorId: d.AuthorId,
-		Source: apigen.VersionDetailSource(d.Source), SchemaVersion: d.SchemaVersion, Applied: d.Applied, Diff: d.Diff, Snapshot: *snap,
+		Source: apigen.VersionDetailSource(d.Source), SchemaVersion: d.SchemaVersion, Applied: d.Applied, Diff: d.Diff, Snapshot: *snap.Redacted(),
 	}, nil
 }
 
@@ -220,7 +225,7 @@ func (h *handlers) GetDefaults(ctx context.Context, _ apigen.GetDefaultsRequestO
 	if err != nil {
 		return nil, err
 	}
-	return apigen.GetDefaults200JSONResponse{Body: root.Global.Defaults, Headers: apigen.GetDefaults200ResponseHeaders{ETag: etag(v.ID)}}, nil
+	return apigen.GetDefaults200JSONResponse{Body: config.RedactPolicy(root.Global.Defaults), Headers: apigen.GetDefaults200ResponseHeaders{ETag: etag(v.ID)}}, nil
 }
 
 func (h *handlers) PutDefaults(ctx context.Context, req apigen.PutDefaultsRequestObject) (apigen.PutDefaultsResponseObject, error) {
@@ -228,7 +233,7 @@ func (h *handlers) PutDefaults(ctx context.Context, req apigen.PutDefaultsReques
 		return nil, errBadRequest("A JSON body is required.")
 	}
 	v, err := h.mutate(ctx, req.Params.IfMatch, func(r *config.Root) error {
-		r.Global.Defaults = *req.Body
+		r.Global.Defaults = *req.Body // mutate restores a redacted gate hash
 		return nil
 	})
 	if err != nil {
@@ -262,7 +267,7 @@ func (h *handlers) ListSites(ctx context.Context, _ apigen.ListSitesRequestObjec
 	if err != nil {
 		return nil, err
 	}
-	items := root.Sites
+	items := config.RedactSites(root.Sites)
 	if items == nil {
 		items = []config.Site{}
 	}
@@ -295,7 +300,7 @@ func (h *handlers) GetSite(ctx context.Context, req apigen.GetSiteRequestObject)
 	if i < 0 {
 		return nil, errNotFound("site " + req.Site)
 	}
-	return apigen.GetSite200JSONResponse{Body: root.Sites[i], Headers: apigen.GetSite200ResponseHeaders{ETag: etag(v.ID)}}, nil
+	return apigen.GetSite200JSONResponse{Body: config.RedactSite(root.Sites[i]), Headers: apigen.GetSite200ResponseHeaders{ETag: etag(v.ID)}}, nil
 }
 
 func (h *handlers) DeleteSite(ctx context.Context, req apigen.DeleteSiteRequestObject) (apigen.DeleteSiteResponseObject, error) {
@@ -388,7 +393,7 @@ func (h *handlers) ListEndpoints(ctx context.Context, req apigen.ListEndpointsRe
 	if i < 0 {
 		return nil, errNotFound("site " + req.Site)
 	}
-	items := root.Sites[i].Endpoints
+	items := config.RedactSite(root.Sites[i]).Endpoints
 	if items == nil {
 		items = []config.Endpoint{}
 	}
@@ -429,7 +434,7 @@ func (h *handlers) GetEndpoint(ctx context.Context, req apigen.GetEndpointReques
 	if j < 0 {
 		return nil, errNotFound("endpoint " + req.Endpoint)
 	}
-	return apigen.GetEndpoint200JSONResponse{Body: root.Sites[i].Endpoints[j], Headers: apigen.GetEndpoint200ResponseHeaders{ETag: etag(v.ID)}}, nil
+	return apigen.GetEndpoint200JSONResponse{Body: config.RedactEndpoint(root.Sites[i].Endpoints[j]), Headers: apigen.GetEndpoint200ResponseHeaders{ETag: etag(v.ID)}}, nil
 }
 
 func (h *handlers) PatchEndpoint(ctx context.Context, req apigen.PatchEndpointRequestObject) (apigen.PatchEndpointResponseObject, error) {

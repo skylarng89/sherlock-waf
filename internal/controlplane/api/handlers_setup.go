@@ -14,6 +14,7 @@ import (
 	"github.com/skylarng89/sherlock-waf/internal/controlplane/api/apigen"
 	"github.com/skylarng89/sherlock-waf/internal/controlplane/auth"
 	"github.com/skylarng89/sherlock-waf/internal/ids"
+	"github.com/skylarng89/sherlock-waf/internal/netx"
 	"github.com/skylarng89/sherlock-waf/internal/store"
 )
 
@@ -158,11 +159,16 @@ func (s *Server) checkUpstream(ctx context.Context, host, port string, useTLS, s
 	if useTLS {
 		scheme = "https"
 	}
-	tr := &http.Transport{DisableKeepAlives: true, ResponseHeaderTimeout: upstreamTestTimeout}
-	if useTLS {
-		tr.TLSClientConfig = tlsClient(skipVerify)
+	// Upstreams are often on private networks, so loopback and RFC 1918 stay allowed; link-local
+	// (cloud metadata), multicast and unspecified addresses are refused at dial time.
+	client := netx.NewClient(netx.Options{AllowPrivate: true, Timeout: upstreamTestTimeout})
+	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	if tr, ok := client.Transport.(*http.Transport); ok {
+		tr.DisableKeepAlives = true
+		if useTLS {
+			tr.TLSClientConfig = tlsClient(skipVerify)
+		}
 	}
-	client := &http.Client{Transport: tr, Timeout: upstreamTestTimeout, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	r, err := http.NewRequestWithContext(ctx, http.MethodHead, fmt.Sprintf("%s://%s/", scheme, net.JoinHostPort(host, port)), nil)
 	if err != nil {
 		return fail("protocol")

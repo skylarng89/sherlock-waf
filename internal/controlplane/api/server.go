@@ -83,6 +83,8 @@ type Deps struct {
 	EventStats func() (published, dropped uint64)
 	// Feeds reports feed health for GET /feeds/status (nil: no feeds configured).
 	Feeds func() []FeedStatus
+	// Update checks for and stages signed releases; nil disables /system/update.
+	Update UpdateService
 	// DataDir is where Caddy keeps the certificates it obtains (ACME status).
 	DataDir string
 }
@@ -92,6 +94,8 @@ type Server struct {
 	Deps
 	log   *slog.Logger
 	perms map[string]string // "METHOD /api/v1/path/{param}" -> permission
+
+	updates updateCache
 }
 
 // New builds the server and verifies that every operation declares a permission.
@@ -122,7 +126,7 @@ func permissionTable() (map[string]string, error) {
 	known := map[string]bool{
 		auth.PermPublic: true, auth.PermAuthenticated: true, auth.PermSessionAny: true, auth.PermSessionPart: true,
 		auth.PermConfigRead: true, auth.PermConfigWrite: true, auth.PermEventsRead: true, auth.PermUsersManage: true,
-		auth.PermTokensOwn: true, auth.PermAuditRead: true, auth.PermSystemRead: true,
+		auth.PermTokensOwn: true, auth.PermAuditRead: true, auth.PermSystemRead: true, auth.PermSystemUpdate: true,
 	}
 	table := map[string]string{}
 	for p, item := range spec.Paths.Map() {

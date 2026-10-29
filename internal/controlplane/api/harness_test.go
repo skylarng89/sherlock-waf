@@ -63,7 +63,10 @@ func sha(s string) string { h := sha256.Sum256([]byte(s)); return hex.EncodeToSt
 
 const seedConfig = `{"schema_version":1,"sites":[{"id":"shop","hosts":["shop.example.test"],"tls":{"mode":"none"},"upstreams":{"targets":["127.0.0.1:9"]},"policy":{"mode":"detect"}}]}`
 
-type harnessOpts struct{ noUsers bool }
+type harnessOpts struct {
+	noUsers bool
+	update  UpdateService
+}
 
 func newHarness(t *testing.T) *harness { return newHarnessWith(t, harnessOpts{}) }
 
@@ -111,7 +114,7 @@ func newHarnessWith(t *testing.T, o harnessOpts) *harness {
 	cfg.SetReferenceChecker(testRefs(st))
 	s, err := New(Deps{
 		Store: st, Config: cfg, Auth: as, Audit: au, Hasher: hasher, Info: Info{Version: "test", CRSVersion: "4.25.0"},
-		Secrets: h.secrets, Certs: certs, Setup: h.gate, DataDir: h.dataDir,
+		Secrets: h.secrets, Certs: certs, Setup: h.gate, DataDir: h.dataDir, Update: o.update,
 	})
 	require.NoError(t, err)
 	h.srv = httptest.NewTLSServer(s.Handler())

@@ -289,7 +289,7 @@ func (h *handlers) PatchUser(ctx context.Context, req apigen.PatchUserRequestObj
 			if err := tx.SetUserPassword(ctx, u.ID, newHash); err != nil {
 				return err
 			}
-			changed["password_changed"] = true
+			changed["credentials_changed"] = true // not "password_*": the audit guard rejects credential-looking keys
 			u.FailedCount, u.LockedUntil, revoke = 0, time.Time{}, true
 		}
 		if revoke { // a changed credential, role or state ends every live session

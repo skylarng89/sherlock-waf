@@ -43,12 +43,12 @@ func specOps(t *testing.T) []op {
 // scope there, this matrix fails.
 var (
 	viewerPerms = []string{"config:read", "events:read", "tokens:own", "system:read"}
-	adminPerms  = []string{"config:read", "config:write", "events:read", "users:manage", "tokens:own", "audit:read", "system:read"}
+	adminPerms  = []string{"config:read", "config:write", "events:read", "users:manage", "tokens:own", "audit:read", "system:read", "system:update"}
 	tokenPerms  = map[string][]string{
 		"read":        {"config:read", "system:read"},
 		"write":       {"config:read", "config:write", "system:read"},
 		"events:read": {"events:read"},
-		"admin":       {"config:read", "config:write", "events:read", "users:manage", "audit:read", "system:read"},
+		"admin":       {"config:read", "config:write", "events:read", "users:manage", "audit:read", "system:read", "system:update"},
 	}
 )
 

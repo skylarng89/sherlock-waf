@@ -8,6 +8,8 @@ import (
 	"net"
 	"strings"
 	"syscall"
+
+	"github.com/skylarng89/sherlock-waf/internal/netx"
 )
 
 func tlsClient(skipVerify bool) *tls.Config {
@@ -22,6 +24,8 @@ func classifyDialError(err error) string {
 	var host x509.HostnameError
 	var inval x509.CertificateInvalidError
 	switch {
+	case errors.Is(err, netx.ErrBlockedAddress):
+		return "blocked"
 	case errors.As(err, &dns):
 		return "dns"
 	case errors.Is(err, syscall.ECONNREFUSED):
