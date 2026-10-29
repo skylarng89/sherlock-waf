@@ -11,7 +11,7 @@
   "product": "Confluence Data Center and Server",
   "versions": "All versions before 8.3.3, 8.4.5, 8.5.4 and 8.6.2; see Atlassian advisory",
   "severity": "critical",
-  "cvss": 10.0,
+  "cvss": 9.8,
   "kev": true,
   "kev_added": "2023-11-07",
   "stacks": [
