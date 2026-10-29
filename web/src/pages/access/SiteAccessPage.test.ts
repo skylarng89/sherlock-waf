@@ -230,6 +230,40 @@ describe('site ACL tab', () => {
     })
   })
 
+  it('shows a stored hash as set, never as a value, and lets it be replaced', async () => {
+    api.PATCH.mockResolvedValue(ok({}, { etag: '"v8"' }))
+    const policy = {
+      acl: { password_gate: { enabled: true, username: 'admin', password_hash: '<redacted>' } },
+    } as Policy
+    const { wrapper, submit } = await mount('acl', { policy })
+    const hash = control(wrapper, 'Password hash')
+    expect((hash.element as HTMLInputElement).value).toBe('')
+    expect(wrapper.find('[data-testid="hash-set"]').exists()).toBe(true)
+    expect(wrapper.html()).not.toContain('&lt;redacted&gt;')
+    await hash.setValue('$argon2id$v=19$m=65536,t=3,p=4$bmV3$bmV3')
+    await submit()
+    expect(patch()[1].body).toEqual({
+      policy: {
+        acl: {
+          password_gate: {
+            password_hash: '$argon2id$v=19$m=65536,t=3,p=4$bmV3$bmV3',
+          },
+        },
+      },
+    })
+  })
+
+  it('keeps the redacted marker when the hash field is cleared', async () => {
+    const policy = {
+      acl: { password_gate: { enabled: true, username: 'admin', password_hash: '<redacted>' } },
+    } as Policy
+    const { wrapper } = await mount('acl', { policy })
+    const hash = control(wrapper, 'Password hash')
+    await hash.setValue('abc')
+    await hash.setValue('')
+    expect(wrapper.find('[data-testid="hash-set"]').exists()).toBe(true)
+  })
+
   it('does not call the server when nothing changed', async () => {
     const { submit } = await mount('acl')
     await submit()

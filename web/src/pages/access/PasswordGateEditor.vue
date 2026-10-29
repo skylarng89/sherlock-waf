@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import SkFormField from '@/components/SkFormField.vue'
 import { controlClass } from '@/pages/sites/controls/classes'
@@ -18,6 +19,16 @@ const props = defineProps<{
 const emit = defineEmits<{ update: [value: Gate] }>()
 
 const { t } = useI18n()
+
+// The server never returns the stored hash; it sends this marker and keeps the stored hash
+// whenever the marker (or nothing) comes back.
+const REDACTED = '<redacted>'
+const hadStoredHash = ref(props.modelValue?.password_hash === REDACTED)
+const hashIsSet = computed(() => props.modelValue?.password_hash === REDACTED)
+
+function onHashInput(value: string) {
+  set({ password_hash: value === '' && hadStoredHash.value ? REDACTED : value })
+}
 
 function set(patch: Gate) {
   emit('update', { enabled: true, ...props.modelValue, ...patch })
@@ -52,13 +63,18 @@ function set(patch: Gate) {
         <input
           v-bind="a"
           type="password"
-          :value="modelValue?.password_hash ?? ''"
+          :value="hashIsSet ? '' : (modelValue?.password_hash ?? '')"
           :class="[controlClass, 'font-mono']"
           autocomplete="off"
           spellcheck="false"
+          :placeholder="hashIsSet ? t('access.acl.passwordGate.hashSetPlaceholder') : undefined"
           :disabled="disabled"
-          @input="set({ password_hash: ($event.target as HTMLInputElement).value })"
+          @input="onHashInput(($event.target as HTMLInputElement).value)"
         />
+        <p v-if="hashIsSet" class="mt-1 text-sm text-sk-muted" data-testid="hash-set">
+          <i class="ti ti-lock-check" aria-hidden="true" />
+          {{ t('access.acl.passwordGate.hashSet') }}
+        </p>
       </template>
     </SkFormField>
     <details class="rounded-sk border border-sk-border p-3">

@@ -18,6 +18,7 @@ import setup from './en/setup'
 import sites from './en/sites'
 import system from './en/system'
 import tokens from './en/tokens'
+import tuning from './en/tuning'
 import users from './en/users'
 
 export const en = {
@@ -39,6 +40,7 @@ export const en = {
   sites,
   system,
   tokens,
+  tuning,
   users,
 }
 

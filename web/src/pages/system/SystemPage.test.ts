@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { client } from '@/api/client'
 import type { mockClient } from '@/api/testing'
 import { ok, problem } from '@/api/testing'
-import { adminMe, renderWithApp } from '@/test-utils'
+import { adminMe, renderWithApp, viewerMe } from '@/test-utils'
 
 import SystemPage from './SystemPage.vue'
 
@@ -39,12 +39,38 @@ const feeds = {
   ],
 }
 
+const updater = { ...adminMe, permissions: [...adminMe.permissions, 'system:update'] }
+const available = {
+  current: '0.5.0',
+  latest: '0.6.0',
+  available: true,
+  in_container: false,
+}
+const backupList = {
+  items: [
+    {
+      name: 'sherlock-backup-2026.tar.gz',
+      bytes: 2048,
+      created_at: '2026-10-29T01:00:00Z',
+      encrypted: false,
+    },
+  ],
+}
+
+async function check(wrapper: { get(s: string): { trigger(e: string): Promise<void> } }) {
+  await wrapper.get('[data-testid="update-check"]').trigger('click')
+  await vi.waitFor(() => expect(api.GET).toHaveBeenCalledWith('/system/update'))
+  await new Promise((r) => setTimeout(r, 0))
+}
+
 function serve(overrides: Record<string, unknown> = {}) {
   api.GET.mockImplementation(async (path: string) => {
     const map: Record<string, unknown> = {
       '/system/info': ok(info),
       '/system/status': ok(status),
       '/feeds/status': ok(feeds),
+      '/system/update': ok({ ...available, available: false, latest: '0.5.0' }),
+      '/system/backups': ok({ items: [] }),
       ...overrides,
     }
     return (map[path] as ReturnType<typeof ok>) ?? problem(404)
@@ -55,6 +81,7 @@ describe('system page', () => {
   it('shows version, storage and feed health', async () => {
     serve()
     const { wrapper } = await renderWithApp(SystemPage, { me: adminMe, route: '/system' })
+    expect(api.GET).not.toHaveBeenCalledWith('/system/update')
     expect(wrapper.get('[data-testid="sys-version"]').text()).toBe('0.5.0')
     expect(wrapper.get('[data-testid="sys-crs"]').text()).toBe('4.8.0')
     expect(wrapper.get('[data-testid="sys-stored"]').text()).toBe('1,234,567')
@@ -81,5 +108,77 @@ describe('system page', () => {
     expect(wrapper.get('[role="alert"]').text()).toContain('could not be loaded')
     expect(wrapper.find('[data-testid="sys-version"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="feeds-table"]').exists()).toBe(false)
+  })
+
+  it('lists backups', async () => {
+    serve({ '/system/backups': ok(backupList) })
+    const { wrapper } = await renderWithApp(SystemPage, { me: adminMe, route: '/system' })
+    const rows = wrapper.findAll('[data-testid="backups-table"] tbody tr')
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.text()).toContain('sherlock-backup-2026.tar.gz')
+    expect(rows[0]?.text()).toContain('2 KiB')
+  })
+
+  it('shows update status to a viewer without the apply button', async () => {
+    serve({ '/system/update': ok(available) })
+    const { wrapper } = await renderWithApp(SystemPage, { me: viewerMe, route: '/system' })
+    await check(wrapper)
+    expect(wrapper.get('[data-testid="update-section"]').text()).toContain('Update available')
+    expect(wrapper.find('[data-testid="update-apply"]').exists()).toBe(false)
+  })
+
+  it('stages an update after confirmation and says a restart is needed', async () => {
+    serve({ '/system/update': ok(available) })
+    api.POST.mockResolvedValue(
+      ok({ from: '0.5.0', to: '0.6.0', state: 'staged', restart: 'Restart the service.' }),
+    )
+    const { wrapper } = await renderWithApp(SystemPage, { me: updater, route: '/system' })
+    await check(wrapper)
+    expect(wrapper.text()).toContain('does not restart Sherlock')
+    await wrapper.get('[data-testid="update-apply"]').trigger('click')
+    expect(api.POST).not.toHaveBeenCalled()
+    await wrapper.get('dialog form').trigger('submit')
+    await vi.waitFor(() => expect(api.POST).toHaveBeenCalledWith('/system/update/apply'))
+    await vi.waitFor(() =>
+      expect(wrapper.get('[data-testid="update-result"]').text()).toContain('is staged'),
+    )
+    expect(wrapper.get('[data-testid="update-result"]').text()).toContain('Restart the service.')
+  })
+
+  it('hides the button in containers and when a release needs a manual step', async () => {
+    serve({ '/system/update': ok({ ...available, in_container: true }) })
+    const a = await renderWithApp(SystemPage, { me: updater, route: '/system' })
+    await check(a.wrapper)
+    expect(a.wrapper.find('[data-testid="update-apply"]').exists()).toBe(false)
+    expect(a.wrapper.find('[data-testid="update-container"]').exists()).toBe(true)
+    serve({ '/system/update': ok({ ...available, reason: 'min_upgrade_from 0.5.5' }) })
+    const b = await renderWithApp(SystemPage, { me: updater, route: '/system' })
+    await check(b.wrapper)
+    expect(b.wrapper.find('[data-testid="update-apply"]').exists()).toBe(false)
+    expect(b.wrapper.text()).toContain('min_upgrade_from 0.5.5')
+  })
+
+  it.each([
+    [501, 'not supported'],
+    [502, 'could not be reached'],
+  ])('handles a %i from the update check gracefully', async (status, text) => {
+    serve({ '/system/update': problem(status) })
+    const { wrapper } = await renderWithApp(SystemPage, { me: updater, route: '/system' })
+    await check(wrapper)
+    expect(wrapper.get('[data-testid="update-problem"]').text()).toContain(text)
+    expect(wrapper.find('[data-testid="sys-version"]').exists()).toBe(true)
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+  })
+
+  it('shows the reason when applying fails', async () => {
+    serve({ '/system/update': ok(available) })
+    api.POST.mockResolvedValue(problem(502, { detail: 'checksum mismatch' }))
+    const { wrapper } = await renderWithApp(SystemPage, { me: updater, route: '/system' })
+    await check(wrapper)
+    await wrapper.get('[data-testid="update-apply"]').trigger('click')
+    await wrapper.get('dialog form').trigger('submit')
+    await vi.waitFor(() =>
+      expect(wrapper.get('[data-testid="update-error"]').text()).toContain('checksum mismatch'),
+    )
   })
 })

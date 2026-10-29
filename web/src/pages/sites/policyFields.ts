@@ -19,12 +19,22 @@ export const policyFields: PolicyFieldSpec[] = [
   { path: 'waf.inbound_threshold', kind: 'number', min: 1 },
   { path: 'waf.outbound_threshold', kind: 'number', min: 1 },
   { path: 'waf.outbound_inspection', kind: 'switch' },
+  { path: 'waf.outbound_max_body_bytes', kind: 'number', min: 0 },
+  { path: 'waf.outbound_content_types', kind: 'list' },
   { path: 'waf.max_body_bytes', kind: 'number', min: 0 },
   { path: 'waf.skip_inspection_extensions', kind: 'list' },
+  { path: 'stacks', kind: 'list' },
+  { path: 'virtual_patches.enabled', kind: 'switch' },
+  { path: 'virtual_patches.disabled', kind: 'list' },
   { path: 'block_page.template_id', kind: 'blockpage' },
 ]
 
-export const policyListFields = ['waf.skip_inspection_extensions']
+export const policyListFields = [
+  'waf.skip_inspection_extensions',
+  'waf.outbound_content_types',
+  'stacks',
+  'virtual_patches.disabled',
+]
 
 /** `waf.paranoia_level` -> `waf_paranoia_level`, the i18n key segment. */
 export function fieldKey(path: string): string {

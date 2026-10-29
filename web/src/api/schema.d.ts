@@ -817,6 +817,195 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/sites/{site}/exclusions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site: components["parameters"]["SiteID"];
+            };
+            cookie?: never;
+        };
+        /** Exclusions defined at the site level (false-positive tuning) */
+        get: operations["listExclusions"];
+        put?: never;
+        /**
+         * Add an exclusion; the change is audited with the actor and, when created from an event, the event id
+         * @description Rejects with 422 when the exclusion has critical warnings (for example a
+         *     whole attack category) unless `acknowledge_warnings` is true.
+         */
+        post: operations["createExclusion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sites/{site}/exclusions/propose": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site: components["parameters"]["SiteID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Propose the narrowest exclusion for an event, or preview one you edited, with past-event impact and warnings
+         * @description With `event_id` the server builds the narrowest exclusion (this rule,
+         *     this target, this path, this method). With `exclusion` it only evaluates
+         *     the given one (use it when the user widens the proposal in the wizard).
+         *     Nothing is saved.
+         */
+        post: operations["proposeExclusion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sites/{site}/exclusions/{exclusion}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site: components["parameters"]["SiteID"];
+                exclusion: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a site-level exclusion */
+        delete: operations["deleteExclusion"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sites/{site}/custom-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site: components["parameters"]["SiteID"];
+            };
+            cookie?: never;
+        };
+        /** The site's custom SecLang rules */
+        get: operations["getCustomRules"];
+        /**
+         * Validate and save the site's custom rules (audited)
+         * @description Saves only rules that pass validation; otherwise 422 with the issues in `errors` (path /custom_rules, message prefixed by the line).
+         */
+        put: operations["putCustomRules"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sites/{site}/custom-rules/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site: components["parameters"]["SiteID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Check custom rules without saving (static allow-list plus a compile in a throwaway engine) */
+        post: operations["validateCustomRules"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sites/{site}/paranoia-impact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site: components["parameters"]["SiteID"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Predicted additional blocks if the blocking paranoia level is raised, from stored findings
+         * @description Needs findings recorded above the current blocking level, i.e. the site's
+         *     `paranoia_level` (detection) must be at least `target`. When it is not,
+         *     `observable` is false and nothing can be predicted.
+         */
+        get: operations["getParanoiaImpact"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/crs/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** OWASP CRS rule catalogue with descriptions, searchable, optionally with the state of each rule for a site */
+        get: operations["listCrsRules"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/virtual-patches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Virtual-patch catalogue (CVE rules) with per-site state and recent hits, plus the CVEs CRS already covers */
+        get: operations["listVirtualPatches"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sites/{site}/virtual-patches/{patch}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site: components["parameters"]["SiteID"];
+                patch: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Switch one virtual patch on or off for a site (adds or removes it from policy.virtual_patches.disabled) */
+        put: operations["setVirtualPatchState"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -873,7 +1062,15 @@ export interface components {
             rate_limits?: components["schemas"]["RateLimit"][];
             auto_ban?: components["schemas"]["AutoBan"];
             bot?: components["schemas"]["BotPolicy"];
-            /** @description Inherited named items to drop, "rate_limits:<name>" */
+            /** @description Declared technologies (wordpress, php, spring, ...). Product-specific virtual patches activate only for declared stacks; unset or [auto] activates generic patches only. */
+            stacks?: components["schemas"]["NameList"];
+            virtual_patches?: {
+                /** @description Switch the virtual-patch pack on or off at this level (default on) */
+                enabled?: boolean;
+                /** @description Patch ids switched off at this level; levels are unioned */
+                disabled?: string[];
+            };
+            /** @description Inherited named items to drop: "rate_limits:<name>", "exclusions:<id>" or "virtual_patches:<id>" */
             opt_out?: string[];
         };
         SiteList: {
@@ -1239,6 +1436,36 @@ export interface components {
             /** Format: int64 */
             max_body_bytes?: number;
             skip_inspection_extensions?: string[];
+            /**
+             * Format: int64
+             * @description Response bytes kept for inspection when outbound_inspection is on (default 1048576); the rest streams through uninspected
+             */
+            outbound_max_body_bytes?: number;
+            /** @description Media types (prefix match, e.g. text/ or application/json) whose responses are inspected; default text/html, text/plain, application/json, application/xml, text/xml */
+            outbound_content_types?: string[];
+            /** @description Named rule removals; levels are unioned by id, a lower level replaces the same id */
+            exclusions?: components["schemas"]["Exclusion"][];
+            /** @description Operator SecLang (ids 10000-99999). Validated by compiling in a throwaway engine; exec, Lua, include, audit and unsafe ctl are rejected. The lowest level that sets it wins. */
+            custom_rules?: string;
+        };
+        Exclusion: {
+            id: string;
+            description?: string;
+            /** @description Empty paths means every path, empty methods every method */
+            match?: {
+                /** @description Globs; * stays inside a segment, a trailing /** matches the prefix and below */
+                paths?: string[];
+                methods?: string[];
+            };
+            /** @description Rule ids or ranges, e.g. "942100" or "942100-942199" */
+            remove_rule_ids?: string[];
+            remove_tags?: string[];
+            remove_targets?: {
+                rule_ids?: string[];
+                tags?: string[];
+                /** @description e.g. ARGS:q or REQUEST_COOKIES:/^_ga/ */
+                target: string;
+            }[];
         };
         /** @description A list of names that either replaces the inherited one (array) or edits it ({add, remove}). */
         NameList: string[] | {
@@ -1408,6 +1635,230 @@ export interface components {
             /** @description The size walk stopped early on a very large directory */
             data_dir_truncated?: boolean;
             retention_days?: number;
+        };
+        ExclusionList: {
+            items: components["schemas"]["Exclusion"][];
+        };
+        ExclusionCreate: {
+            exclusion: components["schemas"]["Exclusion"];
+            /** @description The event the exclusion was created from; recorded in the audit entry */
+            event_id?: string;
+            /** @description Required when the proposal has critical warnings */
+            acknowledge_warnings?: boolean;
+        };
+        ExclusionProposalRequest: {
+            /** @description Build the narrowest exclusion for this event */
+            event_id?: string;
+            /** @description Which finding to exclude; default the highest-scoring one */
+            rule_id?: string;
+            /**
+             * @description target removes only the offending parameter from the rule; rule removes the rule on that path and method
+             * @default target
+             * @enum {string}
+             */
+            scope: "target" | "rule";
+            /** @description Evaluate this exclusion instead of building one (event_id is then optional) */
+            exclusion?: components["schemas"]["Exclusion"];
+            /**
+             * @description How far back the impact preview looks
+             * @default 30
+             */
+            days: number;
+        };
+        ExclusionProposal: {
+            exclusion: components["schemas"]["Exclusion"];
+            event_id?: string;
+            /** @description The finding the exclusion addresses */
+            finding?: {
+                rule_id: string;
+                message?: string;
+                target?: string;
+                matched?: string;
+                score?: number;
+            };
+            impact: components["schemas"]["ExclusionImpact"];
+            warnings: components["schemas"]["ExclusionWarning"][];
+            /** @description True when a critical warning needs acknowledge_warnings on create */
+            requires_acknowledgement: boolean;
+        };
+        ExclusionImpact: {
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            events_scanned: number;
+            /** @description Past events in the exclusion's scope that carried a finding it removes */
+            matching_events: number;
+            /** @description Matching events left with no WAF finding at all */
+            no_longer_triggering: number;
+            /** @description Matching events that were blocked (or would have been) and fall under the threshold */
+            no_longer_blocking: number;
+            by_rule: {
+                [key: string]: number;
+            };
+            sample_event_ids: string[];
+            /** @description More events existed than were analysed */
+            truncated: boolean;
+        };
+        ExclusionWarning: {
+            /** @enum {string} */
+            code: "whole_category" | "blocking_evaluation" | "unscoped_rule_removal" | "broad_scope" | "no_matching_events";
+            /** @enum {string} */
+            severity: "info" | "warning" | "critical";
+            message: string;
+        };
+        CustomRulesInput: {
+            rules: string;
+        };
+        CustomRules: {
+            rules: string;
+            rule_ids: number[];
+            /** @description Which level supplies the rules for this site: site, global or none */
+            source: string;
+            reserved_id_range?: {
+                min?: number;
+                max?: number;
+            };
+        };
+        CustomRulesValidation: {
+            valid: boolean;
+            issues: {
+                /** @description 1-based; 0 for the whole input */
+                line: number;
+                /** @enum {string} */
+                code: "syntax" | "too_large" | "forbidden_directive" | "forbidden_action" | "forbidden_operator" | "forbidden_variable" | "forbidden_ctl" | "id_range" | "id_missing" | "id_duplicate" | "phase" | "compile";
+                message: string;
+            }[];
+            rule_ids: number[];
+        };
+        ParanoiaImpact: {
+            site: string;
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            detection_paranoia_level: number;
+            blocking_paranoia_level: number;
+            target_paranoia_level: number;
+            inbound_threshold: number;
+            /** @description False when findings above the blocking level are not being recorded (target exceeds the detection level) */
+            observable: boolean;
+            /** @description Set when not observable: what to change first */
+            advice?: string;
+            events_scanned: number;
+            already_blocking: number;
+            additional_blocks: number;
+            by_rule: {
+                rule_id: string;
+                count: number;
+            }[];
+            by_path: {
+                path: string;
+                count: number;
+            }[];
+            sample_event_ids: string[];
+            truncated: boolean;
+        };
+        CrsRuleStatus: {
+            /** @enum {string} */
+            state: "enforcing" | "detect_only" | "inactive" | "disabled" | "partly_excluded";
+            /** @enum {string} */
+            reason?: "waf_off" | "outbound_inspection_off" | "paranoia_level_too_low" | "exclusion" | "scoped_exclusion" | "above_blocking_paranoia_level";
+            /** @description Exclusion ids */
+            excluded_by?: string[];
+        };
+        CrsRule: {
+            id: number;
+            message: string;
+            /** @description attack-sqli, attack-xss, ... or a protocol/method/scanner/data-leakage name */
+            category: string;
+            paranoia_level: number;
+            severity?: string;
+            /** @enum {string} */
+            direction: "request" | "response";
+            phase: number;
+            tags: string[];
+            file: string;
+            status?: components["schemas"]["CrsRuleStatus"];
+        };
+        CrsRuleList: {
+            crs_version: string;
+            /** @description Matches before limit and offset */
+            total: number;
+            categories: string[];
+            items: components["schemas"]["CrsRule"][];
+        };
+        VirtualPatchSiteState: {
+            site: string;
+            /**
+             * @description active: the rule is loaded. stack_not_declared: product-specific and the site has not declared one of its stacks. disabled: in virtual_patches.disabled. pack_off: virtual_patches.enabled is false
+             * @enum {string}
+             */
+            state: "active" | "stack_not_declared" | "disabled" | "pack_off";
+            /** @description Events with a finding from this patch in the window */
+            hits: number;
+            /** Format: date-time */
+            last_hit?: string | null;
+        };
+        VirtualPatch: {
+            id: string;
+            title: string;
+            cves: string[];
+            vendor: string;
+            product: string;
+            versions: string;
+            /** @enum {string} */
+            severity: "low" | "medium" | "high" | "critical";
+            cvss: number;
+            /** @description In the CISA Known Exploited Vulnerabilities catalogue */
+            kev: boolean;
+            kev_added?: string;
+            stacks: string[];
+            /** @description No stack needed: active wherever the pack is on */
+            generic: boolean;
+            references: string[];
+            false_positive_notes: string;
+            /**
+             * @description synthetic: tested with exploit requests rebuilt from public write-ups, not against a vulnerable product
+             * @enum {string}
+             */
+            verification: "synthetic" | "product-verified";
+            /** @description Pack version (YYYY.MM.N) */
+            added_in: string;
+            rule_ids: number[];
+            /** @description Total across the listed sites */
+            hits: number;
+            sites: components["schemas"]["VirtualPatchSiteState"][];
+        };
+        CoveredCve: {
+            cve: string;
+            product: string;
+            kev: boolean;
+            severity: string;
+            crs_rules: string[];
+            note?: string;
+        };
+        VirtualPatchSummary: {
+            patches: number;
+            /** @description CVEs CRS blocks without a patch */
+            covered_cves: number;
+            /** @description Distinct CVEs with a Sherlock rule */
+            cves_with_rule: number;
+            /** @description Distinct KEV CVEs across rules and CRS coverage */
+            kev_cves: number;
+            /** @description Sites with at least one active patch */
+            sites_protected: number;
+            hits: number;
+        };
+        VirtualPatchCatalogue: {
+            pack_version: string;
+            window_days: number;
+            known_stacks: string[];
+            items: components["schemas"]["VirtualPatch"][];
+            covered: components["schemas"]["CoveredCve"][];
+            summary: components["schemas"]["VirtualPatchSummary"];
+            /** @description Hit counts come from a capped scan of recent events */
+            truncated: boolean;
         };
     };
     responses: {
@@ -2834,6 +3285,306 @@ export interface operations {
                     "application/json": components["schemas"]["SystemStatus"];
                 };
             };
+        };
+    };
+    listExclusions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site: components["parameters"]["SiteID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExclusionList"];
+                };
+            };
+            404: components["responses"]["Problem"];
+        };
+    };
+    createExclusion: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ETag of the version you read. Required to change an existing configuration (428 if missing, 412 if stale). */
+                "If-Match"?: components["parameters"]["IfMatch"];
+            };
+            path: {
+                site: components["parameters"]["SiteID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExclusionCreate"];
+            };
+        };
+        responses: {
+            201: components["responses"]["ConfigVersion"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            428: components["responses"]["Problem"];
+        };
+    };
+    proposeExclusion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site: components["parameters"]["SiteID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExclusionProposalRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExclusionProposal"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    deleteExclusion: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ETag of the version you read. Required to change an existing configuration (428 if missing, 412 if stale). */
+                "If-Match"?: components["parameters"]["IfMatch"];
+            };
+            path: {
+                site: components["parameters"]["SiteID"];
+                exclusion: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ConfigVersion"];
+            404: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            428: components["responses"]["Problem"];
+        };
+    };
+    getCustomRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site: components["parameters"]["SiteID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomRules"];
+                };
+            };
+            404: components["responses"]["Problem"];
+        };
+    };
+    putCustomRules: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ETag of the version you read. Required to change an existing configuration (428 if missing, 412 if stale). */
+                "If-Match"?: components["parameters"]["IfMatch"];
+            };
+            path: {
+                site: components["parameters"]["SiteID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomRulesInput"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ConfigVersion"];
+            404: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            428: components["responses"]["Problem"];
+        };
+    };
+    validateCustomRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site: components["parameters"]["SiteID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomRulesInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomRulesValidation"];
+                };
+            };
+            404: components["responses"]["Problem"];
+        };
+    };
+    getParanoiaImpact: {
+        parameters: {
+            query: {
+                target: number;
+                /** @description Default 7 days before `to` */
+                from?: string;
+                /** @description Default now */
+                to?: string;
+            };
+            header?: never;
+            path: {
+                site: components["parameters"]["SiteID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParanoiaImpact"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listCrsRules: {
+        parameters: {
+            query?: {
+                /** @description Matches id, description, category or tag */
+                q?: string;
+                /** @description Adds `status` (enforcing, detect_only, inactive, disabled, partly_excluded) from the site's effective policy */
+                site?: string;
+                category?: string;
+                paranoia_level?: number;
+                direction?: "request" | "response";
+                /** @description Requires site */
+                state?: "enforcing" | "detect_only" | "inactive" | "disabled" | "partly_excluded";
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CrsRuleList"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listVirtualPatches: {
+        parameters: {
+            query?: {
+                /** @description Matches patch id, CVE, product, vendor or title */
+                q?: string;
+                /** @description Limit the per-site state and hits to one site */
+                site?: string;
+                severity?: "low" | "medium" | "high" | "critical";
+                kev?: boolean;
+                /** @description Window for hit counts */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VirtualPatchCatalogue"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    setVirtualPatchState: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ETag of the version you read. Required to change an existing configuration (428 if missing, 412 if stale). */
+                "If-Match"?: components["parameters"]["IfMatch"];
+            };
+            path: {
+                site: components["parameters"]["SiteID"];
+                patch: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    enabled: boolean;
+                };
+            };
+        };
+        responses: {
+            200: components["responses"]["ConfigVersion"];
+            404: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            428: components["responses"]["Problem"];
         };
     };
 }

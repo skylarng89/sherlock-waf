@@ -35,6 +35,51 @@ export default {
     retentionDays: '{days} days',
     retentionUnknown: 'Not reported',
   },
+  update: {
+    title: 'Updates',
+    check: 'Check for updates',
+    current: 'Installed version',
+    latest: 'Latest release',
+    crs: 'CRS in the latest release',
+    available: 'Update available',
+    upToDate: 'Up to date',
+    stagedVersion: 'Staged, waiting for restart',
+    restartNote:
+      'A verified update is staged. It is installed the next time the service starts; restart the service to run it.',
+    stageExplain:
+      'Applying the update downloads and verifies it, then stages it. It does not restart Sherlock: the new version runs only after you restart the service.',
+    reason: 'This release cannot be installed from here: {reason}',
+    inContainer: 'This node runs in a container. Update it by pulling a new image.',
+    apply: 'Stage update',
+    confirmTitle: 'Stage this update?',
+    confirmBody:
+      'Sherlock {version} will be downloaded, verified and staged. Nothing restarts automatically; you must restart the service for it to take effect.',
+    staged: 'Update staged. Restart the service to run it.',
+    applyFailed: 'The update was not applied: {detail}',
+    result: {
+      staged: 'Update {from} to {to} is staged.',
+      installed: 'Update {from} to {to} is installed.',
+    },
+    problem: {
+      unsupported: 'Update checks are not supported on this node.',
+      unreachable:
+        'The release server could not be reached or its manifest could not be verified. Try again later.',
+      error: 'The update status could not be loaded.',
+    },
+  },
+  backups: {
+    title: 'Backups',
+    caption: 'Backups stored on this node, newest first',
+    scroll: 'Backups table, scrollable',
+    name: 'File',
+    created: 'Created',
+    size: 'Size',
+    encrypted: 'Encrypted',
+    yes: 'Yes',
+    no: 'No',
+    none: 'No backups on this node yet.',
+    error: 'The backup list could not be loaded.',
+  },
   feeds: {
     title: 'Data feeds',
     caption: 'Health of the data feeds',

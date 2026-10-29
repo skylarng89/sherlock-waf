@@ -10,6 +10,8 @@ const tabs = [
   { route: 'site-acl', label: 'access.tabs.acl' },
   { route: 'site-rate-limits', label: 'access.tabs.rateLimits' },
   { route: 'site-bot', label: 'bot.tab' },
+  { route: 'site-tuning', label: 'tuning.tabs.tuning' },
+  { route: 'site-custom-rules', label: 'tuning.tabs.customRules' },
 ]
 </script>
 

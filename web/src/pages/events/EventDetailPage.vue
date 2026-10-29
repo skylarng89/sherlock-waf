@@ -7,6 +7,8 @@ import { isApiError } from '@/api/errors'
 import { useApi } from '@/api/useApi'
 import SkPageHeader from '@/components/SkPageHeader.vue'
 import { formatTime } from '@/pages/history/format'
+import ExclusionWizard from '@/pages/tuning/ExclusionWizard.vue'
+import { useSessionStore } from '@/stores/session'
 import ActionBadge from './ActionBadge.vue'
 import { ruleIds, toView, type EventView } from './event'
 
@@ -16,6 +18,8 @@ const DAY_MS = 24 * 3_600_000
 const { t } = useI18n()
 const route = useRoute()
 const { client, call } = useApi()
+const session = useSessionStore()
+const wizardOpen = ref(false)
 
 const event = ref<EventView>()
 const state = ref<'loading' | 'ready' | 'missing' | 'error'>('loading')
@@ -66,6 +70,14 @@ async function load() {
 }
 watch(id, load, { immediate: true })
 
+const canExclude = computed(
+  () =>
+    session.can('config:write') &&
+    event.value !== undefined &&
+    event.value.siteId !== '' &&
+    event.value.findings.some((f) => f.ruleId),
+)
+
 const dash = '–'
 const show = (v: string | number | undefined) => (v === undefined || v === '' ? dash : String(v))
 
@@ -111,6 +123,23 @@ const clientRows = computed(() => {
     :title="t('events.detailTitle')"
     :description="event ? `${event.request.method} ${event.request.path}` : undefined"
     :breadcrumbs="[{ label: t('events.title'), to: '/events' }, { label: id }]"
+  >
+    <template #actions>
+      <Button
+        v-if="canExclude"
+        :label="t('tuning.wizard.open')"
+        icon="ti ti-adjustments"
+        data-testid="create-exclusion"
+        @click="wizardOpen = true"
+      />
+    </template>
+  </SkPageHeader>
+  <ExclusionWizard
+    v-if="canExclude && event"
+    v-model:open="wizardOpen"
+    :site="event.siteId"
+    :event-id="event.id"
+    :findings="event.findings"
   />
 
   <p v-if="state === 'loading'" role="status">{{ t('common.loading') }}…</p>

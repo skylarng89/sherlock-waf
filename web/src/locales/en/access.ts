@@ -172,6 +172,9 @@ export default {
       hash: 'Password hash',
       hashHelp:
         'An argon2id hash in PHC format, starting with $argon2id$. Paste the hash only; never a plain password.',
+      hashSet:
+        'A password hash is set. Leave this field empty to keep it, or paste a new hash to replace it.',
+      hashSetPlaceholder: 'Hash set (hidden)',
       helpTitle: 'How to create the hash',
       comingSoon: 'coming soon',
       helpBody: 'Generate the hash on a trusted machine with the Sherlock command line:',

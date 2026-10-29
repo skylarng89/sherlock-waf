@@ -168,6 +168,26 @@ export default {
       label: 'Skip inspection for extensions',
       help: 'One per line, for example .css. Static files are cheap to skip.',
     },
+    waf_outbound_max_body_bytes: {
+      label: 'Response bytes inspected',
+      help: 'Outbound inspection keeps this many response bytes; the rest streams through.',
+    },
+    waf_outbound_content_types: {
+      label: 'Response content types inspected',
+      help: 'One per line, prefix match, for example text/ or application/json.',
+    },
+    stacks: {
+      label: 'Declared stacks',
+      help: 'One per line, for example wordpress or php. Product-specific virtual patches only activate for declared stacks.',
+    },
+    virtual_patches_enabled: {
+      label: 'Virtual patches',
+      help: 'Load the virtual-patch pack for CVEs that are actively exploited.',
+    },
+    virtual_patches_disabled: {
+      label: 'Disabled virtual patches',
+      help: 'Patch ids to switch off at this level, one per line.',
+    },
     block_page_template_id: {
       label: 'Block page template',
       help: 'The page shown to blocked visitors.',

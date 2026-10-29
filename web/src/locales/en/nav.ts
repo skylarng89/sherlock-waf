@@ -15,6 +15,8 @@ export default {
   analytics: 'Analytics',
   wouldBlock: 'Would-block report',
   system: 'System',
+  crsRules: 'CRS rules',
+  virtualPatches: 'Virtual patches',
   notFound: 'Page not found',
   forbidden: 'Access denied',
   breadcrumb: 'Breadcrumb',

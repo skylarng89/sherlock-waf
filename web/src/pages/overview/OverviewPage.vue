@@ -9,6 +9,7 @@ import SkPageHeader from '@/components/SkPageHeader.vue'
 import SkStatusBadge from '@/components/SkStatusBadge.vue'
 import BotStats from '@/pages/bot/BotStats.vue'
 import { useSessionStore } from '@/stores/session'
+import CoveredCvesTile from '@/pages/tuning/CoveredCvesTile.vue'
 import TrafficChart from './TrafficChart.vue'
 
 type Site = components['schemas']['Site']
@@ -113,6 +114,8 @@ onBeforeUnmount(() => timer && clearInterval(timer))
         </ul>
       </template>
     </section>
+
+    <CoveredCvesTile v-if="canSites" />
 
     <template v-if="canInfo && info">
       <section
