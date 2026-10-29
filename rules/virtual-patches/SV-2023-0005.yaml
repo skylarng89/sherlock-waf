@@ -13,6 +13,7 @@
   "severity": "critical",
   "cvss": 9.4,
   "kev": true,
+  "kev_added": "2023-10-18",
   "stacks": [
     "citrix",
     "netscaler"

@@ -13,6 +13,7 @@
   "severity": "critical",
   "cvss": 10.0,
   "kev": true,
+  "kev_added": "2024-04-12",
   "stacks": [
     "paloalto",
     "panos"
