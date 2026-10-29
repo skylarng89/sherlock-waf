@@ -17,6 +17,8 @@ func TestForcedPanicFollowsFailModeLive(t *testing.T) {
 	up := upstreamServer(t)
 	port := launch(t, fmt.Sprintf(`
 schema_version: 1
+global:
+  admin: { listen: "127.0.0.1:0" }
 sites:
   - id: closed
     hosts: [closed.localhost]

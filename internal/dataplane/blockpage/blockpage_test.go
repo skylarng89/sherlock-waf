@@ -97,3 +97,54 @@ func TestStatusDetails(t *testing.T) {
 		assert.NotEmpty(t, detail(st))
 	}
 }
+
+func writeWith(t *testing.T, id string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/x", nil)
+	req.Header.Set("Accept", "text/html")
+	rec := httptest.NewRecorder()
+	WriteTemplate(rec, req, http.StatusForbidden, eventID, id)
+	return rec
+}
+
+func TestCustomTemplates(t *testing.T) {
+	t.Cleanup(func() { DeleteTemplate("corp") })
+
+	require.NoError(t, SetTemplate("corp", `<h1>Corp {{.Status}}</h1><p>{{.EventID}}</p><p>{{.Detail}}</p>`))
+	rec := writeWith(t, "corp")
+	assert.Equal(t, http.StatusForbidden, rec.Code)
+	assert.Contains(t, rec.Body.String(), "<h1>Corp 403</h1>")
+	assert.Contains(t, rec.Body.String(), eventID)
+	assert.Contains(t, rec.Header().Get("Content-Security-Policy"), "default-src 'none'", "a custom page cannot loosen the CSP")
+
+	// Unknown id, the empty id and "default" use the built-in page.
+	for _, id := range []string{"missing", "", "default"} {
+		assert.NotContains(t, writeWith(t, id).Body.String(), "Corp", id)
+	}
+
+	DeleteTemplate("corp")
+	assert.NotContains(t, writeWith(t, "corp").Body.String(), "Corp", "deleted templates stop being served")
+}
+
+func TestTemplateValidation(t *testing.T) {
+	for name, src := range map[string]string{
+		"syntax":         `{{.Status`,
+		"unknown field":  `{{.NoSuchField}}`,
+		"calls a method": `{{.Status.Foo}}`,
+		"too large":      strings.Repeat("a", MaxTemplateBytes+1),
+	} {
+		assert.Error(t, ValidateTemplate(src), name)
+		assert.Error(t, SetTemplate("bad", src), name)
+	}
+	assert.NoError(t, ValidateTemplate(`{{.Status}} {{.Title}} {{.Detail}} {{.EventID}}`))
+}
+
+func TestCustomTemplateEscapesRequestDerivedValues(t *testing.T) {
+	t.Cleanup(func() { DeleteTemplate("esc") })
+	require.NoError(t, SetTemplate("esc", `<p>{{.EventID}}</p>`))
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/x", nil)
+	req.Header.Set("Accept", "text/html")
+	rec := httptest.NewRecorder()
+	WriteTemplate(rec, req, http.StatusForbidden, `<script>alert(1)</script>`, "esc")
+	assert.NotContains(t, rec.Body.String(), "<script>", "html/template escapes interpolated values")
+}

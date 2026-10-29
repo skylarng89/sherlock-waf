@@ -30,7 +30,7 @@ func launch(t *testing.T, cfg string) int {
 	require.NoError(t, os.WriteFile(path, []byte(cfg), 0o600))
 
 	port := freePort(t)
-	a := New(path, compiler.Options{HTTPPort: port, HTTPSPort: freePort(t), DataDir: filepath.Join(dir, "data")}, slog.New(slog.DiscardHandler))
+	a := New(path, compiler.Options{HTTPPort: port, HTTPSPort: freePort(t), DataDir: filepath.Join(dir, "data")}, slog.New(slog.DiscardHandler), WithEventsOutput(io.Discard))
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
 	go func() { done <- a.Run(ctx, make(chan os.Signal)) }()
@@ -84,6 +84,7 @@ func TestEndpointPolicyLive(t *testing.T) {
 	port := launch(t, fmt.Sprintf(`
 schema_version: 1
 global:
+  admin: { listen: "127.0.0.1:0" }
   defaults: { waf: { paranoia_level: 1 } }
 sites:
   - id: shop
@@ -109,6 +110,8 @@ func TestModeOffEndpointIsNotInspected(t *testing.T) {
 	up := upstreamServer(t)
 	port := launch(t, fmt.Sprintf(`
 schema_version: 1
+global:
+  admin: { listen: "127.0.0.1:0" }
 sites:
   - id: shop
     hosts: [shop.localhost]
@@ -130,6 +133,7 @@ func TestTrustedProxiesConfigServesLive(t *testing.T) {
 	port := launch(t, fmt.Sprintf(`
 schema_version: 1
 global:
+  admin: { listen: "127.0.0.1:0" }
   trusted_proxies: ["127.0.0.0/8"]
 sites:
   - id: shop

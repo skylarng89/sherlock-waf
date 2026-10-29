@@ -8,6 +8,7 @@ import (
 	"html"
 	"io"
 	"log/slog"
+	"math/rand/v2"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -46,16 +47,27 @@ func (s *syncBuffer) String() string {
 	return s.b.String()
 }
 
+// freePort returns a bindable port from a range below the kernel's ephemeral
+// one (32768+), which is shared with the outgoing connections of every other
+// process on the machine and made a bare ":0" lookup race with them.
 func freePort(t *testing.T) int {
 	t.Helper()
-	ln, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	defer func() { _ = ln.Close() }()
-	return ln.Addr().(*net.TCPAddr).Port //nolint:errcheck,forcetypeassert // always TCP
+	for range 200 {
+		port := 20000 + rand.IntN(3000) //nolint:gosec // test port choice
+		ln, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", fmt.Sprintf("0.0.0.0:%d", port))
+		if err == nil {
+			_ = ln.Close()
+			return port
+		}
+	}
+	t.Fatal("no free port in its own 3000-port range")
+	return 0
 }
 
 const configTemplate = `
 schema_version: 1
+global:
+  admin: { listen: "127.0.0.1:0" }
 sites:
   - id: strict
     hosts: [strict.localhost]
@@ -95,10 +107,7 @@ func get(t *testing.T, port int, host, target string) reply {
 }
 
 func TestDataPlaneEndToEnd(t *testing.T) {
-	logs := &syncBuffer{}
-	prev := slog.Default()
-	slog.SetDefault(slog.New(slog.NewJSONHandler(logs, nil)))
-	t.Cleanup(func() { slog.SetDefault(prev) })
+	logs := &syncBuffer{} // receives the events stdout sink
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.WriteString(w, "upstream:"+html.EscapeString(r.URL.Path))
@@ -111,7 +120,7 @@ func TestDataPlaneEndToEnd(t *testing.T) {
 
 	port := freePort(t)
 	appLogs := &syncBuffer{}
-	a := New(cfgPath, compiler.Options{HTTPPort: port, HTTPSPort: freePort(t), DataDir: filepath.Join(dir, "data")}, slog.New(slog.NewTextHandler(appLogs, nil)))
+	a := New(cfgPath, compiler.Options{HTTPPort: port, HTTPSPort: freePort(t), DataDir: filepath.Join(dir, "data")}, slog.New(slog.NewTextHandler(appLogs, nil)), WithEventsOutput(logs))
 	hup := make(chan os.Signal, 1)
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
@@ -157,16 +166,19 @@ func TestDataPlaneEndToEnd(t *testing.T) {
 		assert.Equal(t, "upstream:/get", r.body)
 
 		var found bool
-		for line := range strings.SplitSeq(logs.String(), "\n") {
-			var m map[string]any
-			if json.Unmarshal([]byte(line), &m) != nil || m["msg"] != "decision" {
-				continue
+		require.Eventually(t, func() bool {
+			for line := range strings.SplitSeq(logs.String(), "\n") {
+				var m map[string]any
+				if json.Unmarshal([]byte(line), &m) != nil || m["schema"] != "sherlock.event.v1" {
+					continue
+				}
+				if f, _ := m["findings"].([]any); m["site_id"] == "lenient" && m["action"] == "log" && len(f) > 0 {
+					found = true
+				}
 			}
-			if m["site_id"] == "lenient" && m["action"] == "log" && m["findings"] != nil {
-				found = true
-			}
-		}
-		assert.True(t, found, "expected a decision log line with a finding for the detect-mode site")
+			return found
+		}, 5*time.Second, 25*time.Millisecond)
+		assert.True(t, found, "expected an event with a finding for the detect-mode site")
 	})
 
 	t.Run("unknown host gets 421", func(t *testing.T) {
@@ -186,7 +198,7 @@ func TestDataPlaneEndToEnd(t *testing.T) {
 		assert.Equal(t, http.StatusOK, r.status)
 		assert.Equal(t, "upstream:/get", r.body)
 
-		err := a.Reload()
+		err := a.Reload(t.Context())
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "/sites/0/id", "error must carry the JSON-pointer path")
 	})
@@ -211,9 +223,9 @@ func TestStartRejectsInvalidConfig(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "bad.yaml")
 	require.NoError(t, os.WriteFile(path, []byte("schema_version: 1\nbogus: true\n"), 0o600))
 	a := New(path, compiler.Options{}, nil)
-	err := a.Start()
+	err := a.Start(t.Context())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "/bogus")
-	require.Error(t, a.Reload(), "reload before start is refused")
-	require.NoError(t, a.Stop(), "stop on a stopped app is a no-op")
+	require.Error(t, a.Reload(t.Context()), "reload before start is refused")
+	require.NoError(t, a.Stop(t.Context()), "stop on a stopped app is a no-op")
 }
