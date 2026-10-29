@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/netip"
 	"sync"
+	"sync/atomic"
+	"time"
 )
 
 // Severity ranks a finding.
@@ -74,10 +76,25 @@ type Decision struct {
 	Mode     Mode
 	ClientIP netip.Addr
 
+	// Allowlisted is set by the ACL module when the client matched an allow
+	// list: later modules that rate-limit or challenge skip it. SkipWAF
+	// additionally lets the WAF skip it, and is only set when the policy
+	// explicitly asks for that (allow_bypass_waf).
+	Allowlisted bool
+	SkipWAF     bool
+	// ChallengeRequested is set by a module (a rate limit with action challenge)
+	// that wants this client to prove it is a browser; the bot module acts on it.
+	ChallengeRequested bool
+
 	mu         sync.Mutex
 	action     Action
 	terminated string
 	findings   []Finding
+	wafTime    time.Duration
+	inbound    int
+	outbound   int
+	bodyType   string
+	bodySample []byte
 }
 
 // NewDecision starts a decision with Action allow.
@@ -130,6 +147,50 @@ func (d *Decision) Terminated() string {
 	return d.terminated
 }
 
+// AddWAFTime accumulates time spent inside the WAF for this request.
+func (d *Decision) AddWAFTime(t time.Duration) {
+	d.mu.Lock()
+	d.wafTime += t
+	d.mu.Unlock()
+}
+
+// WAFTime is the total time spent inside the WAF.
+func (d *Decision) WAFTime() time.Duration {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.wafTime
+}
+
+// SetAnomalyScore records the CRS anomaly totals.
+func (d *Decision) SetAnomalyScore(inbound, outbound int) {
+	d.mu.Lock()
+	d.inbound, d.outbound = inbound, outbound
+	d.mu.Unlock()
+}
+
+// AnomalyScore returns the CRS anomaly totals.
+func (d *Decision) AnomalyScore() (inbound, outbound int) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.inbound, d.outbound
+}
+
+// SetBodySample keeps an unredacted prefix of the request body for the event
+// pipeline, which redacts it before anything leaves the request path. Only
+// set when body excerpts are enabled.
+func (d *Decision) SetBodySample(contentType string, sample []byte) {
+	d.mu.Lock()
+	d.bodyType, d.bodySample = contentType, sample
+	d.mu.Unlock()
+}
+
+// BodySample returns the content type and unredacted body prefix, if any.
+func (d *Decision) BodySample() (contentType string, sample []byte) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.bodyType, d.bodySample
+}
+
 type decisionKey struct{}
 
 // WithDecision stores d in ctx under a typed key.
@@ -141,4 +202,30 @@ func WithDecision(ctx context.Context, d *Decision) context.Context {
 func DecisionFrom(ctx context.Context) *Decision {
 	d, _ := ctx.Value(decisionKey{}).(*Decision)
 	return d
+}
+
+// BlockObserver is told when a request ended in a block, after the response
+// is complete. The rate-limit module registers one to count blocks for
+// auto-ban. It must not block: it runs on the request goroutine.
+type BlockObserver func(d *Decision)
+
+var blockObserver atomic.Pointer[BlockObserver]
+
+// SetBlockObserver installs (or, with nil, removes) the process-wide observer.
+func SetBlockObserver(o BlockObserver) {
+	if o == nil {
+		blockObserver.Store(nil)
+		return
+	}
+	blockObserver.Store(&o)
+}
+
+// NotifyBlock calls the observer if the decision ended in a block or ban.
+func NotifyBlock(d *Decision) {
+	if a := d.Action(); a != ActionBlock && a != ActionBan {
+		return
+	}
+	if o := blockObserver.Load(); o != nil {
+		(*o)(d)
+	}
 }

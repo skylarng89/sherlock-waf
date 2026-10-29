@@ -5,6 +5,7 @@
 package waf
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -16,17 +17,24 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/caddyserver/caddy/v2"
 	"github.com/caddyserver/caddy/v2/modules/caddyhttp"
 	coreruleset "github.com/corazawaf/coraza-coreruleset/v4"
 	"github.com/corazawaf/coraza/v3"
+	"github.com/corazawaf/coraza/v3/experimental/plugins/plugintypes"
 	"github.com/corazawaf/coraza/v3/types"
 
 	"github.com/skylarng89/sherlock-waf/internal/config"
 	"github.com/skylarng89/sherlock-waf/internal/dataplane/blockpage"
+	"github.com/skylarng89/sherlock-waf/internal/events"
 	"github.com/skylarng89/sherlock-waf/internal/policy"
 )
+
+// CRSVersion is the embedded OWASP CRS release; a test checks it against the
+// rule files so a dependency bump cannot leave it stale.
+const CRSVersion = "4.25.0"
 
 const (
 	moduleName = "sherlock_waf"
@@ -34,6 +42,8 @@ const (
 	// in DetectionOnly means the request would have been blocked.
 	wouldBlockRuleID = 949110
 	maxMatchedBytes  = 256
+	// bodySampleBytes is how much of a body is kept for the redacted excerpt.
+	bodySampleBytes = 4096
 )
 
 // testHook is set only by builds with the sherlock_testhooks tag so the
@@ -47,6 +57,8 @@ type Handler struct {
 	SiteID                   string          `json:"site_id"`
 	FailMode                 config.FailMode `json:"fail_mode"`
 	SkipInspectionExtensions []string        `json:"skip_inspection_extensions,omitempty"`
+	// BlockPageID selects a custom block page (empty: the built-in page).
+	BlockPageID string `json:"block_page_id,omitempty"`
 	Settings
 
 	instance coraza.WAF
@@ -127,12 +139,14 @@ func sharedInstance(directives string, maxBody int64) (*entry, error) {
 // ServeHTTP implements caddyhttp.MiddlewareHandler.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request, next caddyhttp.Handler) error {
 	d := policy.DecisionFrom(r.Context())
-	if d == nil || h.skips(r) {
+	if d == nil || d.SkipWAF || h.skips(r) {
 		// No decision means sherlock_core failed open; nothing to record into.
 		return next.ServeHTTP(w, r)
 	}
 
+	started := time.Now()
 	res := h.inspect(r, d)
+	d.AddWAFTime(time.Since(started))
 	// The transaction owns the buffered request body, so it must stay open
 	// until the upstream has consumed it.
 	defer res.close()
@@ -145,7 +159,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request, next caddyht
 			"fail_mode", h.FailMode, "error", res.err)
 		if h.FailMode == config.FailClosed {
 			d.Terminate(moduleName, policy.ActionBlock)
-			blockpage.Write(w, r, http.StatusServiceUnavailable, d.EventID)
+			blockpage.WriteTemplate(w, r, http.StatusServiceUnavailable, d.EventID, h.BlockPageID)
 			return nil
 		}
 	case res.interruption != nil && h.Mode == config.ModeBlock:
@@ -154,7 +168,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request, next caddyht
 			status = http.StatusForbidden
 		}
 		d.Terminate(moduleName, policy.ActionBlock)
-		blockpage.Write(w, r, status, d.EventID)
+		blockpage.WriteTemplate(w, r, status, d.EventID, h.BlockPageID)
 		return nil
 	}
 	return next.ServeHTTP(w, r)
@@ -217,7 +231,7 @@ func (h *Handler) inspect(r *http.Request, d *policy.Decision) (res result) {
 	_, portStr, _ := net.SplitHostPort(r.RemoteAddr)
 	port, _ := strconv.Atoi(portStr)
 	tx.ProcessConnection(ip, port, "", 0)
-	tx.ProcessURI(r.URL.RequestURI(), r.Method, r.Proto)
+	tx.ProcessURI(requestTarget(r), r.Method, r.Proto)
 	for k, vs := range r.Header {
 		for _, v := range vs {
 			tx.AddRequestHeader(k, v)
@@ -259,7 +273,15 @@ func (h *Handler) inspect(r *http.Request, d *policy.Decision) (res result) {
 			res.err = fmt.Errorf("rewinding request body: %w", err)
 			return res
 		}
-		r.Body = readCloser{Reader: io.MultiReader(rbr, r.Body), Closer: r.Body}
+		head := io.Reader(rbr)
+		if events.Default().BodyExcerptEnabled() {
+			sample := make([]byte, bodySampleBytes)
+			n, _ := io.ReadFull(rbr, sample)
+			sample = sample[:n]
+			d.SetBodySample(r.Header.Get("Content-Type"), sample)
+			head = io.MultiReader(bytes.NewReader(sample), rbr)
+		}
+		r.Body = readCloser{Reader: io.MultiReader(head, r.Body), Closer: r.Body}
 	}
 
 	it, err := tx.ProcessRequestBody()
@@ -272,6 +294,16 @@ func (h *Handler) inspect(r *http.Request, d *policy.Decision) (res result) {
 	return res
 }
 
+// requestTarget is the request-target exactly as the client sent it, so rules
+// see absolute-form targets and original escaping that net/http normalises
+// into r.URL. It falls back to the parsed URL for synthetic requests.
+func requestTarget(r *http.Request) string {
+	if r.RequestURI != "" {
+		return r.RequestURI
+	}
+	return r.URL.RequestURI()
+}
+
 type readCloser struct {
 	io.Reader
 	io.Closer
@@ -280,6 +312,11 @@ type readCloser struct {
 // record copies matched rules into the decision. In detect mode a match of
 // the anomaly evaluation rule is surfaced as action=log ("would have blocked").
 func (h *Handler) record(tx types.Transaction, d *policy.Decision) {
+	if st, ok := tx.(plugintypes.TransactionState); ok {
+		in := txInt(st, "detection_inbound_anomaly_score")
+		out := txInt(st, "detection_outbound_anomaly_score")
+		d.SetAnomalyScore(in, out)
+	}
 	for _, mr := range tx.MatchedRules() {
 		msg := mr.Message()
 		meta := mr.Rule()
@@ -314,6 +351,16 @@ func (h *Handler) record(tx types.Transaction, d *policy.Decision) {
 // Detections carry a severity; the anomaly evaluation rule is tagged instead.
 func isFinding(m types.RuleMetadata) bool {
 	return m.Severity() != types.RuleSeverityUnset || slices.Contains(m.Tags(), "anomaly-evaluation")
+}
+
+// txInt reads an integer CRS transaction variable, 0 when unset.
+func txInt(st plugintypes.TransactionState, name string) int {
+	vals := st.Variables().TX().Get(name)
+	if len(vals) == 0 {
+		return 0
+	}
+	n, _ := strconv.Atoi(vals[0])
+	return n
 }
 
 func truncate(s string, n int) string {

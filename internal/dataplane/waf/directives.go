@@ -11,6 +11,10 @@ import (
 // before spilling to the temp dir.
 const inMemoryBodyLimit = 131072
 
+// extraDirectives is appended before the CRS include. It is empty in every
+// build except sherlock_testhooks, where it adds the go-ftw log marker rule.
+var extraDirectives string
+
 // Settings is the per-endpoint WAF configuration produced by the compiler
 // from an effective policy.
 type Settings struct {
@@ -73,6 +77,9 @@ func (s Settings) Directives() (string, error) {
 	// CRS allows only GET HEAD POST OPTIONS by default, which would block
 	// ordinary REST traffic. TRACE and CONNECT stay disallowed.
 	line(`SecAction "id:900200,phase:1,pass,t:none,nolog,setvar:'tx.allowed_methods=GET HEAD POST OPTIONS PUT PATCH DELETE'"`)
+	if extraDirectives != "" {
+		line("%s", extraDirectives)
+	}
 	// Only request rules: response inspection is out of scope for M1.
 	line("Include @owasp_crs/REQUEST-*.conf")
 	return b.String(), nil

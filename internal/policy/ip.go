@@ -94,3 +94,7 @@ func (s CIDRSet) Contains(ip netip.Addr) bool {
 
 // Len returns the number of prefixes.
 func (s CIDRSet) Len() int { return len(s.prefixes) }
+
+// ParsePrefix parses a CIDR or a bare address (a host prefix) into its masked,
+// unmapped form. It is the single definition of what an ACL or list entry means.
+func ParsePrefix(entry string) (netip.Prefix, error) { return parsePrefix(entry) }

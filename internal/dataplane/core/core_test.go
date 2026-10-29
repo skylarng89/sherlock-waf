@@ -217,3 +217,35 @@ func TestEventIDsAreUniquePerRequest(t *testing.T) {
 		require.NoError(t, h.ServeHTTP(httptest.NewRecorder(), request(t, "192.0.2.4:5", nil), next))
 	}
 }
+
+func TestBlockWebSocketsRefusesUpgradesInEveryMode(t *testing.T) {
+	for _, mode := range []config.Mode{config.ModeDetect, config.ModeBlock} {
+		h := newHandler(t, mode, config.FailOpen, nil, nil)
+		h.BlockWebSockets = true
+
+		reached := false
+		next := caddyhttp.HandlerFunc(func(http.ResponseWriter, *http.Request) error { reached = true; return nil })
+
+		r := request(t, "192.0.2.4:5", map[string]string{"Upgrade": "websocket", "Connection": "keep-alive, Upgrade"})
+		rec := httptest.NewRecorder()
+		require.NoError(t, h.ServeHTTP(rec, r, next))
+		assert.Equal(t, http.StatusForbidden, rec.Code, "mode %s", mode)
+		assert.False(t, reached, "the upgrade must not reach the origin (mode %s)", mode)
+		assert.NotEmpty(t, rec.Header().Get(blockpage.EventIDHeader), "the refusal carries an event id like any block")
+
+		// Ordinary requests, and Upgrade headers without a Connection: upgrade token, pass.
+		for _, hdr := range []map[string]string{nil, {"Upgrade": "websocket"}, {"Connection": "upgrade"}} {
+			reached = false
+			rec = httptest.NewRecorder()
+			require.NoError(t, h.ServeHTTP(rec, request(t, "192.0.2.4:5", hdr), next))
+			assert.True(t, reached, "%v must pass (mode %s)", hdr, mode)
+		}
+	}
+
+	allowed := newHandler(t, config.ModeBlock, config.FailOpen, nil, nil)
+	reached := false
+	require.NoError(t, allowed.ServeHTTP(httptest.NewRecorder(),
+		request(t, "192.0.2.4:5", map[string]string{"Upgrade": "websocket", "Connection": "Upgrade"}),
+		caddyhttp.HandlerFunc(func(http.ResponseWriter, *http.Request) error { reached = true; return nil })))
+	assert.True(t, reached, "upgrades pass unless the site denies them")
+}

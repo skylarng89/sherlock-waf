@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/caddyserver/caddy/v2"
@@ -15,6 +16,8 @@ import (
 
 	"github.com/skylarng89/sherlock-waf/internal/config"
 	"github.com/skylarng89/sherlock-waf/internal/dataplane/blockpage"
+	"github.com/skylarng89/sherlock-waf/internal/events"
+	"github.com/skylarng89/sherlock-waf/internal/metrics"
 	"github.com/skylarng89/sherlock-waf/internal/policy"
 )
 
@@ -29,6 +32,9 @@ type Handler struct {
 	FailMode        config.FailMode `json:"fail_mode"`
 	TrustedProxies  []string        `json:"trusted_proxies,omitempty"`
 	ClientIPHeaders []string        `json:"client_ip_headers,omitempty"`
+	// BlockWebSockets refuses connection upgrades in every mode: it is a
+	// configured rule ("this site does not speak WebSocket"), not a detection.
+	BlockWebSockets bool `json:"block_websockets,omitempty"`
 
 	trusted policy.CIDRSet
 	now     func() time.Time
@@ -77,6 +83,8 @@ func (h *Handler) Validate() error {
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request, next caddyhttp.Handler) (err error) {
 	start := h.now()
 	rec := &recorder{ResponseWriter: w}
+	policy.InFlight.Add(1)
+	defer policy.InFlight.Add(-1) // registered first, so it runs after the event is published
 
 	d, r, setupErr := h.begin(r, start)
 	if setupErr != nil {
@@ -99,10 +107,32 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request, next caddyht
 			}
 			err = nil
 		}
-		h.log(d, r, rec.status(), h.now().Sub(start))
+		h.finish(d, r, rec, start)
 	}()
 
+	if h.BlockWebSockets && isUpgrade(r) {
+		d.AddFinding(policy.Finding{Module: moduleName, Severity: policy.SeverityWarning, Message: "connection upgrades (WebSocket) are not allowed for this site"})
+		d.Terminate(moduleName, policy.ActionBlock)
+		blockpage.Write(rec, r, http.StatusForbidden, d.EventID)
+		return nil
+	}
+
 	return next.ServeHTTP(rec, r)
+}
+
+// isUpgrade reports a request asking to switch protocols (WebSocket and friends).
+func isUpgrade(r *http.Request) bool {
+	if r.Header.Get("Upgrade") == "" {
+		return false
+	}
+	for _, v := range r.Header.Values("Connection") {
+		for t := range strings.SplitSeq(v, ",") {
+			if strings.EqualFold(strings.TrimSpace(t), "upgrade") {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // begin resolves the client IP and attaches the decision to the request.
@@ -151,6 +181,19 @@ func (h *Handler) recordPanic(d *policy.Decision, p any) {
 	slog.Error("recovered panic", "site_id", h.SiteID, "event_id", d.EventID, "panic", fmt.Sprint(p))
 }
 
+// finish hands the completed request to the event pipeline. Without a
+// publisher (tests, early startup) it falls back to a slog decision line.
+func (h *Handler) finish(d *policy.Decision, r *http.Request, rec *recorder, start time.Time) {
+	took := h.now().Sub(start)
+	metrics.ObserveRequest(d.SiteID, string(d.Action()), took, d.WAFTime())
+	defer policy.NotifyBlock(d) // after the event is published; feeds auto-ban
+	if pub := events.Default(); pub != nil {
+		pub.Publish(events.Completed{Request: r, Decision: d, Start: start, Status: rec.status(), Bytes: rec.bytes, Total: took})
+		return
+	}
+	h.log(d, r, rec.status(), took)
+}
+
 // log writes a JSON decision line for requests that produced findings or were
 // terminated; clean requests are not logged here (the access log owns those).
 func (h *Handler) log(d *policy.Decision, r *http.Request, status int, took time.Duration) {
@@ -180,6 +223,7 @@ type recorder struct {
 	http.ResponseWriter
 	started bool
 	code    int
+	bytes   int64
 }
 
 func (r *recorder) WriteHeader(code int) {
@@ -193,7 +237,9 @@ func (r *recorder) Write(b []byte) (int, error) {
 	if !r.started {
 		r.started, r.code = true, http.StatusOK
 	}
-	return r.ResponseWriter.Write(b)
+	n, err := r.ResponseWriter.Write(b)
+	r.bytes += int64(n)
+	return n, err
 }
 
 func (r *recorder) status() int { return r.code }

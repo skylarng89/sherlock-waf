@@ -3,15 +3,18 @@ package waf
 import (
 	"encoding/json"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/caddyserver/caddy/v2"
 	"github.com/caddyserver/caddy/v2/modules/caddyhttp"
+	coreruleset "github.com/corazawaf/coraza-coreruleset/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -51,6 +54,11 @@ type outcome struct {
 // a recording upstream that echoes whether it was reached and what body it saw.
 func serve(t *testing.T, h *Handler, method, target, contentType, body string) outcome {
 	t.Helper()
+	return serveWith(t, h, method, target, contentType, body, nil)
+}
+
+func serveWith(t *testing.T, h *Handler, method, target, contentType, body string, hdr map[string]string) outcome {
+	t.Helper()
 	var rdr io.Reader = http.NoBody
 	if body != "" {
 		rdr = strings.NewReader(body)
@@ -62,6 +70,13 @@ func serve(t *testing.T, h *Handler, method, target, contentType, body string) o
 	r.Header.Set("Accept-Language", "en-US")
 	if contentType != "" {
 		r.Header.Set("Content-Type", contentType)
+	}
+	if body != "" {
+		// A real server exposes the length as a header; httptest does not.
+		r.Header.Set("Content-Length", strconv.Itoa(len(body)))
+	}
+	for k, v := range hdr {
+		r.Header.Set(k, v)
 	}
 	d := policy.NewDecision("01TESTEVENT0000000000000000", "shop", policy.Mode(h.Mode), netip.MustParseAddr("192.0.2.10"))
 	r = r.WithContext(policy.WithDecision(r.Context(), d))
@@ -300,4 +315,18 @@ func TestRESTMethodsAllowedButTraceBlocked(t *testing.T) {
 	out := serve(t, h, http.MethodTrace, "/api/v1/things/1", "", "")
 	assert.False(t, out.upstream, "TRACE must stay blocked")
 	assert.Contains(t, ruleIDs(out.d), "911100")
+}
+
+func TestCRSVersionMatchesEmbeddedRules(t *testing.T) {
+	b, err := fs.ReadFile(coreruleset.FS, "@owasp_crs/REQUEST-901-INITIALIZATION.conf")
+	require.NoError(t, err)
+	assert.Contains(t, string(b), `SecComponentSignature "OWASP_CRS/`+CRSVersion+`"`)
+}
+
+func TestRequestTargetPrefersRawRequestURI(t *testing.T) {
+	r, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "http://shop.example.com/a%2Fb?x=1", nil)
+	require.NoError(t, err)
+	assert.Equal(t, "/a%2Fb?x=1", requestTarget(r), "client-side requests have no RequestURI and fall back to the parsed URL")
+	r.RequestURI = "http://shop.example.com/a%2Fb?x=1"
+	assert.Equal(t, "http://shop.example.com/a%2Fb?x=1", requestTarget(r), "the raw absolute-form target is preserved")
 }
