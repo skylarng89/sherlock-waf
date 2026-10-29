@@ -1,0 +1,56 @@
+# go-ftw test overrides (merged under `testoverride:` by run.sh).
+# Every entry needs a reason. Keys are Go regular expressions matched against
+# test ids such as `942100-3`. Ids are listed exactly, not as broad patterns, so a
+# new failure in the same rule still shows up. An entry records a difference we
+# understand and accept, with the cause; it is never added just to make a run green.
+# Counts are for CRS 4.25.0 at PL1 against Sherlock with Caddy 2.11 (see README.md).
+ignore:
+  # methods: Sherlock allows PUT, PATCH and DELETE by default (M1 decision, REST APIs); CRS' default is GET HEAD POST OPTIONS.
+  '^911100-6$': 'DELETE is allowed by Sherlock by default; the test expects rule 911100 to reject it'
+  # CONNECT is a forward-proxy method. Sherlock is a reverse proxy: CONNECT is not an allowed method and is answered 403 by 911100.
+  '^920100-4$': 'CONNECT is rejected by 911100 (403); the test expects it to pass (200)'
+  '^920100-5$': 'CONNECT is rejected by 911100 (403) before the malformed target is judged; the test expects 400'
+  # The expected 400 comes from Apache's own request parser, not from a CRS rule.
+  '^920100-8$': 'colon in the path: the 400 is produced by Apache; Go net/http accepts it and CRS 920100 does not flag it'
+  # resp: 66 test(s) + the phase-5 reporting rules (RESPONSE-980-CORRELATION.conf)
+  '^980170-': 'Phase-5 reporting rules (RESPONSE-980-CORRELATION) are not loaded: only REQUEST-* CRS files are, since response inspection is out of scope until a later milestone.'
+  '^95[0-9]{4}-': 'Response-phase CRS rules (950-956: data leakages, web shells) are not loaded. Response inspection (outbound_inspection) is out of scope until a later milestone, so no response rule can fire.'
+  # optional: 6 test(s)
+  '^920360-(1)$': 'Optional CRS length/size limits (tx.arg_name_length, arg_length, max_num_args, total_arg_length, max_file_size, combined_file_sizes) are disabled by default in CRS and Sherlock does not expose them yet; the limits are deployment-specific (WAF tuning arrives in M8).'
+  '^920370-(1)$': 'Optional CRS length/size limits (tx.arg_name_length, arg_length, max_num_args, total_arg_length, max_file_size, combined_file_sizes) are disabled by default in CRS and Sherlock does not expose them yet; the limits are deployment-specific (WAF tuning arrives in M8).'
+  '^920380-(1)$': 'Optional CRS length/size limits (tx.arg_name_length, arg_length, max_num_args, total_arg_length, max_file_size, combined_file_sizes) are disabled by default in CRS and Sherlock does not expose them yet; the limits are deployment-specific (WAF tuning arrives in M8).'
+  '^920390-(1)$': 'Optional CRS length/size limits (tx.arg_name_length, arg_length, max_num_args, total_arg_length, max_file_size, combined_file_sizes) are disabled by default in CRS and Sherlock does not expose them yet; the limits are deployment-specific (WAF tuning arrives in M8).'
+  '^920400-(1)$': 'Optional CRS length/size limits (tx.arg_name_length, arg_length, max_num_args, total_arg_length, max_file_size, combined_file_sizes) are disabled by default in CRS and Sherlock does not expose them yet; the limits are deployment-specific (WAF tuning arrives in M8).'
+  '^920410-(1)$': 'Optional CRS length/size limits (tx.arg_name_length, arg_length, max_num_args, total_arg_length, max_file_size, combined_file_sizes) are disabled by default in CRS and Sherlock does not expose them yet; the limits are deployment-specific (WAF tuning arrives in M8).'
+  # protocol: 6 test(s)
+  '^920280-(3)$': "Requests Go net/http rejects (HTTP/0.9, unsupported version -> 505, missing version) or parses differently (fragment in target) before the handler chain runs; the expected 400 or log entry comes from Apache's parser, not from a CRS rule."
+  '^920430-(3|5|8|9)$': "Requests Go net/http rejects (HTTP/0.9, unsupported version -> 505, missing version) or parses differently (fragment in target) before the handler chain runs; the expected 400 or log entry comes from Apache's parser, not from a CRS rule."
+  '^920610-(2)$': "Requests Go net/http rejects (HTTP/0.9, unsupported version -> 505, missing version) or parses differently (fragment in target) before the handler chain runs; the expected 400 or log entry comes from Apache's parser, not from a CRS rule."
+  # underscore: 14 test(s)
+  '^933110-(13|14|20|21|22|24|25|26|27|3)$': 'The test sends the payload in a header whose name contains an underscore or a dot (X_Filename, X.Filename). Caddy 2.11 drops such headers by default (GHSA-f59h-q822-g45g, GHSA-49wc-4hcv-v58q), so neither the WAF nor the upstream ever sees them; there is no bypass to detect.'
+  '^933220-(2|4)$': 'The test sends the payload in a header whose name contains an underscore or a dot (X_Filename, X.Filename). Caddy 2.11 drops such headers by default (GHSA-f59h-q822-g45g, GHSA-49wc-4hcv-v58q), so neither the WAF nor the upstream ever sees them; there is no bypass to detect.'
+  '^944140-(3|8)$': 'The test sends the payload in a header whose name contains an underscore or a dot (X_Filename, X.Filename). Caddy 2.11 drops such headers by default (GHSA-f59h-q822-g45g, GHSA-49wc-4hcv-v58q), so neither the WAF nor the upstream ever sees them; there is no bypass to detect.'
+  # logdata: 1 test(s)
+  '^933120-(2)$': "Asserts on ModSecurity's logdata text ('... found within ARGS:var:'). Sherlock events carry the target and matched value as separate fields instead (docs/architecture/events.md)."
+  # blocking: 3 test(s)
+  '^949110-(1|4|5)$': "949110 only fires when the anomaly threshold is reached; this run raises thresholds to 10000 (as the CRS project does) so tests judge detection by rule ID. Blocking is covered by Sherlock's own block-mode tests and the e2e smoke test."
+  # dupct: 1 test(s)
+  '^920620-(1)$': 'Apache merges duplicate Content-Type headers into one; Go keeps both values, so rule 920620 (multiple Content-Type headers) correctly fires where the test expects it not to.'
+  # host: 45 test(s)
+  '^920270-(4)$': 'The test sends a missing, empty, IP or foreign Host header. Sherlock routes by Host and answers 421 for any host that is not configured, so the WAF never sees the request. That is by design (unknown host -> 421), not a missed detection.'
+  '^920280-(1)$': 'The test sends a missing, empty, IP or foreign Host header. Sherlock routes by Host and answers 421 for any host that is not configured, so the WAF never sees the request. That is by design (unknown host -> 421), not a missed detection.'
+  '^920290-(4)$': 'The test sends a missing, empty, IP or foreign Host header. Sherlock routes by Host and answers 421 for any host that is not configured, so the WAF never sees the request. That is by design (unknown host -> 421), not a missed detection.'
+  '^920350-(1|3|4|5|6)$': 'The test sends a missing, empty, IP or foreign Host header. Sherlock routes by Host and answers 421 for any host that is not configured, so the WAF never sees the request. That is by design (unknown host -> 421), not a missed detection.'
+  '^922130-(1|2|4|7)$': 'The test sends a missing, empty, IP or foreign Host header. Sherlock routes by Host and answers 421 for any host that is not configured, so the WAF never sees the request. That is by design (unknown host -> 421), not a missed detection.'
+  '^943110-(10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|31|33|34|35|36|37|40|41|5|6|7|8|9)$': 'The test sends a missing, empty, IP or foreign Host header. Sherlock routes by Host and answers 421 for any host that is not configured, so the WAF never sees the request. That is by design (unknown host -> 421), not a missed detection.'
+  # go-ftw 2.6 refuses a raw CR/LF in a header value (the test needs encoded_request).
+  # A suite/tool version mismatch, not a Sherlock behaviour; revisit when either is updated.
+  '^921140-1$': 'go-ftw 2.6 refuses a raw CR/LF in a header value (needs encoded_request)'
+  # Failures that only appear at paranoia levels 2-4 (same causes as above).
+  '^931130-(7|8|10|12|13|14)$': 'The test sends a missing, empty, IP or foreign Host header. Sherlock routes by Host and answers 421 for any host that is not configured, so the WAF never sees the request. That is by design (unknown host -> 421), not a missed detection.'
+  '^931131-2$': 'The test sends a missing, empty, IP or foreign Host header. Sherlock routes by Host and answers 421 for any host that is not configured, so the WAF never sees the request. That is by design (unknown host -> 421), not a missed detection.'
+  '^920274-1$': 'The test sends a missing, empty, IP or foreign Host header. Sherlock routes by Host and answers 421 for any host that is not configured, so the WAF never sees the request. That is by design (unknown host -> 421), not a missed detection.'
+  '^931130-24$': "Asserts on ModSecurity's logdata text ('... found within ARGS:var:'). Sherlock events carry the target and matched value as separate fields instead (docs/architecture/events.md)."
+  '^932200-13$': "Asserts on ModSecurity's logdata text ('... found within ARGS:var:'). Sherlock events carry the target and matched value as separate fields instead (docs/architecture/events.md)."
+  '^932207-7$': "Asserts on ModSecurity's logdata text ('... found within ARGS:var:'). Sherlock events carry the target and matched value as separate fields instead (docs/architecture/events.md)."
+  '^932300-10$': "Asserts on ModSecurity's logdata text ('... found within ARGS:var:'). Sherlock events carry the target and matched value as separate fields instead (docs/architecture/events.md)."

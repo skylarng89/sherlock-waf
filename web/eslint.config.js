@@ -4,7 +4,15 @@ import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['node_modules', '../internal/webui/dist'] },
+  {
+    ignores: [
+      'node_modules',
+      'e2e/playwright-report',
+      'e2e/test-results',
+      '../internal/webui/dist',
+      'src/api/schema.d.ts',
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.strict,
   ...pluginVue.configs['flat/recommended'],
@@ -30,7 +38,7 @@ export default tseslint.config(
     rules: { '@typescript-eslint/no-non-null-assertion': 'off' },
   },
   {
-    files: ['*.config.{js,ts}'],
+    files: ['*.config.{js,ts}', 'e2e/**/*.ts'],
     languageOptions: { globals: globals.node },
   },
 )

@@ -1,0 +1,10 @@
+# Juice Shop injection payloads that PASS Sherlock at paranoia level 1 (known gaps).
+# Format: <payload name> | <reason>. test/juice/challenges.py fails when a payload NOT listed here
+# stops being blocked, and prints a notice when a listed one starts being blocked (then remove it).
+
+bare single quote | A lone quote scores below the PL1 anomaly threshold (5); Juice Shop answers 500 with an SQL error (information disclosure, not a working injection). Real injection payloads are blocked.
+B2B orderLinesData ReDoS | A JavaScript regular-expression string inside a JSON value matches no CRS rule at PL1; the endpoint needs authentication, so it is only reachable after login.
+file:///etc/passwd entity upload | XML inside a multipart file part is not parsed as XML by the WAF, and no PL1 rule matches the entity declaration. (Juice Shop v19 answers 410 for this endpoint.)
+XML body with external DTD | CRS has no PL1 rule for external-DTD entity declarations in an XML body.
+poison null byte on /ftp | %2500 decodes once to a literal "%00", not a NUL byte, so the null-byte rules do not fire. The attack relies on the application decoding it a second time.
+allow-list bypass via query | Open redirects are an application logic flaw with no signature; CRS does not detect them.

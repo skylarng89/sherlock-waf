@@ -1,12 +1,21 @@
-# Milestone M1 stack: Sherlock in front of httpbin. Later milestones add Juice Shop and Postgres.
-#   CGO_ENABLED=0 go build -o bin/sherlock ./cmd/sherlock   (from the repo root)
-#   docker compose -f test/e2e-compose/compose.yaml up --build -d
-#   curl -i -H 'Accept: application/json' "http://site.localhost:8080/get?id=1' OR '1'='1"
+# Test bed for Sherlock (M2): Sherlock in front of httpbin and OWASP Juice Shop.
+# Postgres joins in M3. Use `make e2e-up` / `make e2e-down` from the repo root.
+#   curl -i -H 'Accept: application/json' --get --data-urlencode "id=1' OR '1'='1" http://site.localhost:18080/get
 services:
   httpbin:
     image: mccutchen/go-httpbin:2.18.3
     command: ["/bin/go-httpbin", "-port", "8080"]
     expose: ["8080"]
+
+  juice-shop:
+    image: bkimminich/juice-shop:v19.0.0
+    expose: ["3000"]
+    ports:
+      # Direct access (bypassing Sherlock), loopback only, so scanners can
+      # establish what is actually exploitable before judging what Sherlock stops.
+      - "127.0.0.1:${JUICE_DIRECT_PORT:-13000}:3000"
+    # distroless image: no shell or node on PATH, so no in-container healthcheck;
+    # test/e2e-compose/smoke.sh waits for readiness through Sherlock instead.
 
   sherlock:
     build:
@@ -16,11 +25,14 @@ services:
     volumes:
       - ./sherlock.yaml:/etc/sherlock/sherlock.yaml:ro
     ports:
-      - "${SHERLOCK_HTTP_PORT:-8080}:80"
+      - "${SHERLOCK_HTTP_PORT:-18080}:80"
+      - "127.0.0.1:${SHERLOCK_ADMIN_PORT:-19443}:9443"
     sysctls:
       net.ipv4.ip_unprivileged_port_start: 0
     read_only: true
     tmpfs: ["/tmp"]
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
-    depends_on: [httpbin]
+    depends_on:
+      httpbin: { condition: service_started }
+      juice-shop: { condition: service_started }
