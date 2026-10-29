@@ -6,6 +6,7 @@ package server
 
 import (
 	"context"
+	"crypto/ed25519"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -35,6 +37,7 @@ import (
 	"github.com/skylarng89/sherlock-waf/internal/ops"
 	"github.com/skylarng89/sherlock-waf/internal/policy"
 	"github.com/skylarng89/sherlock-waf/internal/store"
+	"github.com/skylarng89/sherlock-waf/internal/updater"
 	"github.com/skylarng89/sherlock-waf/pkg/extension"
 )
 
@@ -44,6 +47,13 @@ import (
 const (
 	EnvListen       = "SHERLOCK_ADMIN_LISTEN"
 	EnvAllowedCIDRs = "SHERLOCK_ADMIN_ALLOWED_CIDRS"
+	// EnvBackup=off disables the daily backup job; EnvBackupKeep sets how many
+	// backups it retains (default 7).
+	EnvBackup     = "SHERLOCK_BACKUP"
+	EnvBackupKeep = "SHERLOCK_BACKUP_KEEP"
+	// EnvBackupPassphraseFile names a file (readable only by the service user)
+	// holding the passphrase that encrypts scheduled backups.
+	EnvBackupPassphraseFile = "SHERLOCK_BACKUP_PASSPHRASE_FILE"
 
 	// DefaultListen keeps the control plane on loopback unless the operator opts out.
 	DefaultListen = "127.0.0.1:9443"
@@ -60,9 +70,13 @@ type Options struct {
 	AllowedCIDRs []string
 	Compiler     compiler.Options
 	Info         api.Info
-	UI           http.Handler
-	Extensions   []extension.Extension
-	Logger       *slog.Logger
+	// ReleaseKey verifies update manifests; nil uses the key embedded in the build.
+	ReleaseKey ed25519.PublicKey
+	// Backup tunes the scheduled backup (zero values: daily, keep 7).
+	Backup     ops.BackupJob
+	UI         http.Handler
+	Extensions []extension.Extension
+	Logger     *slog.Logger
 	// EventsOutput receives the events stdout sink (default os.Stdout).
 	EventsOutput io.Writer
 	// Ready, when set, is called with the bound API address once serving.
@@ -156,8 +170,10 @@ func Run(ctx context.Context, o Options) error {
 		_ = dp.Stop(ctx)
 		return err
 	}
+	upd := updateService(o, dataDir, log)
 	apiSrv, err := api.New(api.Deps{
-		Store: env.Store, Config: cfg, Auth: authSvc, Audit: env.Audit, Hasher: env.Hasher,
+		Update: upd,
+		Store:  env.Store, Config: cfg, Auth: authSvc, Audit: env.Audit, Hasher: env.Hasher,
 		Info: info, Authorizer: host.authorizer, Logger: log,
 		Secrets: env.Secrets, Certs: certFiles, Setup: gate, DataDir: dataDir,
 		Feeds: func() []api.FeedStatus { return feedStatuses(fm) }, EventStats: dp.EventStats,
@@ -174,6 +190,9 @@ func Run(ctx context.Context, o Options) error {
 	}
 	jobs.Go(func() { certs.Run(bg, tlsRefreshEvery) })
 	jobs.Go(func() { audit.RunCheckpointer(bg, env.Store, log, checkpointEvery) })
+	if job, on := backupJob(o, env, log); on {
+		jobs.Go(func() { job.Run(bg) })
+	}
 	jobs.Go(func() { eventwriter.RunRetention(bg, env.Store, log, 0, retention) })
 
 	allow, err := policy.ParseCIDRSet(cidrs(o))
@@ -407,4 +426,42 @@ func setupGate(ctx context.Context, env *ops.Env, dataDir string, log *slog.Logg
 	log.Warn("first-run setup is open: this node has no users. Create one with `sherlock user create --admin`, or open the dashboard and enter the one-time token stored in the file below",
 		"setup_token_file", g.Path())
 	return g, nil
+}
+
+// updateService returns the API's updater, or nil (a typed-nil-safe interface
+// value) when the build has no release key: updates then fail closed.
+func updateService(o Options, dataDir string, log *slog.Logger) api.UpdateService {
+	u, err := updater.New(updater.Options{Key: o.ReleaseKey, CurrentVersion: o.Info.Version, DataDir: dataDir, Log: log})
+	if err != nil {
+		log.Info("updates are disabled", "reason", err.Error())
+		return nil
+	}
+	return u
+}
+
+func backupJob(o Options, env *ops.Env, log *slog.Logger) (ops.BackupJob, bool) {
+	if strings.EqualFold(os.Getenv(EnvBackup), "off") {
+		log.Info("scheduled backups are off", "env", EnvBackup)
+		return ops.BackupJob{}, false
+	}
+	job := o.Backup
+	job.Store, job.DataDir, job.Logger, job.Version = env.Store, env.DataDir, log, o.Info.Version
+	if v := os.Getenv(EnvBackupKeep); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 {
+			log.Warn("ignoring invalid backup retention", "env", EnvBackupKeep)
+		} else {
+			job.Keep = n
+		}
+	}
+	if path := os.Getenv(EnvBackupPassphraseFile); path != "" {
+		b, err := os.ReadFile(path) //nolint:gosec // operator-chosen secret file
+		pass := strings.TrimRight(string(b), "\r\n")
+		if err != nil || pass == "" {
+			log.Error("scheduled backups are off: the passphrase file is unreadable or empty", "env", EnvBackupPassphraseFile)
+			return ops.BackupJob{}, false // fail closed: never fall back to unencrypted when encryption was asked for
+		}
+		job.Passphrase = pass
+	}
+	return job, true
 }

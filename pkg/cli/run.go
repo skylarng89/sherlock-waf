@@ -40,7 +40,7 @@ func newRunCommand(o options, sf *stateFlags, info BuildInfo) *cobra.Command {
 			slog.SetDefault(logger)
 			return server.Run(cmd.Context(), server.Options{
 				DataDir: sf.dataDir, DatabaseURL: sf.databaseURL, Listen: listen, Compiler: copts, UI: o.ui, Extensions: o.extensions, Logger: logger,
-				Info: api.Info{Version: info.Version, Commit: info.Commit, CRSVersion: crsVersion()},
+				Info: api.Info{Version: info.Version, Commit: info.Commit, CRSVersion: crsVersion()}, ReleaseKey: o.releaseKey,
 			})
 		},
 	}

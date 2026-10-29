@@ -118,3 +118,12 @@ func TestRandomStringShapeAndHash(t *testing.T) {
 	assert.Len(t, hashToken(a), 64)
 	assert.NotEqual(t, hashToken(a), hashToken(b))
 }
+
+func TestValidatePasswordRejectsPredictable(t *testing.T) {
+	for _, bad := range []string{"password1234", "PASSWORD1234", "aaaaaaaaaaaa", "123456789012", "abcdefghijkl", "short", "            "} {
+		assert.ErrorIs(t, ValidatePassword(bad), ErrWeakPassword, bad)
+	}
+	for _, good := range []string{"correct horse battery", "tr0ub4dor&3-staple", "a1b2c3d4e5f6g7"} {
+		assert.NoError(t, ValidatePassword(good), good)
+	}
+}

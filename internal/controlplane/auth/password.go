@@ -55,7 +55,38 @@ func (h *Hasher) acquire(ctx context.Context) (release func(), err error) {
 	}
 }
 
-// ValidatePassword applies the password policy: length 12..1024 and not blank.
+// commonPasswords are widely used passwords that are long enough to pass the
+// length rule (shorter ones fail it already). It is a floor, not a breach-corpus
+// check: ASVS asks for the top 3000, which needs a bigger list than this file
+// should carry (ticketed in docs/security/asvs-review-m7.md).
+var commonPasswords = map[string]struct{}{
+	"password1234": {}, "password12345": {}, "password123456": {}, "passw0rd1234": {}, "p@ssw0rd1234": {},
+	"123456789012": {}, "1234567890123": {}, "12345678901234": {}, "123456789abc": {}, "qwertyuiop12": {},
+	"qwertyuiopas": {}, "qwertyuiop123": {}, "qwerty123456": {}, "qwertyuiopasdfghjkl": {}, "1q2w3e4r5t6y": {},
+	"1qaz2wsx3edc": {}, "abcdefghijkl": {}, "abcdefg12345": {}, "iloveyou1234": {}, "iloveyou12345": {},
+	"letmein12345": {}, "welcome12345": {}, "administrator": {}, "administrator1": {}, "changeme1234": {},
+	"changemenow1": {}, "adminadmin12": {}, "admin1234567": {}, "admin12345678": {}, "trustno1trustno1": {},
+	"correcthorsebatterystaple": {}, "sherlock12345": {}, "sherlockwaf12": {}, "monkey123456": {}, "football12345": {},
+	"baseball12345": {}, "dragon123456": {}, "superman1234": {}, "princess1234": {}, "sunshine1234": {},
+}
+
+// tooPredictable reports a password that is on the common list or is one
+// character repeated, or a straight run of digits or letters.
+func tooPredictable(p string) bool {
+	lower := strings.ToLower(p)
+	if _, ok := commonPasswords[lower]; ok {
+		return true
+	}
+	repeated, run := true, true
+	for i := 1; i < len(lower); i++ {
+		repeated = repeated && lower[i] == lower[0]
+		run = run && lower[i] == lower[i-1]+1
+	}
+	return repeated || run
+}
+
+// ValidatePassword applies the password policy: length 12..1024, not blank and
+// not trivially predictable.
 func ValidatePassword(p string) error {
 	switch {
 	case len(p) < MinPasswordLength:
@@ -64,6 +95,8 @@ func ValidatePassword(p string) error {
 		return fmt.Errorf("%w: at most %d characters", ErrWeakPassword, maxPasswordLength)
 	case strings.TrimSpace(p) == "":
 		return fmt.Errorf("%w: must not be blank", ErrWeakPassword)
+	case tooPredictable(p):
+		return fmt.Errorf("%w: too common or predictable", ErrWeakPassword)
 	}
 	return nil
 }

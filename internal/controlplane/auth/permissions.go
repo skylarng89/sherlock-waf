@@ -21,10 +21,12 @@ const (
 	PermTokensOwn     = "tokens:own"
 	PermAuditRead     = "audit:read"
 	PermSystemRead    = "system:read"
+	// PermSystemUpdate installs a new binary: admin only, and never part of the read or write scopes.
+	PermSystemUpdate = "system:update"
 )
 
 var rolePerms = map[string][]string{
-	RoleAdmin:  {PermConfigRead, PermConfigWrite, PermEventsRead, PermUsersManage, PermTokensOwn, PermAuditRead, PermSystemRead},
+	RoleAdmin:  {PermConfigRead, PermConfigWrite, PermEventsRead, PermUsersManage, PermTokensOwn, PermAuditRead, PermSystemRead, PermSystemUpdate},
 	RoleViewer: {PermConfigRead, PermEventsRead, PermTokensOwn, PermSystemRead},
 }
 
@@ -46,7 +48,7 @@ var scopePerms = map[string][]string{
 	ScopeWrite:  {PermConfigRead, PermConfigWrite, PermSystemRead},
 	ScopeEvents: {PermEventsRead},
 	// admin grants everything the owner's role has except minting more tokens.
-	ScopeAdmin: {PermConfigRead, PermConfigWrite, PermEventsRead, PermUsersManage, PermAuditRead, PermSystemRead},
+	ScopeAdmin: {PermConfigRead, PermConfigWrite, PermEventsRead, PermUsersManage, PermAuditRead, PermSystemRead, PermSystemUpdate},
 }
 
 // RolePermissions lists what a role may do; an unknown role gets nothing.

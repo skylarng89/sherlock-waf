@@ -4,6 +4,7 @@ package cli
 
 import (
 	"context"
+	"crypto/ed25519"
 	"fmt"
 	"net/http"
 	"runtime"
@@ -23,6 +24,7 @@ type BuildInfo struct {
 type options struct {
 	ui         http.Handler
 	extensions []extension.Extension
+	releaseKey ed25519.PublicKey
 }
 
 // Option customises the command tree.
@@ -38,6 +40,13 @@ func WithUI(h http.Handler) Option {
 // registers none (extension.None()); another edition passes its own.
 func WithExtensions(exts ...extension.Extension) Option {
 	return func(o *options) { o.extensions = append(o.extensions, exts...) }
+}
+
+// WithReleaseKey sets the Ed25519 public key `sherlock update` verifies release
+// manifests with, instead of the key embedded in the open-source build. An
+// edition that signs its own releases passes its key; tests pass a throw-away one.
+func WithReleaseKey(key ed25519.PublicKey) Option {
+	return func(o *options) { o.releaseKey = key }
 }
 
 // Execute builds the command tree for info and runs it with ctx.
@@ -64,6 +73,7 @@ func NewRootCommand(info BuildInfo, opts ...Option) *cobra.Command {
 	root.AddCommand(
 		newVersionCommand(info), newRunCommand(o, &sf, info),
 		newUserCommand(&sf), newHashPasswordCommand(), newTokenCommand(&sf), newConfigCommand(&sf), newAuditCommand(&sf), newSecretsCommand(&sf),
+		newUpdateCommand(o, &sf, info), newBackupCommand(&sf, info), newRestoreCommand(&sf),
 	)
 	return root
 }

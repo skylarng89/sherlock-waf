@@ -53,20 +53,27 @@ func (f *stateFlags) lockOffline() (func(), error) {
 // secret managers) or prompts twice without echo. It is never read from a flag
 // value or the environment, which other local users can see.
 func readPassword(cmd *cobra.Command, fromStdin bool) (string, error) {
+	return readSecret(cmd, fromStdin, "Password", true)
+}
+
+// readSecret is readPassword for any secret (backup passphrases too); label
+// names it in prompts and errors, confirm asks twice.
+func readSecret(cmd *cobra.Command, fromStdin bool, label string, confirm bool) (string, error) {
+	lower := strings.ToLower(label)
 	if fromStdin {
 		line, err := bufio.NewReader(cmd.InOrStdin()).ReadString('\n')
 		if err != nil && !errors.Is(err, io.EOF) {
-			return "", fmt.Errorf("reading password from stdin: %w", err)
+			return "", fmt.Errorf("reading %s from stdin: %w", lower, err)
 		}
 		pw := strings.TrimRight(line, "\r\n")
 		if pw == "" {
-			return "", errors.New("no password on stdin")
+			return "", fmt.Errorf("no %s on stdin", lower)
 		}
 		return pw, nil
 	}
 	fd := int(os.Stdin.Fd()) //nolint:gosec // fd fits int
 	if !term.IsTerminal(fd) {
-		return "", errors.New("stdin is not a terminal; pass --password-stdin to read the password from it")
+		return "", fmt.Errorf("stdin is not a terminal; pass the --%s-stdin flag to read the %s from it", lower, lower)
 	}
 	prompt := func(label string) (string, error) {
 		fmt.Fprint(cmd.ErrOrStderr(), label)
@@ -74,16 +81,18 @@ func readPassword(cmd *cobra.Command, fromStdin bool) (string, error) {
 		fmt.Fprintln(cmd.ErrOrStderr())
 		return string(b), err
 	}
-	first, err := prompt("Password: ")
+	first, err := prompt(label + ": ")
 	if err != nil {
-		return "", fmt.Errorf("reading password: %w", err)
+		return "", fmt.Errorf("reading %s: %w", lower, err)
 	}
-	second, err := prompt("Repeat password: ")
-	if err != nil {
-		return "", fmt.Errorf("reading password: %w", err)
-	}
-	if first != second {
-		return "", errors.New("passwords do not match")
+	if confirm {
+		second, err := prompt("Repeat " + lower + ": ")
+		if err != nil {
+			return "", fmt.Errorf("reading %s: %w", lower, err)
+		}
+		if first != second {
+			return "", fmt.Errorf("%ss do not match", lower)
+		}
 	}
 	return first, nil
 }

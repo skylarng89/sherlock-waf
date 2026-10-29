@@ -52,13 +52,18 @@ type sqlStore struct {
 	rebind  bool // rewrite $n placeholders to ?n (SQLite)
 }
 
+// IsPostgresDSN reports whether dsn selects PostgreSQL.
+func IsPostgresDSN(dsn string) bool {
+	return strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://")
+}
+
 // Open connects to the database named by dsn and applies pending migrations.
 //
 //	postgres://user:pass@host/db?sslmode=verify-full   PostgreSQL 15+
 //	sqlite:///var/lib/sherlock/sherlock.db             SQLite file (also: a bare path)
 func Open(ctx context.Context, dsn string) (Store, error) {
 	switch {
-	case strings.HasPrefix(dsn, "postgres://"), strings.HasPrefix(dsn, "postgresql://"):
+	case IsPostgresDSN(dsn):
 		return openPostgres(ctx, dsn)
 	case strings.HasPrefix(dsn, "sqlite://"):
 		u, err := url.Parse(dsn)
