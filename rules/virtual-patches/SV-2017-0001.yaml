@@ -1,0 +1,30 @@
+# Metadata for SV-2017-0001. verification=synthetic: the exploit request was rebuilt from public
+# write-ups and tested against Sherlock only; it was not replayed against a vulnerable product.
+# kev=true must be re-checked against the CISA KEV catalog before each release (see docs/security/virtual-patching-process.md).
+{
+  "id": "SV-2017-0001",
+  "title": "PHPUnit eval-stdin.php remote code execution",
+  "cves": [
+    "CVE-2017-9841"
+  ],
+  "vendor": "Sebastian Bergmann",
+  "product": "PHPUnit (exposed vendor directory)",
+  "versions": "before 4.8.28 and 5.0.0 to 5.6.2 (NVD; the 4.8.19 and 5.0.10 lower bounds were not confirmed)",
+  "severity": "critical",
+  "cvss": 9.8,
+  "kev": true,
+  "kev_added": "2022-02-15",
+  "stacks": [
+    "php"
+  ],
+  "references": [
+    "https://nvd.nist.gov/vuln/detail/CVE-2017-9841",
+    "https://github.com/sebastianbergmann/phpunit/pull/2330"
+  ],
+  "false_positive_notes": "eval-stdin.php is a test helper and must never be requested over HTTP.",
+  "verification": "synthetic",
+  "added_in": "2026.10.1",
+  "rule_ids": [
+    9500200
+  ]
+}

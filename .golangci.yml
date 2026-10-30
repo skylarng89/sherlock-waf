@@ -1,0 +1,44 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  default: none
+  enable:
+    - govet
+    - staticcheck
+    - errcheck
+    - gosec
+    - revive
+    - bodyclose
+    - noctx
+    - sqlclosecheck
+    - exhaustive
+    - gocritic
+    - misspell
+    - nilerr
+    - contextcheck
+  settings:
+    misspell:
+      locale: UK
+    revive:
+      rules:
+        - name: exported
+        - name: package-comments
+        - name: error-return
+        - name: error-naming
+        - name: context-as-argument
+  exclusions:
+    presets:
+      - std-error-handling
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/skylarng89/sherlock-waf

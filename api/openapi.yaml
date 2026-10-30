@@ -1,0 +1,1905 @@
+openapi: 3.0.3
+info:
+  title: Sherlock WAF control-plane API
+  version: 1.0.0-pre
+  description: |
+    The one public API: the dashboard, the CLI and automation all use `/api/v1`.
+    Conventions are in docs/architecture/api.md. Errors are RFC 9457 problem
+    documents. Config objects carry an `ETag` (the config version id); writes need
+    `If-Match` (missing: 428, stale: 412).
+
+    Every operation declares `x-sherlock-permission`, the only input to
+    authorisation: `public`, `authenticated`, or a named permission. A route with
+    no permission is refused at start-up and in CI.
+servers:
+  - url: /api/v1
+
+security:
+  - cookieAuth: []
+  - bearerAuth: []
+
+tags:
+  - { name: auth }
+  - { name: config }
+  - { name: sites }
+  - { name: events }
+  - { name: users }
+  - { name: tokens }
+  - { name: audit }
+  - { name: system }
+  - { name: setup }
+  - { name: certificates }
+  - { name: api-protection }
+  - { name: bans }
+  - { name: tuning }
+  - { name: rules }
+
+paths:
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Sign in with a username and password
+      security: []
+      x-sherlock-permission: public
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/LoginRequest" } } } }
+      responses:
+        "200": { description: Signed in, or a second step is required, content: { application/json: { schema: { $ref: "#/components/schemas/LoginResponse" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/Problem" }
+  /auth/mfa:
+    post:
+      operationId: verifyMFA
+      tags: [auth]
+      summary: Complete sign-in with a TOTP code
+      x-sherlock-permission: session-partial
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/MFARequest" } } } }
+      responses:
+        "200": { description: Signed in, content: { application/json: { schema: { $ref: "#/components/schemas/Me" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/Problem" }
+  /auth/mfa/enroll:
+    post:
+      operationId: startMFAEnrolment
+      tags: [auth]
+      summary: Begin TOTP enrolment (returns the secret once)
+      x-sherlock-permission: session-partial
+      responses:
+        "200": { description: Secret and provisioning URI, content: { application/json: { schema: { $ref: "#/components/schemas/MFAEnrolment" } } } }
+        "401": { $ref: "#/components/responses/Problem" }
+  /auth/mfa/enroll/confirm:
+    post:
+      operationId: confirmMFAEnrolment
+      tags: [auth]
+      summary: Confirm enrolment with a first code; completes sign-in
+      x-sherlock-permission: session-partial
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/MFARequest" } } } }
+      responses:
+        "200": { description: Enrolled and signed in, content: { application/json: { schema: { $ref: "#/components/schemas/Me" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: End the current session
+      x-sherlock-permission: session-any
+      responses:
+        "204": { description: Signed out }
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: The signed-in user, role and permissions
+      x-sherlock-permission: authenticated
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Me" } } } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+
+  /config:
+    get:
+      operationId: getConfig
+      tags: [config]
+      summary: The live configuration (with defaults applied)
+      x-sherlock-permission: config:read
+      responses:
+        "200":
+          description: OK
+          headers: { ETag: { $ref: "#/components/headers/ETag" } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/Config" } } }
+        "404": { $ref: "#/components/responses/Problem" }
+    put:
+      operationId: putConfig
+      tags: [config]
+      summary: Replace the whole configuration
+      x-sherlock-permission: config:write
+      parameters: [{ $ref: "#/components/parameters/IfMatch" }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/Config" } } } }
+      responses:
+        "200": { $ref: "#/components/responses/ConfigVersion" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "412": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "428": { $ref: "#/components/responses/Problem" }
+  /config/validate:
+    post:
+      operationId: validateConfig
+      tags: [config]
+      summary: Validate a configuration without applying it
+      x-sherlock-permission: config:write
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/Config" } } } }
+      responses:
+        "200": { description: Validation result, content: { application/json: { schema: { $ref: "#/components/schemas/ValidateResponse" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+  /config/versions:
+    get:
+      operationId: listConfigVersions
+      tags: [config]
+      summary: Configuration history, newest first
+      x-sherlock-permission: config:read
+      parameters: [{ $ref: "#/components/parameters/Limit" }, { $ref: "#/components/parameters/Cursor" }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/VersionPage" } } } }
+  /config/versions/{id}:
+    get:
+      operationId: getConfigVersion
+      tags: [config]
+      summary: One version with its snapshot and diff
+      x-sherlock-permission: config:read
+      parameters: [{ $ref: "#/components/parameters/VersionID" }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/VersionDetail" } } } }
+        "404": { $ref: "#/components/responses/Problem" }
+  /config/versions/{id}/rollback:
+    post:
+      operationId: rollbackConfig
+      tags: [config]
+      summary: Apply an earlier version's snapshot as a new version
+      x-sherlock-permission: config:write
+      parameters: [{ $ref: "#/components/parameters/VersionID" }, { $ref: "#/components/parameters/IfMatch" }]
+      responses:
+        "200": { $ref: "#/components/responses/ConfigVersion" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "412": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "428": { $ref: "#/components/responses/Problem" }
+
+  /defaults:
+    get:
+      operationId: getDefaults
+      tags: [config]
+      summary: Global policy defaults
+      x-sherlock-permission: config:read
+      responses:
+        "200":
+          description: OK
+          headers: { ETag: { $ref: "#/components/headers/ETag" } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/Policy" } } }
+        "404": { $ref: "#/components/responses/Problem" }
+    put:
+      operationId: putDefaults
+      tags: [config]
+      summary: Replace the global policy defaults
+      x-sherlock-permission: config:write
+      parameters: [{ $ref: "#/components/parameters/IfMatch" }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/Policy" } } } }
+      responses:
+        "200": { $ref: "#/components/responses/ConfigVersion" }
+        "412": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "428": { $ref: "#/components/responses/Problem" }
+
+  /sites:
+    get:
+      operationId: listSites
+      tags: [sites]
+      summary: Sites
+      x-sherlock-permission: config:read
+      responses:
+        "200":
+          description: OK
+          headers: { ETag: { $ref: "#/components/headers/ETag" } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/SiteList" } } }
+    post:
+      operationId: createSite
+      tags: [sites]
+      summary: Add a site
+      x-sherlock-permission: config:write
+      parameters: [{ $ref: "#/components/parameters/IfMatch" }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/Site" } } } }
+      responses:
+        "201": { $ref: "#/components/responses/ConfigVersion" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "412": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "428": { $ref: "#/components/responses/Problem" }
+  /sites/{site}:
+    parameters: [{ $ref: "#/components/parameters/SiteID" }]
+    get:
+      operationId: getSite
+      tags: [sites]
+      summary: One site
+      x-sherlock-permission: config:read
+      responses:
+        "200":
+          description: OK
+          headers: { ETag: { $ref: "#/components/headers/ETag" } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/Site" } } }
+        "404": { $ref: "#/components/responses/Problem" }
+    patch:
+      operationId: patchSite
+      tags: [sites]
+      summary: Change fields of a site (JSON Merge Patch)
+      x-sherlock-permission: config:write
+      parameters: [{ $ref: "#/components/parameters/IfMatch" }]
+      requestBody: { required: true, content: { application/merge-patch+json: { schema: { type: object, additionalProperties: true } } } }
+      responses:
+        "200": { $ref: "#/components/responses/ConfigVersion" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "412": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "428": { $ref: "#/components/responses/Problem" }
+    delete:
+      operationId: deleteSite
+      tags: [sites]
+      summary: Remove a site
+      x-sherlock-permission: config:write
+      parameters: [{ $ref: "#/components/parameters/IfMatch" }]
+      responses:
+        "200": { $ref: "#/components/responses/ConfigVersion" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "412": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "428": { $ref: "#/components/responses/Problem" }
+  /sites/{site}/endpoints:
+    parameters: [{ $ref: "#/components/parameters/SiteID" }]
+    get:
+      operationId: listEndpoints
+      tags: [sites]
+      summary: Endpoint overrides of a site
+      x-sherlock-permission: config:read
+      responses:
+        "200":
+          description: OK
+          headers: { ETag: { $ref: "#/components/headers/ETag" } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/EndpointList" } } }
+        "404": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: createEndpoint
+      tags: [sites]
+      summary: Add an endpoint override
+      x-sherlock-permission: config:write
+      parameters: [{ $ref: "#/components/parameters/IfMatch" }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/Endpoint" } } } }
+      responses:
+        "201": { $ref: "#/components/responses/ConfigVersion" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "412": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "428": { $ref: "#/components/responses/Problem" }
+  /sites/{site}/endpoints/{endpoint}:
+    parameters: [{ $ref: "#/components/parameters/SiteID" }, { $ref: "#/components/parameters/EndpointID" }]
+    get:
+      operationId: getEndpoint
+      tags: [sites]
+      summary: One endpoint override
+      x-sherlock-permission: config:read
+      responses:
+        "200":
+          description: OK
+          headers: { ETag: { $ref: "#/components/headers/ETag" } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/Endpoint" } } }
+        "404": { $ref: "#/components/responses/Problem" }
+    patch:
+      operationId: patchEndpoint
+      tags: [sites]
+      summary: Change fields of an endpoint override (JSON Merge Patch)
+      x-sherlock-permission: config:write
+      parameters: [{ $ref: "#/components/parameters/IfMatch" }]
+      requestBody: { required: true, content: { application/merge-patch+json: { schema: { type: object, additionalProperties: true } } } }
+      responses:
+        "200": { $ref: "#/components/responses/ConfigVersion" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "412": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "428": { $ref: "#/components/responses/Problem" }
+    delete:
+      operationId: deleteEndpoint
+      tags: [sites]
+      summary: Remove an endpoint override
+      x-sherlock-permission: config:write
+      parameters: [{ $ref: "#/components/parameters/IfMatch" }]
+      responses:
+        "200": { $ref: "#/components/responses/ConfigVersion" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "412": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "428": { $ref: "#/components/responses/Problem" }
+  /sites/{site}/effective-policy:
+    parameters: [{ $ref: "#/components/parameters/SiteID" }]
+    get:
+      operationId: getEffectivePolicy
+      tags: [sites]
+      summary: The merged policy for a request, with the source of every value
+      x-sherlock-permission: config:read
+      parameters:
+        - { name: path, in: query, required: false, schema: { type: string, default: / } }
+        - { name: method, in: query, required: false, schema: { type: string, default: GET } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/EffectivePolicy" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+
+  /events:
+    get:
+      operationId: listEvents
+      tags: [events]
+      summary: Security events, newest first
+      x-sherlock-permission: events:read
+      parameters:
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { name: site, in: query, schema: { type: string } }
+        - { name: action, in: query, schema: { type: string, enum: [allow, log, challenge, block, ratelimit, ban] } }
+        - { name: rule_id, in: query, schema: { type: string } }
+        - { name: ip, in: query, schema: { type: string } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { name: country, in: query, schema: { type: string, pattern: "^[A-Z]{2}$" } }
+        - { name: method, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { type: integer, minimum: 100, maximum: 599 } }
+        - { name: mode, in: query, schema: { type: string, enum: [off, detect, block] } }
+        - { name: q, in: query, description: "Free text, matched in path, host, client address and rule ids", schema: { type: string, maxLength: 200 } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/EventPage" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+  /events/{id}:
+    get:
+      operationId: getEvent
+      tags: [events]
+      summary: One event
+      x-sherlock-permission: events:read
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Event" } } } }
+        "404": { $ref: "#/components/responses/Problem" }
+
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: Users
+      x-sherlock-permission: users:manage
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/UserList" } } } }
+    post:
+      operationId: createUser
+      tags: [users]
+      summary: Create a user
+      x-sherlock-permission: users:manage
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/CreateUser" } } } }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/User" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /users/{id}:
+    parameters: [{ $ref: "#/components/parameters/UserID" }]
+    patch:
+      operationId: patchUser
+      tags: [users]
+      summary: Change a user's role, state or password
+      x-sherlock-permission: users:manage
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/PatchUser" } } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/User" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+    delete:
+      operationId: deleteUser
+      tags: [users]
+      summary: Delete a user (and their sessions and tokens)
+      x-sherlock-permission: users:manage
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /users/{id}/reset-mfa:
+    post:
+      operationId: resetUserMFA
+      tags: [users]
+      summary: Clear a user's MFA enrolment (they re-enrol at next sign-in)
+      x-sherlock-permission: users:manage
+      parameters: [{ $ref: "#/components/parameters/UserID" }]
+      responses:
+        "204": { description: Reset }
+        "404": { $ref: "#/components/responses/Problem" }
+
+  /tokens:
+    get:
+      operationId: listTokens
+      tags: [tokens]
+      summary: Your API tokens (all tokens for an admin)
+      x-sherlock-permission: tokens:own
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/TokenList" } } } }
+    post:
+      operationId: createToken
+      tags: [tokens]
+      summary: Create an API token (the secret is shown once)
+      x-sherlock-permission: tokens:own
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/CreateToken" } } } }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/CreatedToken" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+  /tokens/{id}:
+    delete:
+      operationId: deleteToken
+      tags: [tokens]
+      summary: Revoke a token (your own; an admin may revoke any)
+      x-sherlock-permission: tokens:own
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        "204": { description: Revoked }
+        "404": { $ref: "#/components/responses/Problem" }
+
+  /audit:
+    get:
+      operationId: listAudit
+      tags: [audit]
+      summary: The audit log, newest first
+      x-sherlock-permission: audit:read
+      parameters:
+        - { $ref: "#/components/parameters/Limit" }
+        - { name: before_seq, in: query, schema: { type: integer, format: int64, minimum: 0 } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/AuditPage" } } } }
+
+  /system/info:
+    get:
+      operationId: getSystemInfo
+      tags: [system]
+      summary: Version, engine, features and the audit chain head
+      x-sherlock-permission: system:read
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/SystemInfo" } } } }
+
+  /setup/status:
+    get:
+      operationId: getSetupStatus
+      tags: [setup]
+      summary: Whether first-run setup is still open (no users exist)
+      security: []
+      x-sherlock-permission: public
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/SetupStatus" } } } }
+  /setup/admin:
+    post:
+      operationId: createFirstAdmin
+      tags: [setup]
+      summary: Create the first administrator (only while no user exists; needs the one-time setup token)
+      description: |
+        The setup token is printed to the server's log at start-up while the node has no users.
+        It is compared in constant time, single-use per process lifetime, and the endpoint closes
+        itself as soon as any user exists. Attempts are throttled.
+      security: []
+      x-sherlock-permission: public
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/FirstAdminRequest" } } } }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/User" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/Problem" }
+  /system/test-upstream:
+    post:
+      operationId: testUpstream
+      tags: [system]
+      summary: Check that the proxy can reach an upstream target (connect and HEAD /, no redirects, 3 s)
+      x-sherlock-permission: config:write
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/TestUpstreamRequest" } } } }
+      responses:
+        "200": { description: Result (a failed check is still 200 with reachable=false), content: { application/json: { schema: { $ref: "#/components/schemas/TestUpstreamResult" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+  /system/update:
+    get:
+      operationId: getUpdateStatus
+      tags: [system]
+      summary: Check whether a newer signed release is available
+      description: |
+        Fetches the signed release manifest through the SSRF-safe client, verifies its signature
+        with the release key built into the binary and compares versions. Results are cached for
+        five minutes. A failed check is a 502, never a stale "up to date".
+      x-sherlock-permission: system:read
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/UpdateStatus" } } } }
+        "501": { $ref: "#/components/responses/Problem" }
+        "502": { $ref: "#/components/responses/Problem" }
+  /system/update/apply:
+    post:
+      operationId: applyUpdate
+      tags: [system]
+      summary: Download, verify and stage or install the latest signed release
+      description: |
+        Verifies the manifest signature and archive checksum, refuses downgrades, then either replaces
+        the binary (when the process may write it) or stages the verified bundle in the data directory,
+        where the service unit installs it, after verifying it again as root, at the next start.
+        Never restarts the process: the response says what to do. Audited as `system.update`. Refused
+        inside containers, where the image is updated instead.
+      x-sherlock-permission: system:update
+      responses:
+        "200": { description: Staged or installed, content: { application/json: { schema: { $ref: "#/components/schemas/UpdateApplyResult" } } } }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "501": { $ref: "#/components/responses/Problem" }
+        "502": { $ref: "#/components/responses/Problem" }
+  /system/backups:
+    get:
+      operationId: listBackups
+      tags: [system]
+      summary: The node's own backups (scheduled and manual), newest first
+      x-sherlock-permission: system:read
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/BackupList" } } } }
+  /stats/timeseries:
+    get:
+      operationId: getTimeseries
+      tags: [events]
+      summary: Event counts per time bucket and action, from the per-minute rollups
+      x-sherlock-permission: events:read
+      parameters:
+        - { name: from, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: step, in: query, schema: { type: string, enum: [1m, 5m, 1h, 1d], default: 1h } }
+        - { name: site, in: query, schema: { type: string } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Timeseries" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+  /certificates:
+    get:
+      operationId: listCertificates
+      tags: [certificates]
+      summary: Uploaded certificates (never includes private keys)
+      x-sherlock-permission: config:read
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/CertificateList" } } } }
+    post:
+      operationId: uploadCertificate
+      tags: [certificates]
+      summary: Upload a PEM certificate chain and its private key
+      x-sherlock-permission: config:write
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/UploadCertificate" } } } }
+      responses:
+        "201": { description: Stored, content: { application/json: { schema: { $ref: "#/components/schemas/Certificate" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /certificates/acme-status:
+    get:
+      operationId: getACMEStatus
+      tags: [certificates]
+      summary: Certificate state for every site host that uses automatic certificates
+      x-sherlock-permission: config:read
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ACMEStatusList" } } } }
+  /certificates/{id}:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    delete:
+      operationId: deleteCertificate
+      tags: [certificates]
+      summary: Delete an uploaded certificate (refused while a site uses it)
+      x-sherlock-permission: config:write
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /block-pages:
+    get:
+      operationId: listBlockPages
+      tags: [sites]
+      summary: Custom block page templates
+      x-sherlock-permission: config:read
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/BlockPageList" } } } }
+  /block-pages/{id}:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,62}$" } }]
+    put:
+      operationId: putBlockPage
+      tags: [sites]
+      summary: Create or replace a block page template (validated and rendered once with sample data)
+      x-sherlock-permission: config:write
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/PutBlockPage" } } } }
+      responses:
+        "200": { description: Stored, content: { application/json: { schema: { $ref: "#/components/schemas/BlockPage" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+    delete:
+      operationId: deleteBlockPage
+      tags: [sites]
+      summary: Delete a block page template (refused while a policy uses it)
+      x-sherlock-permission: config:write
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+
+  /api-docs:
+    get:
+      operationId: listAPIDocs
+      tags: [api-protection]
+      summary: Uploaded OpenAPI documents
+      x-sherlock-permission: config:read
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/APIDocList" } } } }
+  /api-docs/{id}:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,62}$" } }]
+    put:
+      operationId: putAPIDoc
+      tags: [api-protection]
+      summary: Create or replace an OpenAPI 3.0/3.1 document (validated and compiled before it is stored)
+      x-sherlock-permission: config:write
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/PutAPIDoc" } } } }
+      responses:
+        "200": { description: Stored, content: { application/json: { schema: { $ref: "#/components/schemas/APIDoc" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+    delete:
+      operationId: deleteAPIDoc
+      tags: [api-protection]
+      summary: Delete an OpenAPI document (refused while a policy uses it)
+      x-sherlock-permission: config:write
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api-docs/{id}/endpoints:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+      - { name: site, in: query, required: true, schema: { type: string }, description: "Site whose violations are counted" }
+      - { name: from, in: query, schema: { type: string, format: date-time }, description: "Default: 24 hours before `to`" }
+      - { name: to, in: query, schema: { type: string, format: date-time }, description: "Default: now" }
+    get:
+      operationId: listAPIDocEndpoints
+      tags: [api-protection]
+      summary: Documented endpoints with the violations seen on them
+      x-sherlock-permission: events:read
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/APIEndpointList" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /ca-bundles:
+    get:
+      operationId: listCABundles
+      tags: [api-protection]
+      summary: Uploaded CA bundles for client-certificate verification
+      x-sherlock-permission: config:read
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/CABundleList" } } } }
+    post:
+      operationId: uploadCABundle
+      tags: [api-protection]
+      summary: Upload one or more CA certificates (PEM, no private keys)
+      x-sherlock-permission: config:write
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/UploadCABundle" } } } }
+      responses:
+        "201": { description: Stored, content: { application/json: { schema: { $ref: "#/components/schemas/CABundle" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /ca-bundles/{id}:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    delete:
+      operationId: deleteCABundle
+      tags: [api-protection]
+      summary: Delete a CA bundle (refused while a policy uses it)
+      x-sherlock-permission: config:write
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+
+  /bans:
+    get:
+      operationId: listBans
+      tags: [bans]
+      summary: Active temporary bans (manual, automatic and CrowdSec)
+      x-sherlock-permission: config:read
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/BanList" } } } }
+    post:
+      operationId: createBan
+      tags: [bans]
+      summary: Ban an address for a while (every site, or one)
+      x-sherlock-permission: config:write
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/CreateBan" } } } }
+      responses:
+        "201": { description: Banned, content: { application/json: { schema: { $ref: "#/components/schemas/Ban" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+  /bans/{id}:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    delete:
+      operationId: deleteBan
+      tags: [bans]
+      summary: Lift a ban
+      x-sherlock-permission: config:write
+      responses:
+        "204": { description: Lifted }
+        "404": { $ref: "#/components/responses/Problem" }
+  /feeds/status:
+    get:
+      operationId: getFeedsStatus
+      tags: [bans]
+      summary: Health of the GeoIP, reputation and CrowdSec feeds
+      x-sherlock-permission: config:read
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/FeedsStatus" } } } }
+
+  /stats/top:
+    get:
+      operationId: getTop
+      tags: [events]
+      summary: Most frequent values of one dimension over a time range
+      x-sherlock-permission: events:read
+      parameters:
+        - { name: dim, in: query, required: true, schema: { type: string, enum: [ip, path, country, rule, site, action] } }
+        - { name: from, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: site, in: query, schema: { type: string } }
+        - { name: action, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 50, default: 10 } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/TopResult" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+  /reports/would-block:
+    get:
+      operationId: getWouldBlockReport
+      tags: [events]
+      summary: Requests a detect-mode site would have blocked (anomaly score reached the blocking threshold), grouped by rule and path
+      x-sherlock-permission: events:read
+      parameters:
+        - { name: site, in: query, required: true, schema: { type: string } }
+        - { name: from, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: true, schema: { type: string, format: date-time } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/WouldBlockReport" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+  /reports/would-block.csv:
+    get:
+      operationId: exportWouldBlockReport
+      tags: [events]
+      summary: The matching requests of the would-block report as CSV
+      x-sherlock-permission: events:read
+      parameters:
+        - { name: site, in: query, required: true, schema: { type: string } }
+        - { name: from, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: true, schema: { type: string, format: date-time } }
+      responses:
+        "200": { description: CSV, content: { text/csv: { schema: { type: string } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+  /system/status:
+    get:
+      operationId: getSystemStatus
+      tags: [system]
+      summary: Storage, event pipeline and feed health for the System page
+      x-sherlock-permission: system:read
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/SystemStatus" } } } }
+
+  /sites/{site}/exclusions:
+    parameters: [{ $ref: "#/components/parameters/SiteID" }]
+    get:
+      operationId: listExclusions
+      tags: [tuning]
+      summary: Exclusions defined at the site level (false-positive tuning)
+      x-sherlock-permission: config:read
+      responses:
+        "200":
+          description: OK
+          headers: { ETag: { $ref: "#/components/headers/ETag" } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/ExclusionList" } } }
+        "404": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: createExclusion
+      tags: [tuning]
+      summary: Add an exclusion; the change is audited with the actor and, when created from an event, the event id
+      description: |
+        Rejects with 422 when the exclusion has critical warnings (for example a
+        whole attack category) unless `acknowledge_warnings` is true.
+      x-sherlock-permission: config:write
+      parameters: [{ $ref: "#/components/parameters/IfMatch" }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/ExclusionCreate" } } } }
+      responses:
+        "201": { $ref: "#/components/responses/ConfigVersion" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "412": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "428": { $ref: "#/components/responses/Problem" }
+  /sites/{site}/exclusions/propose:
+    parameters: [{ $ref: "#/components/parameters/SiteID" }]
+    post:
+      operationId: proposeExclusion
+      tags: [tuning]
+      summary: Propose the narrowest exclusion for an event, or preview one you edited, with past-event impact and warnings
+      description: |
+        With `event_id` the server builds the narrowest exclusion (this rule,
+        this target, this path, this method). With `exclusion` it only evaluates
+        the given one (use it when the user widens the proposal in the wizard).
+        Nothing is saved.
+      x-sherlock-permission: events:read
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/ExclusionProposalRequest" } } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ExclusionProposal" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /sites/{site}/exclusions/{exclusion}:
+    parameters: [{ $ref: "#/components/parameters/SiteID" }, { name: exclusion, in: path, required: true, schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,62}$" } }]
+    delete:
+      operationId: deleteExclusion
+      tags: [tuning]
+      summary: Remove a site-level exclusion
+      x-sherlock-permission: config:write
+      parameters: [{ $ref: "#/components/parameters/IfMatch" }]
+      responses:
+        "200": { $ref: "#/components/responses/ConfigVersion" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "412": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "428": { $ref: "#/components/responses/Problem" }
+  /sites/{site}/custom-rules:
+    parameters: [{ $ref: "#/components/parameters/SiteID" }]
+    get:
+      operationId: getCustomRules
+      tags: [tuning]
+      summary: The site's custom SecLang rules
+      x-sherlock-permission: config:read
+      responses:
+        "200":
+          description: OK
+          headers: { ETag: { $ref: "#/components/headers/ETag" } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/CustomRules" } } }
+        "404": { $ref: "#/components/responses/Problem" }
+    put:
+      operationId: putCustomRules
+      tags: [tuning]
+      summary: Validate and save the site's custom rules (audited)
+      description: Saves only rules that pass validation; otherwise 422 with the issues in `errors` (path /custom_rules, message prefixed by the line).
+      x-sherlock-permission: config:write
+      parameters: [{ $ref: "#/components/parameters/IfMatch" }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/CustomRulesInput" } } } }
+      responses:
+        "200": { $ref: "#/components/responses/ConfigVersion" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "412": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "428": { $ref: "#/components/responses/Problem" }
+  /sites/{site}/custom-rules/validate:
+    parameters: [{ $ref: "#/components/parameters/SiteID" }]
+    post:
+      operationId: validateCustomRules
+      tags: [tuning]
+      summary: Check custom rules without saving (static allow-list plus a compile in a throwaway engine)
+      x-sherlock-permission: config:read
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/CustomRulesInput" } } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/CustomRulesValidation" } } } }
+        "404": { $ref: "#/components/responses/Problem" }
+  /sites/{site}/paranoia-impact:
+    parameters: [{ $ref: "#/components/parameters/SiteID" }]
+    get:
+      operationId: getParanoiaImpact
+      tags: [tuning]
+      summary: Predicted additional blocks if the blocking paranoia level is raised, from stored findings
+      description: |
+        Needs findings recorded above the current blocking level, i.e. the site's
+        `paranoia_level` (detection) must be at least `target`. When it is not,
+        `observable` is false and nothing can be predicted.
+      x-sherlock-permission: events:read
+      parameters:
+        - { name: target, in: query, required: true, schema: { type: integer, minimum: 1, maximum: 4 } }
+        - { name: from, in: query, required: false, description: Default 7 days before `to`, schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: false, description: Default now, schema: { type: string, format: date-time } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ParanoiaImpact" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /crs/rules:
+    get:
+      operationId: listCrsRules
+      tags: [rules]
+      summary: OWASP CRS rule catalogue with descriptions, searchable, optionally with the state of each rule for a site
+      x-sherlock-permission: config:read
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 100 }, description: "Matches id, description, category or tag" }
+        - { name: site, in: query, schema: { type: string }, description: "Adds `status` (enforcing, detect_only, inactive, disabled, partly_excluded) from the site's effective policy" }
+        - { name: category, in: query, schema: { type: string } }
+        - { name: paranoia_level, in: query, schema: { type: integer, minimum: 1, maximum: 4 } }
+        - { name: direction, in: query, schema: { type: string, enum: [request, response] } }
+        - { name: state, in: query, schema: { type: string, enum: [enforcing, detect_only, inactive, disabled, partly_excluded] }, description: "Requires site" }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 50 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/CrsRuleList" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /virtual-patches:
+    get:
+      operationId: listVirtualPatches
+      tags: [rules]
+      summary: Virtual-patch catalogue (CVE rules) with per-site state and recent hits, plus the CVEs CRS already covers
+      x-sherlock-permission: config:read
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 100 }, description: "Matches patch id, CVE, product, vendor or title" }
+        - { name: site, in: query, schema: { type: string }, description: "Limit the per-site state and hits to one site" }
+        - { name: severity, in: query, schema: { type: string, enum: [low, medium, high, critical] } }
+        - { name: kev, in: query, schema: { type: boolean } }
+        - { name: days, in: query, schema: { type: integer, minimum: 1, maximum: 90, default: 30 }, description: "Window for hit counts" }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/VirtualPatchCatalogue" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /sites/{site}/virtual-patches/{patch}:
+    parameters: [{ $ref: "#/components/parameters/SiteID" }, { name: patch, in: path, required: true, schema: { type: string, pattern: "^SV-[0-9]{4}-[0-9]{4}$" } }]
+    put:
+      operationId: setVirtualPatchState
+      tags: [rules]
+      summary: Switch one virtual patch on or off for a site (adds or removes it from policy.virtual_patches.disabled)
+      x-sherlock-permission: config:write
+      parameters: [{ $ref: "#/components/parameters/IfMatch" }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [enabled], additionalProperties: false, properties: { enabled: { type: boolean } } } } } }
+      responses:
+        "200": { $ref: "#/components/responses/ConfigVersion" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "412": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "428": { $ref: "#/components/responses/Problem" }
+
+components:
+  securitySchemes:
+    cookieAuth: { type: apiKey, in: cookie, name: __Host-sherlock_session, description: "Dashboard session. Non-GET requests also need the X-CSRF-Token header." }
+    bearerAuth: { type: http, scheme: bearer, description: "API token: shk_<id>_<secret>" }
+
+  headers:
+    ETag:
+      description: The configuration version id, quoted. Use it as If-Match on writes.
+      schema: { type: string }
+
+  parameters:
+    IfMatch: { name: If-Match, in: header, required: false, description: "ETag of the version you read. Required to change an existing configuration (428 if missing, 412 if stale).", schema: { type: string } }
+    Limit: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 1000, default: 50 } }
+    Cursor: { name: cursor, in: query, description: Opaque next_cursor from a previous page, schema: { type: string } }
+    SiteID: { name: site, in: path, required: true, schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,62}$" } }
+    EndpointID: { name: endpoint, in: path, required: true, schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,62}$" } }
+    VersionID: { name: id, in: path, required: true, schema: { type: string } }
+    UserID: { name: id, in: path, required: true, schema: { type: string } }
+
+  responses:
+    Problem:
+      description: An RFC 9457 problem document
+      content: { application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } } }
+    ConfigVersion:
+      description: The version now live
+      headers: { ETag: { $ref: "#/components/headers/ETag" } }
+      content: { application/json: { schema: { $ref: "#/components/schemas/Version" } } }
+
+  schemas:
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        errors: { type: array, items: { $ref: "#/components/schemas/ValidationError" } }
+        retry_after_seconds: { type: integer }
+        request_id: { type: string }
+    ValidationError:
+      type: object
+      required: [path, code, message]
+      properties:
+        path: { type: string, description: JSON pointer }
+        code: { type: string }
+        message: { type: string }
+
+    # The configuration model is defined once, in Go (internal/config); the API reuses it.
+    Config: 
+      type: object
+      x-go-type: config.Root
+      x-go-type-import: { path: github.com/skylarng89/sherlock-waf/internal/config, name: config }
+      additionalProperties: false
+      required: [schema_version, sites]
+      properties:
+        schema_version: { type: integer }
+        global: { $ref: "#/components/schemas/GlobalConfig" }
+        sites: { type: array, items: { $ref: "#/components/schemas/Site" } }
+    Site: 
+      type: object
+      x-go-type: config.Site
+      x-go-type-import: { path: github.com/skylarng89/sherlock-waf/internal/config, name: config }
+      additionalProperties: false
+      required: [id, hosts, upstreams]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        hosts: { type: array, items: { type: string } }
+        path_prefix: { type: string }
+        tls: { $ref: "#/components/schemas/TLSConfig" }
+        upstreams: { $ref: "#/components/schemas/UpstreamsConfig" }
+        headers: { type: object, additionalProperties: true }
+        policy: { $ref: "#/components/schemas/Policy" }
+        endpoints: { type: array, items: { $ref: "#/components/schemas/Endpoint" } }
+    Endpoint: 
+      type: object
+      x-go-type: config.Endpoint
+      x-go-type-import: { path: github.com/skylarng89/sherlock-waf/internal/config, name: config }
+      additionalProperties: false
+      required: [id, match]
+      properties:
+        id: { type: string }
+        match: { $ref: "#/components/schemas/EndpointMatch" }
+        policy: { $ref: "#/components/schemas/Policy" }
+    Policy: 
+      type: object
+      x-go-type: config.Policy
+      x-go-type-import: { path: github.com/skylarng89/sherlock-waf/internal/config, name: config }
+      additionalProperties: false
+      description: Every field is optional; unset fields inherit (global defaults, then site, then endpoint).
+      properties:
+        mode: { type: string, enum: [off, detect, block] }
+        fail_mode: { type: string, enum: [open, closed] }
+        waf: { $ref: "#/components/schemas/WAFPolicy" }
+        block_page: { type: object, additionalProperties: false, properties: { template_id: { type: string } } }
+        acl: { $ref: "#/components/schemas/ACLPolicy" }
+        rate_limits: { type: array, items: { $ref: "#/components/schemas/RateLimit" } }
+        auto_ban: { $ref: "#/components/schemas/AutoBan" }
+        bot: { $ref: "#/components/schemas/BotPolicy" }
+        api: { $ref: "#/components/schemas/APIPolicy" }
+        stacks: { $ref: "#/components/schemas/NameList", description: "Declared technologies (wordpress, php, spring, ...). Product-specific virtual patches activate only for declared stacks; unset or [auto] activates generic patches only." }
+        virtual_patches:
+          type: object
+          additionalProperties: false
+          properties:
+            enabled: { type: boolean, description: "Switch the virtual-patch pack on or off at this level (default on)" }
+            disabled: { type: array, items: { type: string, pattern: "^SV-[0-9]{4}-[0-9]{4}$" }, description: "Patch ids switched off at this level; levels are unioned" }
+        opt_out: { type: array, items: { type: string }, description: 'Inherited named items to drop: "rate_limits:<name>", "exclusions:<id>" or "virtual_patches:<id>"' }
+    SiteList:
+      type: object
+      required: [items]
+      properties: { items: { type: array, items: { $ref: "#/components/schemas/Site" } } }
+    EndpointList:
+      type: object
+      required: [items]
+      properties: { items: { type: array, items: { $ref: "#/components/schemas/Endpoint" } } }
+    ValidateResponse:
+      type: object
+      required: [valid, errors]
+      properties:
+        valid: { type: boolean }
+        errors: { type: array, items: { $ref: "#/components/schemas/ValidationError" } }
+    Version:
+      type: object
+      required: [id, parent_id, created_at, author_type, author_id, source, schema_version, applied]
+      properties:
+        id: { type: string }
+        parent_id: { type: string }
+        created_at: { type: string, format: date-time }
+        author_type: { type: string }
+        author_id: { type: string }
+        source: { type: string, enum: [api, import, rollback, cli, boot] }
+        schema_version: { type: integer }
+        applied: { type: boolean }
+        diff: { type: object, additionalProperties: true, description: "What changed: {global, sites: {added, removed, changed: [{site, fields}]}}" }
+    VersionDetail:
+      allOf:
+        - { $ref: "#/components/schemas/Version" }
+        - type: object
+          required: [snapshot]
+          properties: { snapshot: { $ref: "#/components/schemas/Config" } }
+    VersionPage:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Version" } }
+        next_cursor: { type: string }
+    EffectivePolicy:
+      type: object
+      required: [site, policy, sources]
+      properties:
+        site: { type: string }
+        path: { type: string }
+        method: { type: string }
+        matched_endpoint: { type: string, description: "Endpoint id, empty when the site default applies" }
+        policy: { type: object, additionalProperties: true }
+        sources: { type: object, additionalProperties: { type: string }, description: "Field -> default | global | site | endpoint:<id> | derived" }
+
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string, maxLength: 128 }
+        password: { type: string, maxLength: 1024, format: password }
+    LoginResponse:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [ok, mfa_required, mfa_enrol_required] }
+        user: { $ref: "#/components/schemas/Me" }
+    MFARequest:
+      type: object
+      required: [code]
+      properties: { code: { type: string, pattern: "^[0-9]{6}$" } }
+    MFAEnrolment:
+      type: object
+      required: [secret, otpauth_uri]
+      properties:
+        secret: { type: string, description: Base32 seed, shown once }
+        otpauth_uri: { type: string }
+    Me:
+      type: object
+      required: [id, username, role, permissions, mfa_enabled]
+      properties:
+        id: { type: string }
+        username: { type: string }
+        role: { type: string, enum: [admin, viewer] }
+        permissions: { type: array, items: { type: string } }
+        mfa_enabled: { type: boolean }
+
+    Event: { type: object, additionalProperties: true, description: "A sherlock.event.v1 document (docs/reference/event.schema.json)" }
+    EventPage:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Event" } }
+        next_cursor: { type: string }
+
+    User:
+      type: object
+      required: [id, username, role, mfa_enabled, disabled, locked, created_at]
+      properties:
+        id: { type: string }
+        username: { type: string }
+        role: { type: string, enum: [admin, viewer] }
+        mfa_enabled: { type: boolean }
+        disabled: { type: boolean }
+        locked: { type: boolean }
+        last_login_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+    UserList:
+      type: object
+      required: [items]
+      properties: { items: { type: array, items: { $ref: "#/components/schemas/User" } } }
+    CreateUser:
+      type: object
+      required: [username, password, role]
+      properties:
+        username: { type: string, minLength: 3, maxLength: 64, pattern: "^[A-Za-z0-9._-]+$" }
+        password: { type: string, minLength: 12, maxLength: 1024, format: password }
+        role: { type: string, enum: [admin, viewer] }
+    PatchUser:
+      type: object
+      properties:
+        role: { type: string, enum: [admin, viewer] }
+        disabled: { type: boolean }
+        password: { type: string, minLength: 12, maxLength: 1024, format: password }
+
+    Token:
+      type: object
+      required: [id, user_id, name, scopes, cidrs, created_at]
+      properties:
+        id: { type: string }
+        user_id: { type: string }
+        name: { type: string }
+        scopes: { type: array, items: { type: string, enum: [read, write, "events:read", admin] } }
+        cidrs: { type: array, items: { type: string } }
+        expires_at: { type: string, format: date-time, nullable: true }
+        last_used_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+    TokenList:
+      type: object
+      required: [items]
+      properties: { items: { type: array, items: { $ref: "#/components/schemas/Token" } } }
+    CreateToken:
+      type: object
+      required: [name, scopes]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 64 }
+        scopes: { type: array, minItems: 1, items: { type: string, enum: [read, write, "events:read", admin] } }
+        cidrs: { type: array, items: { type: string } }
+        expires_at: { type: string, format: date-time }
+    CreatedToken:
+      allOf:
+        - { $ref: "#/components/schemas/Token" }
+        - type: object
+          required: [token]
+          properties: { token: { type: string, description: "shk_<id>_<secret>, shown once" } }
+
+    AuditEntry:
+      type: object
+      required: [seq, id, at, actor_type, actor_id, action, hash]
+      properties:
+        seq: { type: integer, format: int64 }
+        id: { type: string }
+        at: { type: string, format: date-time }
+        actor_type: { type: string }
+        actor_id: { type: string }
+        ip: { type: string }
+        action: { type: string }
+        object_type: { type: string }
+        object_id: { type: string }
+        details: { type: object, additionalProperties: true }
+        hash: { type: string }
+    AuditPage:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/AuditEntry" } }
+        next_before_seq: { type: integer, format: int64 }
+
+    SystemInfo:
+      type: object
+      required: [version, crs_version, database, features, ready]
+      properties:
+        version: { type: string }
+        commit: { type: string }
+        crs_version: { type: string }
+        database: { type: string, enum: [sqlite, postgres] }
+        features: { type: array, items: { type: string } }
+        ready: { type: boolean }
+        config_version: { type: string }
+        audit_head: { type: object, properties: { seq: { type: integer, format: int64 }, hash: { type: string } } }
+
+    SetupStatus:
+      type: object
+      required: [setup_required]
+      properties: { setup_required: { type: boolean } }
+    FirstAdminRequest:
+      type: object
+      required: [setup_token, username, password]
+      properties:
+        setup_token: { type: string, maxLength: 256 }
+        username: { type: string, minLength: 3, maxLength: 64, pattern: "^[A-Za-z0-9._-]+$" }
+        password: { type: string, minLength: 12, maxLength: 1024, format: password }
+    UpdateStatus:
+      type: object
+      required: [current, latest, available, in_container]
+      properties:
+        current: { type: string }
+        latest: { type: string }
+        crs_version: { type: string, description: "CRS version shipped with the latest release" }
+        available: { type: boolean }
+        reason: { type: string, description: "Why the available release cannot be installed from here (for example min_upgrade_from)" }
+        staged_version: { type: string, description: "A verified update waiting for the next service start" }
+        in_container: { type: boolean, description: "Containers update by pulling a new image; apply is refused" }
+    UpdateApplyResult:
+      type: object
+      required: [from, to, state, restart]
+      properties:
+        from: { type: string }
+        to: { type: string }
+        state: { type: string, enum: [staged, installed] }
+        restart: { type: string, description: "What the operator does next to run the new version" }
+    Backup:
+      type: object
+      required: [name, bytes, created_at, encrypted]
+      properties:
+        name: { type: string }
+        bytes: { type: integer, format: int64 }
+        created_at: { type: string, format: date-time }
+        encrypted: { type: boolean }
+    BackupList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Backup" } }
+    TestUpstreamRequest:
+      type: object
+      required: [target]
+      properties:
+        target: { type: string, description: "host:port of the upstream", maxLength: 300 }
+        tls: { type: boolean, default: false, description: "Speak TLS to the upstream" }
+        tls_skip_verify: { type: boolean, default: false }
+    TestUpstreamResult:
+      type: object
+      required: [reachable, latency_ms]
+      properties:
+        reachable: { type: boolean }
+        status: { type: integer, description: "HTTP status of HEAD /, when one was received" }
+        latency_ms: { type: integer }
+        error: { type: string, description: "Short reason class: dns, refused, timeout, tls, protocol, blocked (link-local, multicast or unspecified address)" }
+    Timeseries:
+      type: object
+      required: [from, to, step, points]
+      properties:
+        from: { type: string, format: date-time }
+        to: { type: string, format: date-time }
+        step: { type: string }
+        points:
+          type: array
+          items:
+            type: object
+            required: [t, counts]
+            properties:
+              t: { type: string, format: date-time }
+              counts: { type: object, additionalProperties: { type: integer, format: int64 }, description: "action -> events in the bucket" }
+    Certificate:
+      type: object
+      required: [id, name, hosts, not_before, not_after, issuer, fingerprint_sha256, created_at]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        hosts: { type: array, items: { type: string } }
+        not_before: { type: string, format: date-time }
+        not_after: { type: string, format: date-time }
+        issuer: { type: string }
+        fingerprint_sha256: { type: string }
+        created_at: { type: string, format: date-time }
+    CertificateList:
+      type: object
+      required: [items]
+      properties: { items: { type: array, items: { $ref: "#/components/schemas/Certificate" } } }
+    UploadCertificate:
+      type: object
+      required: [name, certificate_pem, private_key_pem]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 64 }
+        certificate_pem: { type: string, maxLength: 65536 }
+        private_key_pem: { type: string, maxLength: 16384, format: password }
+    ACMEStatus:
+      type: object
+      required: [site, host, state]
+      properties:
+        site: { type: string }
+        host: { type: string }
+        state: { type: string, enum: [pending, issued, failed, not_applicable] }
+        not_after: { type: string, format: date-time, nullable: true }
+        detail: { type: string }
+    ACMEStatusList:
+      type: object
+      required: [items]
+      properties: { items: { type: array, items: { $ref: "#/components/schemas/ACMEStatus" } } }
+    BlockPage:
+      type: object
+      required: [id, updated_at, size_bytes]
+      properties:
+        id: { type: string }
+        updated_at: { type: string, format: date-time }
+        size_bytes: { type: integer }
+    BlockPageList:
+      type: object
+      required: [items]
+      properties: { items: { type: array, items: { $ref: "#/components/schemas/BlockPage" } } }
+    PutBlockPage:
+      type: object
+      required: [html]
+      properties:
+        html: { type: string, maxLength: 65536, description: "html/template source; fields: .EventID .Status .SiteName" }
+
+    APIDoc:
+      type: object
+      required: [id, name, version, sha256, endpoint_count, updated_at]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        version: { type: string, enum: ["3.0", "3.1"] }
+        sha256: { type: string }
+        endpoint_count: { type: integer }
+        updated_at: { type: string, format: date-time }
+    APIDocList:
+      type: object
+      required: [items]
+      properties: { items: { type: array, items: { $ref: "#/components/schemas/APIDoc" } } }
+    PutAPIDoc:
+      type: object
+      required: [name, content]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 64 }
+        content: { type: string, maxLength: 4194304, description: "The OpenAPI document as JSON or YAML text. External references are not followed." }
+    APIEndpoint:
+      type: object
+      required: [method, path, schema_violations]
+      properties:
+        method: { type: string }
+        path: { type: string }
+        summary: { type: string }
+        schema_violations: { type: integer, format: int64 }
+    APIEndpointList:
+      type: object
+      required: [items, undocumented]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/APIEndpoint" } }
+        undocumented: { type: array, description: "Requests for a path or method the document does not describe, as seen", items: { $ref: "#/components/schemas/APIUndocumented" } }
+    APIUndocumented:
+      type: object
+      required: [method, path, count]
+      properties:
+        method: { type: string }
+        path: { type: string }
+        count: { type: integer, format: int64 }
+    CABundle:
+      type: object
+      required: [id, name, subjects, fingerprint_sha256, not_after, created_at]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        subjects: { type: array, items: { type: string } }
+        fingerprint_sha256: { type: string }
+        not_after: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+    CABundleList:
+      type: object
+      required: [items]
+      properties: { items: { type: array, items: { $ref: "#/components/schemas/CABundle" } } }
+    UploadCABundle:
+      type: object
+      required: [name, certificates_pem]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 64 }
+        certificates_pem: { type: string, maxLength: 65536 }
+
+    GlobalConfig:
+      type: object
+      additionalProperties: true
+      description: Node-wide settings (admin listener, trusted proxies, ACME, events, defaults, ip_lists, feeds).
+      properties:
+        defaults: { $ref: "#/components/schemas/Policy" }
+        ip_lists:
+          type: array
+          items: { type: object, additionalProperties: false, required: [name, cidrs], properties: { name: { type: string }, cidrs: { type: array, items: { type: string } } } }
+        feeds: { type: object, additionalProperties: true }
+    TLSConfig:
+      type: object
+      additionalProperties: false
+      properties:
+        mode: { type: string, enum: [acme, file, none] }
+        cert_file: { type: string }
+        key_file: { type: string }
+        cert_id: { type: string }
+        min_version: { type: string, enum: ["1.2", "1.3"] }
+        hsts: { type: object, additionalProperties: false, properties: { enabled: { type: boolean }, max_age: { type: integer }, include_subdomains: { type: boolean } } }
+    UpstreamsConfig:
+      type: object
+      additionalProperties: false
+      required: [targets]
+      properties:
+        targets: { type: array, items: { type: string } }
+        lb_policy: { type: string, enum: [round_robin, least_conn, ip_hash] }
+        health_check: { type: object, additionalProperties: false, properties: { path: { type: string }, interval: { type: string }, timeout: { type: string } } }
+        tls: { type: object, additionalProperties: false, properties: { enabled: { type: boolean }, insecure_skip_verify: { type: boolean }, client_cert_id: { type: string } } }
+        timeouts: { type: object, additionalProperties: false, properties: { dial: { type: string }, read: { type: string }, write: { type: string } } }
+        http_version: { type: string, enum: ["", "1.1", "2", h2c] }
+        websockets: { type: boolean }
+    EndpointMatch:
+      type: object
+      additionalProperties: false
+      properties:
+        path: { type: string }
+        path_prefix: { type: string }
+        path_glob: { type: string }
+        methods: { type: array, items: { type: string } }
+    WAFPolicy:
+      type: object
+      additionalProperties: false
+      properties:
+        enabled: { type: boolean }
+        paranoia_level: { type: integer, minimum: 1, maximum: 4 }
+        blocking_paranoia_level: { type: integer, minimum: 1, maximum: 4 }
+        inbound_threshold: { type: integer, minimum: 1 }
+        outbound_threshold: { type: integer, minimum: 1 }
+        outbound_inspection: { type: boolean }
+        max_body_bytes: { type: integer, format: int64 }
+        skip_inspection_extensions: { type: array, items: { type: string } }
+        outbound_max_body_bytes: { type: integer, format: int64, minimum: 1, description: "Response bytes kept for inspection when outbound_inspection is on (default 1048576); the rest streams through uninspected" }
+        outbound_content_types: { type: array, items: { type: string }, description: "Media types (prefix match, e.g. text/ or application/json) whose responses are inspected; default text/html, text/plain, application/json, application/xml, text/xml" }
+        exclusions: { type: array, items: { $ref: "#/components/schemas/Exclusion" }, description: "Named rule removals; levels are unioned by id, a lower level replaces the same id" }
+        custom_rules: { type: string, maxLength: 65536, description: "Operator SecLang (ids 10000-99999). Validated by compiling in a throwaway engine; exec, Lua, include, audit and unsafe ctl are rejected. The lowest level that sets it wins." }
+    Exclusion:
+      type: object
+      x-go-type: config.Exclusion
+      x-go-type-import: { path: github.com/skylarng89/sherlock-waf/internal/config, name: config }
+      additionalProperties: false
+      required: [id]
+      properties:
+        id: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,62}$" }
+        description: { type: string, maxLength: 500 }
+        match:
+          type: object
+          additionalProperties: false
+          description: Empty paths means every path, empty methods every method
+          properties:
+            paths: { type: array, items: { type: string }, description: "Globs; * stays inside a segment, a trailing /** matches the prefix and below" }
+            methods: { type: array, items: { type: string } }
+        remove_rule_ids: { type: array, items: { type: string }, description: 'Rule ids or ranges, e.g. "942100" or "942100-942199"' }
+        remove_tags: { type: array, items: { type: string } }
+        remove_targets:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [target]
+            properties:
+              rule_ids: { type: array, items: { type: string } }
+              tags: { type: array, items: { type: string } }
+              target: { type: string, description: "e.g. ARGS:q or REQUEST_COOKIES:/^_ga/" }
+    NameList:
+      description: A list of names that either replaces the inherited one (array) or edits it ({add, remove}).
+      oneOf:
+        - { type: array, items: { type: string } }
+        - { type: object, additionalProperties: false, properties: { add: { type: array, items: { type: string } }, remove: { type: array, items: { type: string } } } }
+    ACLPolicy:
+      type: object
+      additionalProperties: false
+      properties:
+        allow_lists: { $ref: "#/components/schemas/NameList" }
+        deny_lists: { $ref: "#/components/schemas/NameList" }
+        countries: { type: object, additionalProperties: false, properties: { mode: { type: string, enum: [off, allow, deny] }, list: { type: array, items: { type: string } } } }
+        reputation: { type: object, additionalProperties: false, properties: { enabled: { type: boolean }, action: { type: string, enum: [block, log] } } }
+        password_gate: { type: object, additionalProperties: false, properties: { enabled: { type: boolean }, username: { type: string }, password_hash: { type: string, format: password } } }
+        allow_bypass_waf: { type: boolean }
+    RateLimit:
+      type: object
+      additionalProperties: false
+      required: [name, limit, window]
+      properties:
+        name: { type: string }
+        match: { type: object, additionalProperties: false, properties: { paths: { type: array, items: { type: string } }, methods: { type: array, items: { type: string } } } }
+        key: { type: string, description: "ip or header:<name>" }
+        limit: { type: integer }
+        window: { type: string, description: Go duration, e.g. 1m }
+        action: { type: string, enum: [block, challenge, log] }
+    AutoBan:
+      type: object
+      additionalProperties: false
+      properties:
+        enabled: { type: boolean }
+        blocks_threshold: { type: integer }
+        window: { type: string }
+        ban_duration: { type: string }
+    Ban:
+      type: object
+      required: [id, ip, source, reason, created_by, created_at, until]
+      properties:
+        id: { type: string }
+        ip: { type: string }
+        site_id: { type: string, description: "Empty: applies to every site" }
+        source: { type: string, enum: [manual, auto, crowdsec] }
+        reason: { type: string }
+        created_by: { type: string }
+        created_at: { type: string, format: date-time }
+        until: { type: string, format: date-time }
+    BanList:
+      type: object
+      required: [items]
+      properties: { items: { type: array, items: { $ref: "#/components/schemas/Ban" } } }
+    CreateBan:
+      type: object
+      required: [ip, duration_seconds]
+      properties:
+        ip: { type: string, description: "A single IPv4 or IPv6 address" }
+        site_id: { type: string }
+        duration_seconds: { type: integer, minimum: 60, maximum: 2592000 }
+        reason: { type: string, maxLength: 200 }
+    FeedStatus:
+      type: object
+      required: [name, state]
+      properties:
+        name: { type: string, description: "geoip, firehol_level1, spamhaus_drop or crowdsec" }
+        state: { type: string, enum: [disabled, never_loaded, ok, stale, failed] }
+        last_success: { type: string, format: date-time, nullable: true }
+        last_error: { type: string }
+        entries: { type: integer }
+    FeedsStatus:
+      type: object
+      required: [items]
+      properties: { items: { type: array, items: { $ref: "#/components/schemas/FeedStatus" } } }
+    BotPolicy:
+      type: object
+      additionalProperties: false
+      properties:
+        enabled: { type: boolean }
+        challenge: { type: string, enum: [pow, turnstile, hcaptcha], description: "Provider secrets come from the server environment, not the configuration" }
+        difficulty: { type: integer, minimum: 1, maximum: 6, description: "Leading zero hex digits the proof of work needs" }
+        clearance_ttl: { type: string, description: "Go duration, 1m to 7d" }
+        site_key: { type: string }
+        verified_bots: { type: string, enum: [allow, challenge, block] }
+        rules:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              match:
+                type: object
+                additionalProperties: false
+                properties:
+                  paths: { type: array, items: { type: string } }
+                  methods: { type: array, items: { type: string } }
+                  countries: { type: array, items: { type: string } }
+                  reputation: { type: boolean }
+              action: { type: string, enum: [challenge, block, allow] }
+    APIPolicy:
+      type: object
+      additionalProperties: false
+      properties:
+        enabled: { type: boolean }
+        openapi_doc_id: { type: string, description: "An uploaded OpenAPI document (PUT /api-docs/{id})" }
+        unknown_path_action: { type: string, enum: [log, block] }
+        schema_violation_action: { type: string, enum: [log, block] }
+        max_body_bytes: { type: integer, format: int64, minimum: 1, maximum: 16777216 }
+        jwt:
+          type: array
+          items: { $ref: "#/components/schemas/JWTRule" }
+        mtls:
+          type: object
+          additionalProperties: false
+          properties:
+            required_paths: { type: array, items: { type: string } }
+            ca_cert_id: { type: string, description: "An uploaded CA bundle (POST /ca-bundles)" }
+    JWTRule:
+      type: object
+      additionalProperties: false
+      description: "Set exactly one of jwks_url, public_key_pem, hmac_secret_env"
+      properties:
+        match:
+          type: object
+          additionalProperties: false
+          properties:
+            paths: { type: array, items: { type: string } }
+            methods: { type: array, items: { type: string } }
+        jwks_url: { type: string, description: "https only; internal addresses are refused" }
+        public_key_pem: { type: string }
+        hmac_secret_env: { type: string, description: "Name of an environment variable on the node" }
+        issuer: { type: string }
+        audiences: { type: array, items: { type: string } }
+        clock_skew: { type: string, description: "Go duration, up to 5m (default 30s)" }
+        refresh_interval: { type: string, description: "Go duration, 1m to 24h (default 15m)" }
+        optional: { type: boolean }
+        action: { type: string, enum: [block, log] }
+    TopResult:
+      type: object
+      required: [dim, from, to, items, sampled]
+      properties:
+        dim: { type: string }
+        from: { type: string, format: date-time }
+        to: { type: string, format: date-time }
+        sampled: { type: boolean, description: "True when the answer was computed from a capped sample of events (dimension rule)" }
+        items:
+          type: array
+          items: { type: object, required: [value, count], properties: { value: { type: string }, count: { type: integer, format: int64 } } }
+    WouldBlockReport:
+      type: object
+      required: [site, from, to, total, by_rule, by_path, requests, truncated]
+      properties:
+        site: { type: string }
+        from: { type: string, format: date-time }
+        to: { type: string, format: date-time }
+        total: { type: integer, format: int64 }
+        truncated: { type: boolean, description: "More matching requests exist than were analysed" }
+        by_rule: { type: array, items: { type: object, required: [rule_id, count], properties: { rule_id: { type: string }, count: { type: integer, format: int64 } } } }
+        by_path: { type: array, items: { type: object, required: [path, count], properties: { path: { type: string }, count: { type: integer, format: int64 } } } }
+        requests:
+          type: array
+          description: The most recent matching requests (at most 100)
+          items:
+            type: object
+            required: [event_id, ts, client_ip, method, path, rule_ids]
+            properties:
+              event_id: { type: string }
+              ts: { type: string, format: date-time }
+              client_ip: { type: string }
+              method: { type: string }
+              path: { type: string }
+              rule_ids: { type: array, items: { type: string } }
+    SystemStatus:
+      type: object
+      required: [events_stored, events_published, events_dropped, data_dir_bytes]
+      properties:
+        events_stored: { type: integer, format: int64 }
+        events_published: { type: integer, format: int64 }
+        events_dropped: { type: integer, format: int64, description: "Dropped because the pipeline was overloaded since the process started" }
+        data_dir_bytes: { type: integer, format: int64 }
+        data_dir_truncated: { type: boolean, description: "The size walk stopped early on a very large directory" }
+        retention_days: { type: integer }
+    ExclusionList:
+      type: object
+      required: [items]
+      properties: { items: { type: array, items: { $ref: "#/components/schemas/Exclusion" } } }
+    ExclusionCreate:
+      type: object
+      additionalProperties: false
+      required: [exclusion]
+      properties:
+        exclusion: { $ref: "#/components/schemas/Exclusion" }
+        event_id: { type: string, description: "The event the exclusion was created from; recorded in the audit entry" }
+        acknowledge_warnings: { type: boolean, description: "Required when the proposal has critical warnings" }
+    ExclusionProposalRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        event_id: { type: string, description: "Build the narrowest exclusion for this event" }
+        rule_id: { type: string, description: "Which finding to exclude; default the highest-scoring one" }
+        scope: { type: string, enum: [target, rule], default: target, description: "target removes only the offending parameter from the rule; rule removes the rule on that path and method" }
+        exclusion: { $ref: "#/components/schemas/Exclusion", description: "Evaluate this exclusion instead of building one (event_id is then optional)" }
+        days: { type: integer, minimum: 1, maximum: 90, default: 30, description: "How far back the impact preview looks" }
+    ExclusionProposal:
+      type: object
+      required: [exclusion, impact, warnings, requires_acknowledgement]
+      properties:
+        exclusion: { $ref: "#/components/schemas/Exclusion" }
+        event_id: { type: string }
+        finding:
+          type: object
+          description: The finding the exclusion addresses
+          required: [rule_id]
+          properties:
+            rule_id: { type: string }
+            message: { type: string }
+            target: { type: string }
+            matched: { type: string }
+            score: { type: integer }
+        impact: { $ref: "#/components/schemas/ExclusionImpact" }
+        warnings: { type: array, items: { $ref: "#/components/schemas/ExclusionWarning" } }
+        requires_acknowledgement: { type: boolean, description: "True when a critical warning needs acknowledge_warnings on create" }
+    ExclusionImpact:
+      type: object
+      required: [from, to, events_scanned, matching_events, no_longer_triggering, no_longer_blocking, by_rule, sample_event_ids, truncated]
+      properties:
+        from: { type: string, format: date-time }
+        to: { type: string, format: date-time }
+        events_scanned: { type: integer }
+        matching_events: { type: integer, description: "Past events in the exclusion's scope that carried a finding it removes" }
+        no_longer_triggering: { type: integer, description: "Matching events left with no WAF finding at all" }
+        no_longer_blocking: { type: integer, description: "Matching events that were blocked (or would have been) and fall under the threshold" }
+        by_rule: { type: object, additionalProperties: { type: integer } }
+        sample_event_ids: { type: array, items: { type: string } }
+        truncated: { type: boolean, description: "More events existed than were analysed" }
+    ExclusionWarning:
+      type: object
+      required: [code, severity, message]
+      properties:
+        code: { type: string, enum: [whole_category, blocking_evaluation, unscoped_rule_removal, broad_scope, no_matching_events] }
+        severity: { type: string, enum: [info, warning, critical] }
+        message: { type: string }
+    CustomRulesInput:
+      type: object
+      additionalProperties: false
+      required: [rules]
+      properties:
+        rules: { type: string, maxLength: 65536 }
+    CustomRules:
+      type: object
+      required: [rules, rule_ids, source]
+      properties:
+        rules: { type: string }
+        rule_ids: { type: array, items: { type: integer } }
+        source: { type: string, description: "Which level supplies the rules for this site: site, global or none" }
+        reserved_id_range: { type: object, properties: { min: { type: integer }, max: { type: integer } } }
+    CustomRulesValidation:
+      type: object
+      required: [valid, issues, rule_ids]
+      properties:
+        valid: { type: boolean }
+        issues:
+          type: array
+          items:
+            type: object
+            required: [line, code, message]
+            properties:
+              line: { type: integer, description: "1-based; 0 for the whole input" }
+              code: { type: string, enum: [syntax, too_large, forbidden_directive, forbidden_action, forbidden_operator, forbidden_variable, forbidden_ctl, id_range, id_missing, id_duplicate, phase, compile] }
+              message: { type: string }
+        rule_ids: { type: array, items: { type: integer } }
+    ParanoiaImpact:
+      type: object
+      required: [site, from, to, detection_paranoia_level, blocking_paranoia_level, target_paranoia_level, inbound_threshold, observable, events_scanned, already_blocking, additional_blocks, by_rule, by_path, sample_event_ids, truncated]
+      properties:
+        site: { type: string }
+        from: { type: string, format: date-time }
+        to: { type: string, format: date-time }
+        detection_paranoia_level: { type: integer }
+        blocking_paranoia_level: { type: integer }
+        target_paranoia_level: { type: integer }
+        inbound_threshold: { type: integer }
+        observable: { type: boolean, description: "False when findings above the blocking level are not being recorded (target exceeds the detection level)" }
+        advice: { type: string, description: "Set when not observable: what to change first" }
+        events_scanned: { type: integer }
+        already_blocking: { type: integer }
+        additional_blocks: { type: integer }
+        by_rule: { type: array, items: { type: object, required: [rule_id, count], properties: { rule_id: { type: string }, count: { type: integer } } } }
+        by_path: { type: array, items: { type: object, required: [path, count], properties: { path: { type: string }, count: { type: integer } } } }
+        sample_event_ids: { type: array, items: { type: string } }
+        truncated: { type: boolean }
+    CrsRuleStatus:
+      type: object
+      required: [state]
+      properties:
+        state: { type: string, enum: [enforcing, detect_only, inactive, disabled, partly_excluded] }
+        reason: { type: string, enum: [waf_off, outbound_inspection_off, paranoia_level_too_low, exclusion, scoped_exclusion, above_blocking_paranoia_level] }
+        excluded_by: { type: array, items: { type: string }, description: "Exclusion ids" }
+    CrsRule:
+      type: object
+      required: [id, message, category, paranoia_level, direction, phase, tags, file]
+      properties:
+        id: { type: integer }
+        message: { type: string }
+        category: { type: string, description: "attack-sqli, attack-xss, ... or a protocol/method/scanner/data-leakage name" }
+        paranoia_level: { type: integer }
+        severity: { type: string }
+        direction: { type: string, enum: [request, response] }
+        phase: { type: integer }
+        tags: { type: array, items: { type: string } }
+        file: { type: string }
+        status: { $ref: "#/components/schemas/CrsRuleStatus" }
+    CrsRuleList:
+      type: object
+      required: [crs_version, total, items, categories]
+      properties:
+        crs_version: { type: string }
+        total: { type: integer, description: "Matches before limit and offset" }
+        categories: { type: array, items: { type: string } }
+        items: { type: array, items: { $ref: "#/components/schemas/CrsRule" } }
+    VirtualPatchSiteState:
+      type: object
+      required: [site, state, hits]
+      properties:
+        site: { type: string }
+        state: { type: string, enum: [active, stack_not_declared, disabled, pack_off], description: "active: the rule is loaded. stack_not_declared: product-specific and the site has not declared one of its stacks. disabled: in virtual_patches.disabled. pack_off: virtual_patches.enabled is false" }
+        hits: { type: integer, description: "Events with a finding from this patch in the window" }
+        last_hit: { type: string, format: date-time, nullable: true }
+    VirtualPatch:
+      type: object
+      required: [id, title, cves, vendor, product, versions, severity, cvss, kev, stacks, generic, references, false_positive_notes, verification, added_in, rule_ids, sites, hits]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        cves: { type: array, items: { type: string } }
+        vendor: { type: string }
+        product: { type: string }
+        versions: { type: string }
+        severity: { type: string, enum: [low, medium, high, critical] }
+        cvss: { type: number }
+        kev: { type: boolean, description: "In the CISA Known Exploited Vulnerabilities catalogue" }
+        kev_added: { type: string }
+        stacks: { type: array, items: { type: string } }
+        generic: { type: boolean, description: "No stack needed: active wherever the pack is on" }
+        references: { type: array, items: { type: string } }
+        false_positive_notes: { type: string }
+        verification: { type: string, enum: [synthetic, product-verified], description: "synthetic: tested with exploit requests rebuilt from public write-ups, not against a vulnerable product" }
+        added_in: { type: string, description: "Pack version (YYYY.MM.N)" }
+        rule_ids: { type: array, items: { type: integer } }
+        hits: { type: integer, description: "Total across the listed sites" }
+        sites: { type: array, items: { $ref: "#/components/schemas/VirtualPatchSiteState" } }
+    CoveredCve:
+      type: object
+      required: [cve, product, kev, severity, crs_rules]
+      properties:
+        cve: { type: string }
+        product: { type: string }
+        kev: { type: boolean }
+        severity: { type: string }
+        crs_rules: { type: array, items: { type: string } }
+        note: { type: string }
+    VirtualPatchSummary:
+      type: object
+      required: [patches, covered_cves, cves_with_rule, kev_cves, sites_protected, hits]
+      properties:
+        patches: { type: integer }
+        covered_cves: { type: integer, description: "CVEs CRS blocks without a patch" }
+        cves_with_rule: { type: integer, description: "Distinct CVEs with a Sherlock rule" }
+        kev_cves: { type: integer, description: "Distinct KEV CVEs across rules and CRS coverage" }
+        sites_protected: { type: integer, description: "Sites with at least one active patch" }
+        hits: { type: integer }
+    VirtualPatchCatalogue:
+      type: object
+      required: [pack_version, window_days, known_stacks, items, covered, summary, truncated]
+      properties:
+        pack_version: { type: string }
+        window_days: { type: integer }
+        known_stacks: { type: array, items: { type: string } }
+        items: { type: array, items: { $ref: "#/components/schemas/VirtualPatch" } }
+        covered: { type: array, items: { $ref: "#/components/schemas/CoveredCve" } }
+        summary: { $ref: "#/components/schemas/VirtualPatchSummary" }
+        truncated: { type: boolean, description: "Hit counts come from a capped scan of recent events" }

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Checking your browser</title>
+<style>
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f6f7f9;color:#1b1f24;font:16px/1.5 system-ui,sans-serif}
+main{max-width:34rem;margin:1rem;padding:2rem;background:#fff;border:1px solid #d5d9e0;border-radius:.5rem}
+h1{margin:0 0 .5rem;font-size:1.4rem}
+code{padding:.1rem .35rem;background:#eef0f3;border-radius:.25rem}
+button{font:inherit;padding:.5rem 1rem}
+@media (prefers-color-scheme:dark){body{background:#14171b;color:#e6e8eb}main{background:#1c2026;border-color:#343a43}code{background:#2a3038}}
+</style>
+</head>
+<body>
+<main id="sherlock-challenge" data-token="{{.Token}}" data-difficulty="{{.Difficulty}}">
+<h1>Checking your browser</h1>
+<p>This site asks visitors to complete a short check before continuing. It usually takes a second or two.</p>
+<p id="sherlock-status" role="status" aria-live="polite" data-working="Working on the check" data-done="Check complete, continuing">{{if eq .Provider "pow"}}Working on the check{{end}}</p>
+<form id="sherlock-form" method="post" action="{{.Action}}">
+<input type="hidden" name="challenge" value="{{.Token}}">
+<input type="hidden" name="return" value="{{.Return}}">
+{{if eq .Provider "pow"}}<input type="hidden" id="sherlock-counter" name="counter" value="">{{end}}
+{{if eq .Provider "turnstile"}}<div class="cf-turnstile" data-sitekey="{{.SiteKey}}"></div><p><button type="submit">Continue</button></p>{{end}}
+{{if eq .Provider "hcaptcha"}}<div class="h-captcha" data-sitekey="{{.SiteKey}}"></div><p><button type="submit">Continue</button></p>{{end}}
+</form>
+<noscript><p><strong>JavaScript is required.</strong> This check runs in your browser and cannot be completed without JavaScript. Enable it for this site, or contact the site operator and quote this event ID: <code>{{.EventID}}</code></p></noscript>
+{{if eq .Provider "pow"}}<script src="{{.ScriptURL}}"></script>{{end}}
+{{if eq .Provider "turnstile"}}<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>{{end}}
+{{if eq .Provider "hcaptcha"}}<script src="https://js.hcaptcha.com/1/api.js" async defer></script>{{end}}
+<p>Event ID: <code>{{.EventID}}</code></p>
+</main>
+</body>
+</html>

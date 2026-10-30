@@ -1,0 +1,31 @@
+# Metadata for SV-2023-0001. verification=synthetic: the exploit request was rebuilt from public
+# write-ups and tested against Sherlock only; it was not replayed against a vulnerable product.
+# kev=true must be re-checked against the CISA KEV catalog before each release (see docs/security/virtual-patching-process.md).
+{
+  "id": "SV-2023-0001",
+  "title": "Atlassian Confluence Data Center and Server broken access control (setup administrator)",
+  "cves": [
+    "CVE-2023-22515"
+  ],
+  "vendor": "Atlassian",
+  "product": "Confluence Data Center and Server",
+  "versions": "8.0.0 to 8.5.1; see Atlassian advisory",
+  "severity": "critical",
+  "cvss": 9.8,
+  "kev": true,
+  "kev_added": "2023-10-05",
+  "stacks": [
+    "confluence",
+    "atlassian"
+  ],
+  "references": [
+    "https://confluence.atlassian.com/security/cve-2023-22515-privilege-escalation-vulnerability-in-confluence-data-center-and-server-1295682276.html",
+    "https://nvd.nist.gov/vuln/detail/CVE-2023-22515"
+  ],
+  "false_positive_notes": "/setup/setupadministrator.action is used only by the initial installation wizard. Disable the patch while installing a new Confluence instance.",
+  "verification": "synthetic",
+  "added_in": "2026.10.1",
+  "rule_ids": [
+    9500030
+  ]
+}

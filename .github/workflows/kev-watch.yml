@@ -1,0 +1,63 @@
+name: kev-watch
+
+# Virtual-patching intake (ADR-0013, docs/security/virtual-patching-process.md):
+# once a day, open one `vpatch-triage` issue for every new CISA KEV entry that
+# looks web-facing and that the pack does not already handle. The
+# `verify` job checks that every rule claiming `kev: true` really is in the
+# catalogue. The feed is untrusted data; it is only matched against keyword
+# lists and quoted in a code fence.
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+    inputs:
+      days:
+        description: Look back this many days (default 3)
+        required: false
+        default: "3"
+      dry_run:
+        description: Print the candidates, open nothing
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kev-watch
+  cancel-in-progress: false
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Unit-test the triage script
+        run: python3 -m unittest kev_triage_test
+        working-directory: scripts
+      - name: Ensure the label exists
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh label create vpatch-triage --color B60205 --description "New exploited CVE to triage for virtual patching" --force
+      - name: Open triage issues for new KEV entries
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DAYS: ${{ inputs.days || '3' }}
+          DRY_RUN: ${{ inputs.dry_run && '--dry-run' || '' }}
+        # DAYS is validated by argparse (int); DRY_RUN is a fixed literal.
+        run: python3 scripts/kev_triage.py triage --days "$DAYS" $DRY_RUN
+
+  verify:
+    # A rule must not claim a KEV listing the catalogue does not have.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check kev claims against the CISA catalogue
+        run: python3 scripts/kev_triage.py verify

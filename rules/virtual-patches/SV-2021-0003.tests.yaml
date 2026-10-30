@@ -1,0 +1,31 @@
+{
+  "positive": [
+    {
+      "name": "dot segment LogonCustomization",
+      "method": "POST",
+      "path": "/./RestAPI/LogonCustomization"
+    },
+    {
+      "name": "dot segment Connection",
+      "method": "POST",
+      "path": "/./RestAPI/Connection"
+    },
+    {
+      "name": "encoded dot segment",
+      "method": "POST",
+      "path": "/%2e/RestAPI/LogonCustomization"
+    }
+  ],
+  "negative": [
+    {
+      "name": "plain RestAPI call",
+      "method": "GET",
+      "path": "/RestAPI/ADSAPI"
+    },
+    {
+      "name": "home page",
+      "method": "GET",
+      "path": "/"
+    }
+  ]
+}

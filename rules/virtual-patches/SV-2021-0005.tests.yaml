@@ -1,0 +1,28 @@
+{
+  "positive": [
+    {
+      "name": "ProxyShell",
+      "method": "GET",
+      "path": "/autodiscover/autodiscover.json?@evil.example/mapi/nspi/?&Email=autodiscover/autodiscover.json%3f@evil.example"
+    },
+    {
+      "name": "ProxyNotShell",
+      "method": "GET",
+      "path": "/autodiscover/autodiscover.json?@evil.example/powershell/?serializationLevel=Full;ExchClientVer=15.2.1118.7;clientApplication=ManagementShell;TargetServer=;PSVersion=5.1.19041.1&Email=autodiscover/autodiscover.json%3f@evil.example"
+    }
+  ],
+  "negative": [
+    {
+      "name": "Outlook autodiscover",
+      "method": "GET",
+      "path": "/autodiscover/autodiscover.json?Protocol=ActiveSync&Email=alice@example.com"
+    },
+    {
+      "name": "autodiscover xml",
+      "method": "POST",
+      "path": "/autodiscover/autodiscover.xml",
+      "content_type": "text/xml",
+      "body": "<Autodiscover/>"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+name: Bug report
+description: Something does not work as documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "Security vulnerabilities and WAF bypasses: do NOT file here. See SECURITY.md."
+  - type: input
+    id: version
+    attributes: { label: Sherlock version (output of `sherlock version`) }
+    validations: { required: true }
+  - type: dropdown
+    id: install
+    attributes:
+      {
+        label: Install method,
+        options: [script, deb/rpm, docker, helm, source],
+      }
+  - type: textarea
+    id: what
+    attributes:
+      { label: What happened, description: Include event IDs if relevant }
+    validations: { required: true }
+  - type: textarea
+    id: expected
+    attributes: { label: What you expected }
+  - type: textarea
+    id: repro
+    attributes:
+      {
+        label: Steps to reproduce,
+        description: Redact secrets and personal data,
+      }

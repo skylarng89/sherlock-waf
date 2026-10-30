@@ -1,0 +1,60 @@
+{
+  "name": "sherlock-web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "license": "AGPL-3.0-only",
+  "packageManager": "pnpm@12.15.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "typecheck": "vue-tsc --noEmit",
+    "test": "vitest run",
+    "lint": "eslint . && vue-tsc --noEmit && prettier --check .",
+    "format": "prettier --write .",
+    "e2e": "playwright test -c e2e/playwright.config.ts",
+    "typecheck:e2e": "tsc -p e2e/tsconfig.json"
+  },
+  "dependencies": {
+    "@codemirror/commands": "6.11.1",
+    "@codemirror/language": "6.13.1",
+    "@codemirror/state": "6.7.6",
+    "@codemirror/view": "6.43.15",
+    "@lezer/highlight": "1.2.5",
+    "@openvue/themes": "1.0.0",
+    "@tabler/icons-webfont": "3.49.0",
+    "echarts": "6.1.0",
+    "openapi-fetch": "0.17.0",
+    "openvue": "1.0.0",
+    "pinia": "4.1.0",
+    "vue": "3.5.44",
+    "vue-echarts": "8.3.2",
+    "vue-i18n": "11.4.16",
+    "vue-router": "5.4.0"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.64.1",
+    "@tailwindcss/vite": "4.3.3",
+    "@types/node": "26.6.5",
+    "@vitejs/plugin-vue": "6.0.10",
+    "@vue/test-utils": "2.5.1",
+    "@vue/tsconfig": "0.9.1",
+    "eslint": "10.13.0",
+    "eslint-plugin-vue": "10.12.0",
+    "globals": "17.13.0",
+    "happy-dom": "21.0.4",
+    "openapi-typescript": "7.13.0",
+    "prettier": "3.9.10",
+    "tailwindcss": "4.3.3",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.1",
+    "vite": "8.3.5",
+    "vitest": "5.0.5",
+    "vue-tsc": "3.3.13"
+  }
+}

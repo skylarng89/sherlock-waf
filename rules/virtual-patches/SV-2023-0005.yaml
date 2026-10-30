@@ -1,0 +1,31 @@
+# Metadata for SV-2023-0005. verification=synthetic: the exploit request was rebuilt from public
+# write-ups and tested against Sherlock only; it was not replayed against a vulnerable product.
+# kev=true must be re-checked against the CISA KEV catalog before each release (see docs/security/virtual-patching-process.md).
+{
+  "id": "SV-2023-0005",
+  "title": "Citrix NetScaler ADC and Gateway session token disclosure (Citrix Bleed)",
+  "cves": [
+    "CVE-2023-4966"
+  ],
+  "vendor": "Citrix",
+  "product": "NetScaler ADC / NetScaler Gateway",
+  "versions": "Before 14.1-8.50, 13.1-49.15, 13.0-92.19",
+  "severity": "critical",
+  "cvss": 9.4,
+  "kev": true,
+  "kev_added": "2023-10-18",
+  "stacks": [
+    "citrix",
+    "netscaler"
+  ],
+  "references": [
+    "https://support.citrix.com/article/CTX579459",
+    "https://nvd.nist.gov/vuln/detail/CVE-2023-4966"
+  ],
+  "false_positive_notes": "A Host header longer than 1 KiB on the OpenID configuration endpoint is never legitimate (DNS names are at most 253 bytes).",
+  "verification": "synthetic",
+  "added_in": "2026.10.1",
+  "rule_ids": [
+    9500170
+  ]
+}

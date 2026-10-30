@@ -1,0 +1,13 @@
+Sherlock WAF
+Copyright (C) 2026 Patrick Aziken
+
+This product includes software developed by third parties:
+
+- Caddy v2.11 (https://github.com/caddyserver/caddy) — Apache License 2.0
+- CertMagic (https://github.com/caddyserver/certmagic) — Apache License 2.0; automatic HTTPS used through Caddy
+- Coraza WAF v3 (https://github.com/corazawaf/coraza) — Apache License 2.0
+- coraza-caddy (https://github.com/corazawaf/coraza-caddy) — Apache License 2.0; used as reference for the sherlock_waf handler
+- coraza-coreruleset v4 (https://github.com/corazawaf/coraza-coreruleset) — Apache License 2.0; embeds the rule set below
+- OWASP Core Rule Set 4.25 (https://github.com/coreruleset/coreruleset) — Apache License 2.0; the CRS rules are embedded in the binary and evaluated by Coraza
+
+A complete list of dependencies and their licences is generated for each release (SBOM and THIRD_PARTY_LICENSES).

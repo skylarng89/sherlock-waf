@@ -1,0 +1,19 @@
+schema_version: 1
+global:
+  defaults: { waf: { paranoia_level: 1 } }
+sites:
+  - id: shop
+    hosts: [shop.example.com]
+    tls: { mode: none }
+    policy: { mode: block }
+    upstreams: { targets: ["10.0.1.10:8080"] }
+    endpoints:
+      - id: health
+        match: { path: /healthz }
+        policy: { mode: off }
+      - id: login
+        match: { path: /login, methods: [POST] }
+        policy: { waf: { paranoia_level: 2 } }
+      - id: uploads
+        match: { path_prefix: /media }
+        policy: { waf: { max_body_bytes: 52428800 } }

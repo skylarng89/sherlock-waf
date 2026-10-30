@@ -1,0 +1,31 @@
+# Metadata for SV-2023-0002. verification=synthetic: the exploit request was rebuilt from public
+# write-ups and tested against Sherlock only; it was not replayed against a vulnerable product.
+# kev=true must be re-checked against the CISA KEV catalog before each release (see docs/security/virtual-patching-process.md).
+{
+  "id": "SV-2023-0002",
+  "title": "Atlassian Confluence Data Center and Server improper authorization (restore endpoints)",
+  "cves": [
+    "CVE-2023-22518"
+  ],
+  "vendor": "Atlassian",
+  "product": "Confluence Data Center and Server",
+  "versions": "All versions before 8.3.3, 8.4.5, 8.5.4 and 8.6.2; see Atlassian advisory",
+  "severity": "critical",
+  "cvss": 9.8,
+  "kev": true,
+  "kev_added": "2023-11-07",
+  "stacks": [
+    "confluence",
+    "atlassian"
+  ],
+  "references": [
+    "https://confluence.atlassian.com/security/cve-2023-22518-improper-authorization-vulnerability-in-confluence-data-center-and-server-1311473907.html",
+    "https://nvd.nist.gov/vuln/detail/CVE-2023-22518"
+  ],
+  "false_positive_notes": "The setup-restore endpoints are used by the installation wizard and by site restores from the admin console. Administrators restoring a backup through the WAF must disable the patch for the duration.",
+  "verification": "synthetic",
+  "added_in": "2026.10.1",
+  "rule_ids": [
+    9500040
+  ]
+}

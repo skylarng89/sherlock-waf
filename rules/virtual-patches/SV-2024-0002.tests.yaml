@@ -1,0 +1,38 @@
+{
+  "positive": [
+    {
+      "name": "traversal in SESSID",
+      "method": "POST",
+      "path": "/ssl-vpn/hipreport.esp",
+      "headers": {
+        "Cookie": "SESSID=../../../../opt/panlogs/tmp/device_telemetry/minute/x"
+      }
+    },
+    {
+      "name": "shell substitution in SESSID",
+      "method": "POST",
+      "path": "/ssl-vpn/hipreport.esp",
+      "headers": {
+        "Cookie": "SESSID=x$(id)"
+      }
+    }
+  ],
+  "negative": [
+    {
+      "name": "normal SESSID",
+      "method": "POST",
+      "path": "/ssl-vpn/hipreport.esp",
+      "headers": {
+        "Cookie": "SESSID=0a1b2c3d4e5f60718293a4b5c6d7e8f9"
+      }
+    },
+    {
+      "name": "SESSID on other path",
+      "method": "GET",
+      "path": "/",
+      "headers": {
+        "Cookie": "SESSID=a/b"
+      }
+    }
+  ]
+}

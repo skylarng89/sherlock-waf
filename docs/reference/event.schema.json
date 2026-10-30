@@ -1,0 +1,228 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "action": {
+      "enum": [
+        "allow",
+        "log",
+        "challenge",
+        "block",
+        "ratelimit",
+        "ban"
+      ],
+      "type": "string"
+    },
+    "anomaly_score": {
+      "additionalProperties": false,
+      "properties": {
+        "inbound": {
+          "type": "integer"
+        },
+        "outbound": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "inbound",
+        "outbound"
+      ],
+      "type": "object"
+    },
+    "client": {
+      "additionalProperties": false,
+      "properties": {
+        "asn": {
+          "type": "integer"
+        },
+        "country": {
+          "description": "ISO 3166-1 alpha-2",
+          "type": "string"
+        },
+        "ip": {
+          "type": "string"
+        },
+        "reputation": {
+          "description": "0-100",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ip"
+      ],
+      "type": "object"
+    },
+    "config_version": {
+      "description": "Which config produced the decision",
+      "type": "string"
+    },
+    "findings": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "matched": {
+            "description": "At most 256 bytes, redacted",
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "module": {
+            "type": "string"
+          },
+          "rule_id": {
+            "type": "string"
+          },
+          "score": {
+            "description": "Anomaly score contribution, CRS only",
+            "type": "integer"
+          },
+          "severity": {
+            "enum": [
+              "info",
+              "notice",
+              "warning",
+              "error",
+              "critical"
+            ],
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "target": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "module",
+          "severity"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "id": {
+      "description": "ULID; also returned to the client in X-Sherlock-Event-Id",
+      "type": "string"
+    },
+    "mode": {
+      "description": "Site mode at that time",
+      "enum": [
+        "off",
+        "detect",
+        "block"
+      ],
+      "type": "string"
+    },
+    "node": {
+      "description": "Node name",
+      "type": "string"
+    },
+    "request": {
+      "additionalProperties": false,
+      "properties": {
+        "body_excerpt": {
+          "description": "Off by default; first 2 KB, redacted",
+          "type": "string"
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Allow-list only: User-Agent, Referer, Content-Type, Content-Length, Accept, X-Forwarded-For",
+          "type": "object"
+        },
+        "host": {
+          "type": "string"
+        },
+        "method": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "query": {
+          "description": "Redacted",
+          "type": "string"
+        }
+      },
+      "required": [
+        "method",
+        "host",
+        "path"
+      ],
+      "type": "object"
+    },
+    "response": {
+      "additionalProperties": false,
+      "properties": {
+        "bytes": {
+          "type": "integer"
+        },
+        "status": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "status",
+        "bytes"
+      ],
+      "type": "object"
+    },
+    "schema": {
+      "enum": [
+        "sherlock.event.v1"
+      ],
+      "type": "string"
+    },
+    "site_id": {
+      "type": "string"
+    },
+    "terminated_by": {
+      "description": "Module that ended the request; empty if proxied",
+      "type": "string"
+    },
+    "timing": {
+      "additionalProperties": false,
+      "properties": {
+        "total_ms": {
+          "type": "number"
+        },
+        "waf_ms": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "total_ms",
+        "waf_ms"
+      ],
+      "type": "object"
+    },
+    "ts": {
+      "description": "Request start",
+      "format": "date-time",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "schema",
+    "ts",
+    "node",
+    "site_id",
+    "action",
+    "mode",
+    "client",
+    "request",
+    "response",
+    "timing",
+    "anomaly_score",
+    "findings"
+  ],
+  "title": "Sherlock security event v1",
+  "type": "object"
+}

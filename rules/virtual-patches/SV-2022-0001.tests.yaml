@@ -1,0 +1,54 @@
+{
+  "positive": [
+    {
+      "name": "public exploit request",
+      "method": "PUT",
+      "path": "/api/v2/cmdb/system/admin/admin",
+      "content_type": "application/json",
+      "body": "{}",
+      "headers": {
+        "Forwarded": "for=\"[127.0.0.1]:8000\";by=\"[127.0.0.1]:9000\";",
+        "User-Agent": "Report Runner"
+      }
+    },
+    {
+      "name": "loopback Forwarded only",
+      "method": "GET",
+      "path": "/api/v2/cmdb/system/admin",
+      "headers": {
+        "Forwarded": "for=127.0.0.1"
+      }
+    },
+    {
+      "name": "Report Runner only",
+      "method": "GET",
+      "path": "/api/v2/cmdb/system/status",
+      "headers": {
+        "User-Agent": "Report Runner"
+      }
+    }
+  ],
+  "negative": [
+    {
+      "name": "forwarded public client",
+      "method": "GET",
+      "path": "/api/v2/monitor/system/status",
+      "headers": {
+        "Forwarded": "for=203.0.113.9;proto=https"
+      }
+    },
+    {
+      "name": "other path with loopback forward",
+      "method": "GET",
+      "path": "/index.html",
+      "headers": {
+        "Forwarded": "for=127.0.0.1"
+      }
+    },
+    {
+      "name": "ordinary browser",
+      "method": "GET",
+      "path": "/api/v2/cmdb/system/status"
+    }
+  ]
+}

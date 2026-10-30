@@ -1,0 +1,30 @@
+{
+  "positive": [
+    {
+      "name": "upload command",
+      "method": "POST",
+      "path": "/wp-content/plugins/wp-file-manager/lib/php/connector.minimal.php",
+      "content_type": "application/x-www-form-urlencoded",
+      "body": "cmd=upload&target=l1_Lw"
+    },
+    {
+      "name": "encoded path",
+      "method": "GET",
+      "path": "/wp-content/plugins/wp-file-manager/lib/php/%63onnector.minimal.php?cmd=ls"
+    }
+  ],
+  "negative": [
+    {
+      "name": "plugin readme",
+      "method": "GET",
+      "path": "/wp-content/plugins/wp-file-manager/readme.txt"
+    },
+    {
+      "name": "admin ajax",
+      "method": "POST",
+      "path": "/wp-admin/admin-ajax.php",
+      "content_type": "application/x-www-form-urlencoded",
+      "body": "action=heartbeat"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+schema_version: 1
+global:
+  acme: { email: ops@example.com, ca: "https://acme-staging-v02.api.letsencrypt.org/directory" }
+sites:
+  - id: shop
+    hosts: [shop.example.com]
+    policy: { mode: block }
+    upstreams: { targets: ["10.0.1.10:8080"] }
+  - id: legacy
+    hosts: [legacy.example.com]
+    tls: { mode: none }
+    upstreams: { targets: ["10.0.9.9:80"] }

@@ -1,0 +1,92 @@
+name: nightly
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GOFLAGS: -mod=readonly
+
+jobs:
+  ftw:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            tools/go.sum
+      - run: make ftw-all
+
+  attack-replay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Start the test bed (Sherlock in block mode in front of Juice Shop)
+        run: make e2e-up
+      - name: Juice Shop injection-challenge replay (fails on a regression against test/juice/known-gaps.txt)
+        run: python3 test/juice/challenges.py
+      - name: nuclei DAST fuzzing, direct vs through Sherlock
+        run: test/nuclei/run.sh
+      - name: ZAP baseline, direct vs through Sherlock
+        run: test/zap/run.sh
+      - name: Tear down
+        if: always()
+        run: make e2e-down
+
+  # Budgets are calibrated on a fixed-size runner: set the repository variable
+  # K6_RUNNER to its label. Until then this runs on a hosted runner and its numbers
+  # are indicative only.
+  k6:
+    runs-on: ${{ vars.K6_RUNNER || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - run: make k6
+
+  fuzz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Fuzz the config parser, redaction, Luhn and the JWT verifier for 10 minutes each
+        run: |
+          for t in "internal/config FuzzParse" "internal/events FuzzRedactQuery" "internal/events FuzzMaskPANs" \
+                   "internal/events FuzzRedactBody" "internal/policy FuzzParseIP" "internal/dataplane/api FuzzVerify"; do
+            set -- $t
+            go test -run '^$' -fuzz "^$2\$" -fuzztime 10m "./$1"
+          done
+
+  # Opens (or comments on) one tracking issue when any nightly job fails.
+  report:
+    needs: [ftw, attack-replay, k6, fuzz]
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: File an issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Nightly run failed"
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" --json number --jq '.[0].number')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "Failed again: $RUN_URL"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "The nightly workflow failed: $RUN_URL"
+          fi

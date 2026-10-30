@@ -1,0 +1,37 @@
+{
+  "positive": [
+    {
+      "name": "public exploit",
+      "method": "POST",
+      "path": "/user/register?element_parents=account/mail/%23value&ajax_form=1&_wrapper_format=drupal_ajax",
+      "content_type": "application/x-www-form-urlencoded",
+      "body": "form_id=user_register_form&_drupal_ajax=1&mail[#post_render][]=exec&mail[#type]=markup&mail[#markup]=id"
+    },
+    {
+      "name": "render array in query",
+      "method": "GET",
+      "path": "/?name[%23lazy_builder][]=exec&name[%23lazy_builder][][]=id"
+    },
+    {
+      "name": "element_parents only",
+      "method": "POST",
+      "path": "/file/ajax?element_parents=a/%23b",
+      "content_type": "application/x-www-form-urlencoded",
+      "body": "x=1"
+    }
+  ],
+  "negative": [
+    {
+      "name": "registration form",
+      "method": "POST",
+      "path": "/user/register",
+      "content_type": "application/x-www-form-urlencoded",
+      "body": "form_id=user_register_form&name=alice&mail=alice%40example.com&op=Create+new+account"
+    },
+    {
+      "name": "anchor in value",
+      "method": "GET",
+      "path": "/search?q=c%23+language"
+    }
+  ]
+}

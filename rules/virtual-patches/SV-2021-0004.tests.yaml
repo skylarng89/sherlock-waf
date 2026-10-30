@@ -1,0 +1,35 @@
+{
+  "positive": [
+    {
+      "name": "public exploit cookies",
+      "method": "GET",
+      "path": "/ecp/default.flt",
+      "headers": {
+        "Cookie": "X-AnonResource=true; X-AnonResource-Backend=localhost/ecp/default.flt?~3; X-BEResource=localhost/owa/auth/logon.aspx?~3;"
+      }
+    },
+    {
+      "name": "BEResource only",
+      "method": "GET",
+      "path": "/owa/",
+      "headers": {
+        "Cookie": "X-BEResource=a@localhost/powershell?X-Rps-CAT=x"
+      }
+    }
+  ],
+  "negative": [
+    {
+      "name": "owa session cookies",
+      "method": "GET",
+      "path": "/owa/",
+      "headers": {
+        "Cookie": "UC=abc; X-OWA-CANARY=def; ClientId=123"
+      }
+    },
+    {
+      "name": "no cookies",
+      "method": "GET",
+      "path": "/owa/"
+    }
+  ]
+}

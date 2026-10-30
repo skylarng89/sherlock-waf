@@ -1,0 +1,370 @@
+{
+  "admin": {
+    "config": {
+      "persist": false
+    },
+    "disabled": true
+  },
+  "apps": {
+    "http": {
+      "grace_period": "10s",
+      "http_port": 80,
+      "https_port": 443,
+      "servers": {
+        "sherlock_http": {
+          "automatic_https": {
+            "disable_redirects": true
+          },
+          "listen": [
+            ":80"
+          ],
+          "routes": [
+            {
+              "handle": [
+                {
+                  "handler": "subroute",
+                  "routes": [
+                    {
+                      "handle": [
+                        {
+                          "fail_mode": "closed",
+                          "handler": "sherlock_core",
+                          "mode": "block",
+                          "site_id": "shop"
+                        },
+                        {
+                          "handler": "sherlock_acl",
+                          "site_id": "shop"
+                        },
+                        {
+                          "blocking_paranoia_level": 1,
+                          "custom_rules": "SecRule REQUEST_FILENAME \"@beginsWith /admin\" \"id:10001,phase:1,deny,status:403,msg:'Admin path blocked'\"\n",
+                          "exclusions": [
+                            {
+                              "id": "search-box",
+                              "description": "Search box triggers SQLi false positive",
+                              "match": {
+                                "paths": [
+                                  "/search"
+                                ],
+                                "methods": [
+                                  "GET"
+                                ]
+                              },
+                              "remove_targets": [
+                                {
+                                  "rule_ids": [
+                                    "942100"
+                                  ],
+                                  "target": "ARGS:q"
+                                }
+                              ]
+                            }
+                          ],
+                          "fail_mode": "closed",
+                          "handler": "sherlock_waf",
+                          "inbound_threshold": 5,
+                          "max_body_bytes": 10485760,
+                          "mode": "block",
+                          "outbound_content_types": [
+                            "text/html",
+                            "application/json"
+                          ],
+                          "outbound_inspection": true,
+                          "outbound_max_body_bytes": 65536,
+                          "outbound_threshold": 4,
+                          "paranoia_level": 3,
+                          "site_id": "shop",
+                          "skip_inspection_extensions": null,
+                          "virtual_patches": [
+                            "SV-2017-0001",
+                            "SV-2019-0002",
+                            "SV-2024-0003"
+                          ]
+                        },
+                        {
+                          "handler": "headers",
+                          "response": {
+                            "deferred": true,
+                            "set": {
+                              "Referrer-Policy": [
+                                "strict-origin-when-cross-origin"
+                              ],
+                              "X-Content-Type-Options": [
+                                "nosniff"
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "handler": "reverse_proxy",
+                          "load_balancing": {
+                            "selection_policy": {
+                              "policy": "round_robin"
+                            }
+                          },
+                          "transport": {
+                            "dial_timeout": "5s",
+                            "protocol": "http",
+                            "read_timeout": "1m0s",
+                            "write_timeout": "1m0s"
+                          },
+                          "upstreams": [
+                            {
+                              "dial": "10.0.1.10:8080"
+                            }
+                          ]
+                        }
+                      ],
+                      "match": [
+                        {
+                          "method": [
+                            "POST"
+                          ],
+                          "path": [
+                            "/wp-login.php"
+                          ]
+                        }
+                      ],
+                      "terminal": true
+                    },
+                    {
+                      "handle": [
+                        {
+                          "fail_mode": "closed",
+                          "handler": "sherlock_core",
+                          "mode": "block",
+                          "site_id": "shop"
+                        },
+                        {
+                          "handler": "sherlock_acl",
+                          "site_id": "shop"
+                        },
+                        {
+                          "blocking_paranoia_level": 1,
+                          "custom_rules": "SecRule REQUEST_FILENAME \"@beginsWith /admin\" \"id:10001,phase:1,deny,status:403,msg:'Admin path blocked'\"\n",
+                          "exclusions": [
+                            {
+                              "id": "global-health",
+                              "match": {
+                                "paths": [
+                                  "/healthz"
+                                ]
+                              },
+                              "remove_tags": [
+                                "attack-sqli"
+                              ]
+                            },
+                            {
+                              "id": "search-box",
+                              "description": "Search box triggers SQLi false positive",
+                              "match": {
+                                "paths": [
+                                  "/search"
+                                ],
+                                "methods": [
+                                  "GET"
+                                ]
+                              },
+                              "remove_targets": [
+                                {
+                                  "rule_ids": [
+                                    "942100"
+                                  ],
+                                  "target": "ARGS:q"
+                                }
+                              ]
+                            }
+                          ],
+                          "fail_mode": "closed",
+                          "handler": "sherlock_waf",
+                          "inbound_threshold": 5,
+                          "max_body_bytes": 10485760,
+                          "mode": "block",
+                          "outbound_content_types": [
+                            "text/html",
+                            "application/json"
+                          ],
+                          "outbound_inspection": true,
+                          "outbound_max_body_bytes": 65536,
+                          "outbound_threshold": 4,
+                          "paranoia_level": 2,
+                          "site_id": "shop",
+                          "skip_inspection_extensions": null,
+                          "virtual_patches": [
+                            "SV-2017-0001",
+                            "SV-2019-0002",
+                            "SV-2020-0001",
+                            "SV-2024-0003"
+                          ]
+                        },
+                        {
+                          "handler": "headers",
+                          "response": {
+                            "deferred": true,
+                            "set": {
+                              "Referrer-Policy": [
+                                "strict-origin-when-cross-origin"
+                              ],
+                              "X-Content-Type-Options": [
+                                "nosniff"
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "handler": "reverse_proxy",
+                          "load_balancing": {
+                            "selection_policy": {
+                              "policy": "round_robin"
+                            }
+                          },
+                          "transport": {
+                            "dial_timeout": "5s",
+                            "protocol": "http",
+                            "read_timeout": "1m0s",
+                            "write_timeout": "1m0s"
+                          },
+                          "upstreams": [
+                            {
+                              "dial": "10.0.1.10:8080"
+                            }
+                          ]
+                        }
+                      ],
+                      "terminal": true
+                    }
+                  ]
+                }
+              ],
+              "match": [
+                {
+                  "host": [
+                    "shop.example.com"
+                  ]
+                }
+              ],
+              "terminal": true
+            },
+            {
+              "handle": [
+                {
+                  "handler": "subroute",
+                  "routes": [
+                    {
+                      "handle": [
+                        {
+                          "fail_mode": "closed",
+                          "handler": "sherlock_core",
+                          "mode": "block",
+                          "site_id": "blog"
+                        },
+                        {
+                          "handler": "sherlock_acl",
+                          "site_id": "blog"
+                        },
+                        {
+                          "blocking_paranoia_level": 1,
+                          "exclusions": [
+                            {
+                              "id": "global-health",
+                              "match": {
+                                "paths": [
+                                  "/healthz"
+                                ]
+                              },
+                              "remove_tags": [
+                                "attack-sqli"
+                              ]
+                            }
+                          ],
+                          "fail_mode": "closed",
+                          "handler": "sherlock_waf",
+                          "inbound_threshold": 5,
+                          "max_body_bytes": 10485760,
+                          "mode": "block",
+                          "outbound_threshold": 4,
+                          "paranoia_level": 1,
+                          "site_id": "blog",
+                          "skip_inspection_extensions": [
+                            ".css",
+                            ".js",
+                            ".png",
+                            ".jpg",
+                            ".jpeg",
+                            ".gif",
+                            ".svg",
+                            ".ico",
+                            ".woff",
+                            ".woff2"
+                          ]
+                        },
+                        {
+                          "handler": "headers",
+                          "response": {
+                            "deferred": true,
+                            "set": {
+                              "Referrer-Policy": [
+                                "strict-origin-when-cross-origin"
+                              ],
+                              "X-Content-Type-Options": [
+                                "nosniff"
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "handler": "reverse_proxy",
+                          "load_balancing": {
+                            "selection_policy": {
+                              "policy": "round_robin"
+                            }
+                          },
+                          "transport": {
+                            "dial_timeout": "5s",
+                            "protocol": "http",
+                            "read_timeout": "1m0s",
+                            "write_timeout": "1m0s"
+                          },
+                          "upstreams": [
+                            {
+                              "dial": "10.0.1.11:8080"
+                            }
+                          ]
+                        }
+                      ],
+                      "terminal": true
+                    }
+                  ]
+                }
+              ],
+              "match": [
+                {
+                  "host": [
+                    "blog.example.com"
+                  ]
+                }
+              ],
+              "terminal": true
+            },
+            {
+              "handle": [
+                {
+                  "body": "421 Misdirected Request\n",
+                  "handler": "static_response",
+                  "headers": {
+                    "Content-Type": [
+                      "text/plain; charset=utf-8"
+                    ]
+                  },
+                  "status_code": 421
+                }
+              ],
+              "terminal": true
+            }
+          ]
+        }
+      }
+    }
+  }
+}

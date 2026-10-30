@@ -1,0 +1,31 @@
+# Metadata for SV-2022-0001. verification=synthetic: the exploit request was rebuilt from public
+# write-ups and tested against Sherlock only; it was not replayed against a vulnerable product.
+# kev=true must be re-checked against the CISA KEV catalog before each release (see docs/security/virtual-patching-process.md).
+{
+  "id": "SV-2022-0001",
+  "title": "FortiOS and FortiProxy administrative interface authentication bypass",
+  "cves": [
+    "CVE-2022-40684"
+  ],
+  "vendor": "Fortinet",
+  "product": "FortiOS / FortiProxy / FortiSwitchManager",
+  "versions": "FortiOS 7.0.0-7.0.6 and 7.2.0-7.2.1; see vendor advisory FG-IR-22-377",
+  "severity": "critical",
+  "cvss": 9.8,
+  "kev": true,
+  "kev_added": "2022-10-11",
+  "stacks": [
+    "fortinet"
+  ],
+  "references": [
+    "https://www.fortiguard.com/psirt/FG-IR-22-377",
+    "https://nvd.nist.gov/vuln/detail/CVE-2022-40684"
+  ],
+  "false_positive_notes": "The management API is not reachable by normal visitors. A Forwarded header naming the loopback address, or the user agent 'Report Runner', has no legitimate use from an external client.",
+  "verification": "synthetic",
+  "added_in": "2026.10.1",
+  "rule_ids": [
+    9500010,
+    9500011
+  ]
+}

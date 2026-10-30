@@ -1,0 +1,298 @@
+{
+  "admin": {
+    "config": {
+      "persist": false
+    },
+    "disabled": true
+  },
+  "apps": {
+    "http": {
+      "grace_period": "10s",
+      "http_port": 80,
+      "https_port": 443,
+      "servers": {
+        "sherlock_http": {
+          "automatic_https": {
+            "disable_redirects": true
+          },
+          "listen": [
+            ":80"
+          ],
+          "routes": [
+            {
+              "handle": [
+                {
+                  "handler": "subroute",
+                  "routes": [
+                    {
+                      "handle": [
+                        {
+                          "fail_mode": "open",
+                          "handler": "sherlock_core",
+                          "mode": "detect",
+                          "site_id": "legacy"
+                        },
+                        {
+                          "handler": "sherlock_acl",
+                          "site_id": "legacy"
+                        },
+                        {
+                          "blocking_paranoia_level": 1,
+                          "fail_mode": "open",
+                          "handler": "sherlock_waf",
+                          "inbound_threshold": 5,
+                          "max_body_bytes": 10485760,
+                          "mode": "detect",
+                          "outbound_threshold": 4,
+                          "paranoia_level": 1,
+                          "site_id": "legacy",
+                          "skip_inspection_extensions": [
+                            ".css",
+                            ".js",
+                            ".png",
+                            ".jpg",
+                            ".jpeg",
+                            ".gif",
+                            ".svg",
+                            ".ico",
+                            ".woff",
+                            ".woff2"
+                          ]
+                        },
+                        {
+                          "handler": "headers",
+                          "response": {
+                            "deferred": true,
+                            "set": {
+                              "Referrer-Policy": [
+                                "strict-origin-when-cross-origin"
+                              ],
+                              "X-Content-Type-Options": [
+                                "nosniff"
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "handler": "reverse_proxy",
+                          "load_balancing": {
+                            "selection_policy": {
+                              "policy": "round_robin"
+                            }
+                          },
+                          "transport": {
+                            "dial_timeout": "5s",
+                            "protocol": "http",
+                            "read_timeout": "1m0s",
+                            "write_timeout": "1m0s"
+                          },
+                          "upstreams": [
+                            {
+                              "dial": "10.0.9.9:80"
+                            }
+                          ]
+                        }
+                      ],
+                      "terminal": true
+                    }
+                  ]
+                }
+              ],
+              "match": [
+                {
+                  "host": [
+                    "legacy.example.com"
+                  ]
+                }
+              ],
+              "terminal": true
+            },
+            {
+              "handle": [
+                {
+                  "handler": "static_response",
+                  "headers": {
+                    "Location": [
+                      "https://{http.request.host}{http.request.uri}"
+                    ]
+                  },
+                  "status_code": 308
+                }
+              ],
+              "match": [
+                {
+                  "host": [
+                    "shop.example.com"
+                  ]
+                }
+              ],
+              "terminal": true
+            },
+            {
+              "handle": [
+                {
+                  "body": "421 Misdirected Request\n",
+                  "handler": "static_response",
+                  "headers": {
+                    "Content-Type": [
+                      "text/plain; charset=utf-8"
+                    ]
+                  },
+                  "status_code": 421
+                }
+              ],
+              "terminal": true
+            }
+          ]
+        },
+        "sherlock_https": {
+          "automatic_https": {
+            "disable_redirects": true
+          },
+          "listen": [
+            ":443"
+          ],
+          "routes": [
+            {
+              "handle": [
+                {
+                  "handler": "subroute",
+                  "routes": [
+                    {
+                      "handle": [
+                        {
+                          "fail_mode": "closed",
+                          "handler": "sherlock_core",
+                          "mode": "block",
+                          "site_id": "shop"
+                        },
+                        {
+                          "handler": "sherlock_acl",
+                          "site_id": "shop"
+                        },
+                        {
+                          "blocking_paranoia_level": 1,
+                          "fail_mode": "closed",
+                          "handler": "sherlock_waf",
+                          "inbound_threshold": 5,
+                          "max_body_bytes": 10485760,
+                          "mode": "block",
+                          "outbound_threshold": 4,
+                          "paranoia_level": 1,
+                          "site_id": "shop",
+                          "skip_inspection_extensions": [
+                            ".css",
+                            ".js",
+                            ".png",
+                            ".jpg",
+                            ".jpeg",
+                            ".gif",
+                            ".svg",
+                            ".ico",
+                            ".woff",
+                            ".woff2"
+                          ]
+                        },
+                        {
+                          "handler": "headers",
+                          "response": {
+                            "deferred": true,
+                            "set": {
+                              "Referrer-Policy": [
+                                "strict-origin-when-cross-origin"
+                              ],
+                              "Strict-Transport-Security": [
+                                "max-age=31536000"
+                              ],
+                              "X-Content-Type-Options": [
+                                "nosniff"
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "handler": "reverse_proxy",
+                          "load_balancing": {
+                            "selection_policy": {
+                              "policy": "round_robin"
+                            }
+                          },
+                          "transport": {
+                            "dial_timeout": "5s",
+                            "protocol": "http",
+                            "read_timeout": "1m0s",
+                            "write_timeout": "1m0s"
+                          },
+                          "upstreams": [
+                            {
+                              "dial": "10.0.1.10:8080"
+                            }
+                          ]
+                        }
+                      ],
+                      "terminal": true
+                    }
+                  ]
+                }
+              ],
+              "match": [
+                {
+                  "host": [
+                    "shop.example.com"
+                  ]
+                }
+              ],
+              "terminal": true
+            },
+            {
+              "handle": [
+                {
+                  "body": "421 Misdirected Request\n",
+                  "handler": "static_response",
+                  "headers": {
+                    "Content-Type": [
+                      "text/plain; charset=utf-8"
+                    ]
+                  },
+                  "status_code": 421
+                }
+              ],
+              "terminal": true
+            }
+          ],
+          "tls_connection_policies": [
+            {
+              "match": {
+                "sni": [
+                  "shop.example.com"
+                ]
+              },
+              "protocol_min": "tls1.2"
+            },
+            {
+              "protocol_min": "tls1.2"
+            }
+          ]
+        }
+      }
+    },
+    "tls": {
+      "automation": {
+        "policies": [
+          {
+            "issuers": [
+              {
+                "ca": "https://acme-staging-v02.api.letsencrypt.org/directory",
+                "email": "ops@example.com",
+                "module": "acme"
+              }
+            ],
+            "subjects": [
+              "shop.example.com"
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
