@@ -247,6 +247,7 @@ type Policy struct {
 	RateLimits []RateLimit `yaml:"rate_limits,omitempty" json:"rate_limits,omitempty"`
 	AutoBan    *AutoBan    `yaml:"auto_ban,omitempty" json:"auto_ban,omitempty"`
 	Bot        *BotPolicy  `yaml:"bot,omitempty" json:"bot,omitempty"`
+	API        *APIPolicy  `yaml:"api,omitempty" json:"api,omitempty"`
 	// Stacks declares the technologies behind the site (wordpress, php,
 	// spring, ...). Product-specific virtual patches activate only for
 	// declared stacks. Unset means "auto": generic patches only.

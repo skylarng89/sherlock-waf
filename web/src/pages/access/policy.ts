@@ -16,6 +16,7 @@ export const OPT_OUT_PREFIX = 'rate_limits:'
 export const NAME_PATTERN = /^[a-z0-9][a-z0-9_-]{0,62}$/
 export const DURATION_PATTERN = /^(\d+(\.\d+)?(ns|us|µs|ms|s|m|h))+$/
 export const COUNTRY_PATTERN = /^[A-Z]{2}$/
+export const CLAIM_PATTERN = /^[A-Za-z0-9_.:-]{1,64}$/
 export const HEADER_PATTERN = /^[!#$%&'*+.^_`|~0-9A-Za-z-]{1,100}$/
 export const MAX_RATE_LIMITS = 50
 export const MAX_RATE_LIMIT_VALUE = 1_000_000
@@ -174,4 +175,21 @@ export function accessPolicyLists(prefix = ''): string[] {
     ]).flat(),
   ]
   return lists.map((p) => `${prefix}${p}`)
+}
+
+export const KEY_KINDS = ['ip', 'header', 'jwt', 'api_key', 'mtls_subject'] as const
+export type KeyKind = (typeof KEY_KINDS)[number]
+
+/** Splits a rate-limit key ("jwt:client_id") into the kind and its argument. */
+export function parseKey(key: string | undefined): { kind: KeyKind; value: string } {
+  if (key === 'mtls_subject') return { kind: 'mtls_subject', value: '' }
+  for (const kind of ['header', 'jwt', 'api_key'] as const) {
+    if (key?.startsWith(`${kind}:`)) return { kind, value: key.slice(kind.length + 1) }
+  }
+  return { kind: 'ip', value: '' }
+}
+
+export function buildKey(kind: string, value: string): string {
+  if (kind === 'header' || kind === 'jwt' || kind === 'api_key') return `${kind}:${value}`
+  return kind === 'mtls_subject' ? 'mtls_subject' : 'ip'
 }

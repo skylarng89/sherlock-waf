@@ -71,6 +71,7 @@ func (r *Root) ApplyDefaults() {
 // block stays absence so inheritance still works.
 func (p *Policy) applyAccessDefaults() {
 	p.applyBotDefaults()
+	p.applyAPIDefaults()
 	for i := range p.RateLimits {
 		rl := &p.RateLimits[i]
 		if rl.Key == "" {

@@ -83,3 +83,9 @@ WHERE ts >= sqlc.arg(from_ts) AND ts < sqlc.arg(to_ts)
   AND (CAST(sqlc.narg(site_id) AS TEXT) IS NULL OR site_id = CAST(sqlc.narg(site_id) AS TEXT))
   AND (CAST(sqlc.narg(action) AS TEXT) IS NULL OR action = CAST(sqlc.narg(action) AS TEXT))
 GROUP BY action ORDER BY n DESC, action LIMIT sqlc.arg(max_rows);
+
+-- name: CountEventsByEndpoint :many
+SELECT method, path, count(*) AS n FROM events
+WHERE site_id = sqlc.arg(site_id) AND ts >= sqlc.arg(from_ts) AND ts < sqlc.arg(to_ts)
+  AND rule_ids LIKE '% ' || sqlc.arg(rule_id) || ' %'
+GROUP BY method, path ORDER BY n DESC, path LIMIT sqlc.arg(max_rows);

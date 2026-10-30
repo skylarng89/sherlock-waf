@@ -62,10 +62,10 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-      - name: Fuzz the config parser, redaction and Luhn for 10 minutes each
+      - name: Fuzz the config parser, redaction, Luhn and the JWT verifier for 10 minutes each
         run: |
           for t in "internal/config FuzzParse" "internal/events FuzzRedactQuery" "internal/events FuzzMaskPANs" \
-                   "internal/events FuzzRedactBody" "internal/policy FuzzParseIP"; do
+                   "internal/events FuzzRedactBody" "internal/policy FuzzParseIP" "internal/dataplane/api FuzzVerify"; do
             set -- $t
             go test -run '^$' -fuzz "^$2\$" -fuzztime 10m "./$1"
           done

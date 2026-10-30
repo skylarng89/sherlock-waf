@@ -93,7 +93,7 @@ sites:
     rate_limits:
       - name: global-per-ip
         match: { paths: ["/*"] }
-        key: ip                      # ip | header:<name> | jwt:<claim> | api_key:<header>
+        key: ip                      # ip | header:<name> | jwt:<claim> | api_key:<header> | mtls_subject
         limit: 300
         window: 1m
         action: block                # block | challenge | log
@@ -118,15 +118,22 @@ sites:
       verified_bots: allow           # allow | challenge | block
     api:
       enabled: false
-      openapi_doc_id: ""
-      unknown_path_action: log       # log | block
-      schema_violation_action: log
-      jwt:
-        - match: { paths: ["/api/*"] }
-          jwks_url: https://auth.example.com/.well-known/jwks.json
+      openapi_doc_id: ""             # an uploaded OpenAPI 3.0/3.1 document (PUT /api-docs/{id})
+      unknown_path_action: log       # log | block (path or method not in the document)
+      schema_violation_action: log   # log | block (parameters or body break the schema)
+      max_body_bytes: 1048576        # larger bodies are forwarded but not schema-validated
+      jwt:                           # list: a lower level replaces it; first matching rule applies
+        - match: { paths: ["/api/*"], methods: [] }
+          jwks_url: https://auth.example.com/.well-known/jwks.json   # exactly one of jwks_url,
+          # public_key_pem: |  ...                                    # public_key_pem or
+          # hmac_secret_env: JWT_SECRET                               # hmac_secret_env (HS* only here)
           issuer: https://auth.example.com/
           audiences: ["shop-api"]
-      mtls: { required_paths: [], ca_cert_id: "" }
+          clock_skew: 30s            # up to 5m
+          refresh_interval: 15m      # JWKS refetch, 1m to 24h
+          optional: false            # true lets requests without a token through
+          action: block              # block | log (missing or invalid token)
+      mtls: { required_paths: ["/open-banking/*"], ca_cert_id: bank-ca }   # an uploaded CA bundle
     login_protection:
       enabled: false
       endpoints:

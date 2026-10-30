@@ -4,3 +4,12 @@ title = "Sherlock WAF gitleaks config"
 useDefault = true
 
 # Add allowlist entries here only for documented, non-secret fixtures, each with a reason.
+
+# oapi-codegen embeds the gzipped, base64 OpenAPI document in api.gen.go. Its
+# entropy trips generic-api-key whenever the document changes; it holds no
+# secret (the source is api/openapi.yaml, which is scanned). Scoped to that one
+# file and that one rule.
+[[allowlists]]
+description = "generated embedded OpenAPI document"
+targetRules = ["generic-api-key"]
+paths = ['''internal/controlplane/api/apigen/api\.gen\.go''']

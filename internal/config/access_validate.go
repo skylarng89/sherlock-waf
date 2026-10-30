@@ -23,6 +23,8 @@ const (
 var (
 	listNameRE   = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,62}$`)
 	countryRE    = regexp.MustCompile(`^[A-Z]{2}$`)
+	envNameRE    = regexp.MustCompile(`^[A-Z_][A-Z0-9_]{0,63}$`)
+	jwtClaimRE   = regexp.MustCompile(`^[A-Za-z0-9_.:-]{1,64}$`)
 	headerNameRE = regexp.MustCompile("^[!#$%&'*+.^_`|~0-9A-Za-z-]{1,100}$")
 )
 
@@ -99,6 +101,7 @@ func (r *Root) validateGlobalAccess(errs *Errors) map[string]bool {
 
 func (p *Policy) validateAccess(path string, lists map[string]bool, inherited []string, isGlobal bool, errs *Errors) {
 	p.validateBot(path+"/bot", errs)
+	p.validateAPI(path+"/api", errs)
 	if a := p.ACL; a != nil {
 		a.validate(path+"/acl", lists, errs)
 	}
@@ -212,8 +215,17 @@ func (rl *RateLimit) validate(p string, errs *Errors) {
 		if !headerNameRE.MatchString(strings.TrimPrefix(k, KeyHeaderPrefix)) {
 			errs.add(p+"/key", CodeInvalid, "header name is not valid")
 		}
+	case strings.HasPrefix(k, KeyJWTPrefix):
+		if !jwtClaimRE.MatchString(strings.TrimPrefix(k, KeyJWTPrefix)) {
+			errs.add(p+"/key", CodeInvalid, "claim name is not valid")
+		}
+	case strings.HasPrefix(k, KeyAPIKeyPrefix):
+		if !headerNameRE.MatchString(strings.TrimPrefix(k, KeyAPIKeyPrefix)) {
+			errs.add(p+"/key", CodeInvalid, "header name is not valid")
+		}
+	case k == KeyClientCertSubject:
 	default:
-		errs.add(p+"/key", CodeInvalid, "must be \"ip\" or \"header:<name>\"")
+		errs.add(p+"/key", CodeInvalid, "must be ip, header:<name>, jwt:<claim>, api_key:<header> or mtls_subject")
 	}
 	if len(rl.Match.Paths) > maxMatchPatterns || len(rl.Match.Methods) > len(validVerbs) {
 		errs.add(p+"/match", CodeOutOfRange, "too many patterns")

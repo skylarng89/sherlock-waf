@@ -5,7 +5,9 @@
 package compiler
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"slices"
@@ -28,6 +30,8 @@ type Options struct {
 	// Caddy loads. Nil means no uploaded certificates are available and a
 	// config that references one fails to compile.
 	CertFiles func(id string) (certFile, keyFile string, err error)
+	// CABundles resolves an uploaded CA bundle id to its PEM, for mutual TLS.
+	CABundles func(id string) (pem string, err error)
 }
 
 type obj = map[string]any
@@ -114,7 +118,11 @@ func (c *compilation) build() (obj, error) {
 			acmeHosts = append(acmeHosts, s.Hosts...)
 		case config.TLSNone:
 		}
-		policies = append(policies, connPolicy(s))
+		pol, err := c.connPolicy(s)
+		if err != nil {
+			return nil, err
+		}
+		policies = append(policies, pol)
 	}
 
 	servers := obj{}
@@ -235,14 +243,52 @@ func unknownHostRoute() obj {
 	}
 }
 
-func connPolicy(s config.Site) obj {
+func (c *compilation) connPolicy(s config.Site) (obj, error) {
 	p := obj{"match": obj{"sni": s.Hosts}}
 	if s.TLS.MinVersion == "1.3" {
 		p["protocol_min"] = "tls1.3"
 	} else {
 		p["protocol_min"] = "tls1.2"
 	}
-	return p
+	// The listener only asks for a client certificate and verifies one that is
+	// offered; the API module refuses requests on the paths that require one.
+	// Insisting at the handshake would lock out every other path of the site.
+	if a := c.root.EffectivePolicy(&s, nil).API; a.Enabled && a.MTLS.CACertID != "" {
+		ders, err := c.caBundleDER(a.MTLS.CACertID)
+		if err != nil {
+			return nil, fmt.Errorf("site %q: %w", s.ID, err)
+		}
+		p["client_authentication"] = obj{"trusted_ca_certs": ders, "mode": "verify_if_given"}
+	}
+	return p, nil
+}
+
+// caBundleDER returns the base64 DER of every certificate of a CA bundle, the
+// form Caddy takes inline.
+func (c *compilation) caBundleDER(id string) ([]string, error) {
+	if c.opts.CABundles == nil {
+		return nil, fmt.Errorf("CA bundle %q is not available on this node", id)
+	}
+	pemData, err := c.opts.CABundles(id)
+	if err != nil {
+		return nil, fmt.Errorf("CA bundle %q: %w", id, err)
+	}
+	var out []string
+	rest := []byte(pemData)
+	for {
+		var blk *pem.Block
+		blk, rest = pem.Decode(rest)
+		if blk == nil {
+			break
+		}
+		if blk.Type == "CERTIFICATE" {
+			out = append(out, base64.StdEncoding.EncodeToString(blk.Bytes))
+		}
+	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("CA bundle %q holds no certificate", id)
+	}
+	return out, nil
 }
 
 // siteRoute builds the route for one site: a subroute per endpoint in
@@ -323,6 +369,13 @@ func (c *compilation) chain(s config.Site, eff config.EffectivePolicy) ([]obj, e
 	chain := []obj{core}
 	if acl := c.aclHandler(s.ID, eff); acl != nil {
 		chain = append(chain, acl)
+	}
+	api, err := apiHandler(s.ID, eff)
+	if err != nil {
+		return nil, err
+	}
+	if api != nil {
+		chain = append(chain, api)
 	}
 	// Auto-ban is a per-site setting: it always comes from the site-level policy,
 	// so every route of the site registers the same values.
@@ -563,6 +616,54 @@ func rateLimitHandler(siteID string, eff config.EffectivePolicy, ab config.Effec
 		}
 	}
 	return h
+}
+
+// apiHandler emits sherlock_api, or nil while API protection is off.
+func apiHandler(siteID string, eff config.EffectivePolicy) (obj, error) {
+	a := eff.API
+	if !a.Enabled {
+		return nil, nil
+	}
+	if a.OpenAPIDocID == "" && (a.UnknownPathAction == config.ActionBlock || a.SchemaViolationAction == config.ActionBlock) {
+		return nil, errors.New("api: blocking on unknown paths or schema violations needs openapi_doc_id")
+	}
+	if len(a.MTLS.RequiredPaths) > 0 && a.MTLS.CACertID == "" {
+		return nil, errors.New("api: mtls.required_paths needs mtls.ca_cert_id")
+	}
+	h := obj{"handler": "sherlock_api", "site_id": siteID, "mode": string(eff.Mode), "max_body_bytes": a.MaxBodyBytes}
+	if a.OpenAPIDocID != "" {
+		h["openapi_doc_id"] = a.OpenAPIDocID
+		h["unknown_path_action"] = a.UnknownPathAction
+		h["schema_violation_action"] = a.SchemaViolationAction
+	}
+	if len(a.MTLS.RequiredPaths) > 0 {
+		h["mtls_required_paths"] = a.MTLS.RequiredPaths
+	}
+	if len(a.JWT) > 0 {
+		rules := make([]obj, len(a.JWT))
+		for i, j := range a.JWT {
+			r := obj{"action": j.Action, "optional": j.Optional, "clock_skew": j.ClockSkew.Std().String(), "refresh_interval": j.RefreshInterval.Std().String()}
+			for k, v := range map[string]string{
+				"jwks_url": j.JWKSURL, "public_key_pem": j.PublicKeyPEM, "hmac_secret_env": j.HMACSecretEnv, "issuer": j.Issuer,
+			} {
+				if v != "" {
+					r[k] = v
+				}
+			}
+			if len(j.Audiences) > 0 {
+				r["audiences"] = j.Audiences
+			}
+			if len(j.Match.Paths) > 0 {
+				r["paths"] = j.Match.Paths
+			}
+			if len(j.Match.Methods) > 0 {
+				r["methods"] = j.Match.Methods
+			}
+			rules[i] = r
+		}
+		h["jwt"] = rules
+	}
+	return h, nil
 }
 
 // botHandler emits sherlock_bot, or nil while bot defence is off.

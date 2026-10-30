@@ -44,6 +44,56 @@ func (q *Queries) CountEvents(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const countEventsByEndpoint = `-- name: CountEventsByEndpoint :many
+SELECT method, path, count(*) AS n FROM events
+WHERE site_id = $1 AND ts >= $2 AND ts < $3
+  AND rule_ids LIKE '% ' || $4 || ' %'
+GROUP BY method, path ORDER BY n DESC, path LIMIT $5
+`
+
+type CountEventsByEndpointParams struct {
+	SiteID  string
+	FromTs  int64
+	ToTs    int64
+	RuleID  sql.NullString
+	MaxRows int32
+}
+
+type CountEventsByEndpointRow struct {
+	Method string
+	Path   string
+	N      int64
+}
+
+func (q *Queries) CountEventsByEndpoint(ctx context.Context, arg CountEventsByEndpointParams) ([]CountEventsByEndpointRow, error) {
+	rows, err := q.db.QueryContext(ctx, countEventsByEndpoint,
+		arg.SiteID,
+		arg.FromTs,
+		arg.ToTs,
+		arg.RuleID,
+		arg.MaxRows,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CountEventsByEndpointRow{}
+	for rows.Next() {
+		var i CountEventsByEndpointRow
+		if err := rows.Scan(&i.Method, &i.Path, &i.N); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const deleteEventsBefore = `-- name: DeleteEventsBefore :execrows
 DELETE FROM events WHERE id IN (SELECT old.id FROM events old WHERE old.ts < $1 ORDER BY old.ts LIMIT $2)
 `

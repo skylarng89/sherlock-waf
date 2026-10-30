@@ -50,6 +50,8 @@ func Run(t *testing.T, newStore Factory) {
 		"timestamps keep microseconds": testTimestamps,
 		"certificates":                 testCertificates,
 		"block pages":                  testBlockPages,
+		"api assets":                   testAPIAssets,
+		"endpoint counts":              testEndpointCounts,
 		"bans":                         testBans,
 		"event filters":                testEventFilters,
 		"top events":                   testTopEvents,
@@ -690,6 +692,30 @@ func testCertificates(t *testing.T, s store.Store) {
 	})
 }
 
+func testEndpointCounts(t *testing.T, s store.Store) {
+	tx(t, s, func(ctx context.Context, tx store.Tx) error {
+		mk := func(id, site, method, path string, rules ...string) store.EventRow {
+			return store.EventRow{
+				ID: id, TS: base, SiteID: site, Action: "log", Mode: "detect", ClientIP: "192.0.2.1",
+				Method: method, Host: "h", Path: path, Status: 200, RuleIDs: rules, Body: []byte(`{}`),
+			}
+		}
+		for _, e := range []store.EventRow{
+			mk("c1", "bank", "POST", "/pay", "api.schema"),
+			mk("c2", "bank", "POST", "/pay", "api.schema", "api.jwt"),
+			mk("c3", "bank", "GET", "/old", "api.unknown_endpoint"),
+			mk("c4", "other", "POST", "/pay", "api.schema"),
+			mk("c5", "bank", "POST", "/pay", "api.schema2"),
+		} {
+			require.NoError(t, tx.InsertEvent(ctx, e))
+		}
+		got, err := tx.CountEventsByEndpoint(ctx, "bank", "api.schema", base.Add(-time.Hour), base.Add(time.Hour), 10)
+		require.NoError(t, err)
+		assert.Equal(t, []store.EndpointCount{{Method: "POST", Path: "/pay", Count: 2}}, got, "exact rule id, one site")
+		return nil
+	})
+}
+
 func testBlockPages(t *testing.T, s store.Store) {
 	tx(t, s, func(ctx context.Context, tx store.Tx) error {
 		html := "<h1>Blocked \u00e9 ' \" </h1>\n{{.EventID}}"
@@ -713,6 +739,37 @@ func testBlockPages(t *testing.T, s store.Store) {
 		require.NoError(t, tx.DeleteBlockPage(ctx, "alt"))
 		assert.ErrorIs(t, tx.DeleteBlockPage(ctx, "alt"), store.ErrNotFound)
 		_, err = tx.GetBlockPage(ctx, "alt")
+		assert.ErrorIs(t, err, store.ErrNotFound)
+		return nil
+	})
+}
+
+func testAPIAssets(t *testing.T, s store.Store) {
+	tx(t, s, func(ctx context.Context, tx store.Tx) error {
+		doc := store.OpenAPIDoc{ID: "pay", Name: "Payments", Version: "3.1", SHA256: "ab", Body: `{"openapi":"3.1.0"}`, UpdatedAt: base}
+		require.NoError(t, tx.PutOpenAPIDoc(ctx, doc))
+		got, err := tx.GetOpenAPIDoc(ctx, "pay")
+		require.NoError(t, err)
+		assert.Equal(t, doc, got)
+		doc.Body, doc.UpdatedAt = `{"openapi":"3.1.1"}`, base.Add(time.Hour)
+		require.NoError(t, tx.PutOpenAPIDoc(ctx, doc))
+		all, err := tx.ListOpenAPIDocs(ctx)
+		require.NoError(t, err)
+		require.Equal(t, []store.OpenAPIDoc{doc}, all, "put replaces")
+		require.NoError(t, tx.DeleteOpenAPIDoc(ctx, "pay"))
+		assert.ErrorIs(t, tx.DeleteOpenAPIDoc(ctx, "pay"), store.ErrNotFound)
+
+		ca := store.CABundle{ID: "bank-ca", Name: "Bank CA", Subjects: []string{"CN=Bank Root"}, Fingerprint: "cd", PEM: "pem", NotAfter: base.Add(24 * time.Hour), CreatedAt: base}
+		require.NoError(t, tx.InsertCABundle(ctx, ca))
+		assert.ErrorIs(t, tx.InsertCABundle(ctx, ca), store.ErrConflict)
+		gotCA, err := tx.GetCABundle(ctx, "bank-ca")
+		require.NoError(t, err)
+		assert.Equal(t, ca, gotCA)
+		cas, err := tx.ListCABundles(ctx)
+		require.NoError(t, err)
+		assert.Len(t, cas, 1)
+		require.NoError(t, tx.DeleteCABundle(ctx, "bank-ca"))
+		_, err = tx.GetCABundle(ctx, "bank-ca")
 		assert.ErrorIs(t, err, store.ErrNotFound)
 		return nil
 	})

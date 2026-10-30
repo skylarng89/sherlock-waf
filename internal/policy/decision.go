@@ -87,6 +87,8 @@ type Decision struct {
 	ChallengeRequested bool
 
 	mu         sync.Mutex
+	claims     ClaimSource
+	certSubj   string
 	action     Action
 	terminated string
 	findings   []Finding
@@ -95,6 +97,45 @@ type Decision struct {
 	outbound   int
 	bodyType   string
 	bodySample []byte
+}
+
+// ClaimSource gives access to the verified claims of the request's token.
+type ClaimSource interface {
+	// Claim returns a claim usable as a short key (string or number).
+	Claim(name string) (string, bool)
+}
+
+// SetClaims records the claims of a token the API module verified. Only
+// verified claims are ever stored, so rate limits can key on them safely.
+func (d *Decision) SetClaims(c ClaimSource) {
+	d.mu.Lock()
+	d.claims = c
+	d.mu.Unlock()
+}
+
+// Claim returns a verified token claim, if the request carried a valid token.
+func (d *Decision) Claim(name string) (string, bool) {
+	d.mu.Lock()
+	c := d.claims
+	d.mu.Unlock()
+	if c == nil {
+		return "", false
+	}
+	return c.Claim(name)
+}
+
+// SetClientCert records the subject of the verified client certificate.
+func (d *Decision) SetClientCert(subject string) {
+	d.mu.Lock()
+	d.certSubj = subject
+	d.mu.Unlock()
+}
+
+// ClientCertSubject is the verified client certificate subject, or "".
+func (d *Decision) ClientCertSubject() string {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.certSubj
 }
 
 // NewDecision starts a decision with Action allow.

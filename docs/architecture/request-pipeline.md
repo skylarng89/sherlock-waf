@@ -6,9 +6,9 @@ Every site compiles to one Caddy route. The handler order is fixed by the compil
 | --- | --- | --- | --- | --- |
 | 1 | `sherlock_core` | `internal/dataplane/core` | Resolves client IP, creates the request's `Decision` record, assigns an event ID, wraps the rest of the chain, emits the event at the end | 500 (internal error only) |
 | 2 | `sherlock_acl` | `internal/dataplane/acl` | Allow/deny lists, geo, IP reputation, temporary bans, site password gate | 403, 401 |
+| 2b | `sherlock_api` | `internal/dataplane/api` | Client-certificate requirement, JWT validation, OpenAPI conformance. Runs before rate limiting so a limit can key on a verified token claim or certificate subject; in `detect` mode its block actions only log | 400, 401, 403 |
 | 3 | `sherlock_ratelimit` | `internal/dataplane/ratelimit` | Rate-limit rules and auto-ban counters | 429, or hands off to bot challenge |
 | 4 | `sherlock_bot` | `internal/dataplane/bot` | Clearance cookie check, challenge page, good-bot verification | 403, challenge page (200 HTML) |
-| 5 | `sherlock_api` | `internal/dataplane/apiguard` | OpenAPI validation, JWT validation, mTLS requirement | 400, 401, 403 |
 | 6 | `sherlock_login` | `internal/dataplane/login` | Credential-stuffing protection on declared login paths (reads upstream response status) | 403, challenge |
 | 6b | `sherlock_vpatch` | `internal/dataplane/waf` | Virtual-patch rules run as an extra rule set loaded into the same Coraza instance before CRS (phase 1–2), so they share one transaction | 403 block page |
 | 7 | `sherlock_waf` | `internal/dataplane/waf` | Coraza transaction: phases 1 and 2 before proxying, phases 3 and 4 on the response if outbound inspection is on | 403 block page |

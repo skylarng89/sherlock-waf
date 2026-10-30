@@ -30,6 +30,7 @@ import (
 	"github.com/skylarng89/sherlock-waf/internal/compiler"
 	"github.com/skylarng89/sherlock-waf/internal/config"
 	"github.com/skylarng89/sherlock-waf/internal/dataplane/acl"
+	_ "github.com/skylarng89/sherlock-waf/internal/dataplane/api"       // registers sherlock_api
 	_ "github.com/skylarng89/sherlock-waf/internal/dataplane/bot"       // registers sherlock_bot
 	_ "github.com/skylarng89/sherlock-waf/internal/dataplane/core"      // registers sherlock_core
 	_ "github.com/skylarng89/sherlock-waf/internal/dataplane/ratelimit" // registers sherlock_ratelimit

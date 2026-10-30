@@ -18,16 +18,19 @@ type Querier interface {
 	BumpAuditHead(ctx context.Context) (BumpAuditHeadRow, error)
 	CompareAndSetConfigHead(ctx context.Context, arg CompareAndSetConfigHeadParams) (int64, error)
 	CountEvents(ctx context.Context) (int64, error)
+	CountEventsByEndpoint(ctx context.Context, arg CountEventsByEndpointParams) ([]CountEventsByEndpointRow, error)
 	CountSecrets(ctx context.Context) (int64, error)
 	CountUsers(ctx context.Context) (int64, error)
 	DeleteAllSites(ctx context.Context) error
 	DeleteBan(ctx context.Context, id string) (int64, error)
 	DeleteBlockPage(ctx context.Context, id string) (int64, error)
+	DeleteCABundle(ctx context.Context, id string) (int64, error)
 	DeleteCertificate(ctx context.Context, id string) (int64, error)
 	DeleteEventsBefore(ctx context.Context, arg DeleteEventsBeforeParams) (int64, error)
 	DeleteExpiredBans(ctx context.Context, nowTs int64) (int64, error)
 	DeleteExpiredSessions(ctx context.Context, arg DeleteExpiredSessionsParams) (int64, error)
 	DeleteKV(ctx context.Context, key string) error
+	DeleteOpenAPIDoc(ctx context.Context, id string) (int64, error)
 	DeleteRollupsBefore(ctx context.Context, cutoff int64) (int64, error)
 	DeleteSecret(ctx context.Context, id string) error
 	DeleteSession(ctx context.Context, id string) error
@@ -37,17 +40,20 @@ type Querier interface {
 	GetAuditHead(ctx context.Context) (GetAuditHeadRow, error)
 	GetBan(ctx context.Context, id string) (Ban, error)
 	GetBlockPage(ctx context.Context, id string) (BlockPage, error)
+	GetCABundle(ctx context.Context, id string) (CaBundle, error)
 	GetCertificate(ctx context.Context, id string) (Certificate, error)
 	GetConfigHeadID(ctx context.Context) (string, error)
 	GetConfigVersion(ctx context.Context, id string) (ConfigVersion, error)
 	GetEvent(ctx context.Context, id string) (Event, error)
 	GetKV(ctx context.Context, key string) (string, error)
+	GetOpenAPIDoc(ctx context.Context, id string) (OpenapiDoc, error)
 	GetSecret(ctx context.Context, id string) (Secret, error)
 	GetSession(ctx context.Context, id string) (Session, error)
 	GetToken(ctx context.Context, id string) (ApiToken, error)
 	GetUserByID(ctx context.Context, id string) (User, error)
 	GetUserByUsername(ctx context.Context, username string) (User, error)
 	InsertAuditEntry(ctx context.Context, arg InsertAuditEntryParams) error
+	InsertCABundle(ctx context.Context, arg InsertCABundleParams) error
 	InsertCertificate(ctx context.Context, arg InsertCertificateParams) error
 	InsertConfigVersion(ctx context.Context, arg InsertConfigVersionParams) error
 	InsertEvent(ctx context.Context, arg InsertEventParams) error
@@ -60,10 +66,12 @@ type Querier interface {
 	ListAuditEntriesAsc(ctx context.Context, arg ListAuditEntriesAscParams) ([]AuditLog, error)
 	ListAuditEntriesDesc(ctx context.Context, arg ListAuditEntriesDescParams) ([]AuditLog, error)
 	ListBlockPages(ctx context.Context) ([]BlockPage, error)
+	ListCABundles(ctx context.Context) ([]CaBundle, error)
 	ListCertificates(ctx context.Context) ([]Certificate, error)
 	ListConfigVersions(ctx context.Context, arg ListConfigVersionsParams) ([]ConfigVersion, error)
 	// Optional filters are NULL when unused. CAST keeps the NULL checks valid on both dialects.
 	ListEvents(ctx context.Context, arg ListEventsParams) ([]Event, error)
+	ListOpenAPIDocs(ctx context.Context) ([]OpenapiDoc, error)
 	ListRollups(ctx context.Context, arg ListRollupsParams) ([]EventRollups1m, error)
 	ListSecrets(ctx context.Context) ([]Secret, error)
 	ListSites(ctx context.Context) ([]Site, error)
@@ -89,6 +97,7 @@ type Querier interface {
 	UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) (int64, error)
 	UpsertBan(ctx context.Context, arg UpsertBanParams) error
 	UpsertBlockPage(ctx context.Context, arg UpsertBlockPageParams) error
+	UpsertOpenAPIDoc(ctx context.Context, arg UpsertOpenAPIDocParams) error
 }
 
 var _ Querier = (*Queries)(nil)

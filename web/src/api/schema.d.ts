@@ -695,6 +695,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api-docs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Uploaded OpenAPI documents */
+        get: operations["listAPIDocs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api-docs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Create or replace an OpenAPI 3.0/3.1 document (validated and compiled before it is stored) */
+        put: operations["putAPIDoc"];
+        post?: never;
+        /** Delete an OpenAPI document (refused while a policy uses it) */
+        delete: operations["deleteAPIDoc"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api-docs/{id}/endpoints": {
+        parameters: {
+            query: {
+                /** @description Site whose violations are counted */
+                site: string;
+                /** @description Default: 24 hours before `to` */
+                from?: string;
+                /** @description Default: now */
+                to?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** Documented endpoints with the violations seen on them */
+        get: operations["listAPIDocEndpoints"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ca-bundles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Uploaded CA bundles for client-certificate verification */
+        get: operations["listCABundles"];
+        put?: never;
+        /** Upload one or more CA certificates (PEM, no private keys) */
+        post: operations["uploadCABundle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ca-bundles/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a CA bundle (refused while a policy uses it) */
+        delete: operations["deleteCABundle"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/bans": {
         parameters: {
             query?: never;
@@ -1062,6 +1162,7 @@ export interface components {
             rate_limits?: components["schemas"]["RateLimit"][];
             auto_ban?: components["schemas"]["AutoBan"];
             bot?: components["schemas"]["BotPolicy"];
+            api?: components["schemas"]["APIPolicy"];
             /** @description Declared technologies (wordpress, php, spring, ...). Product-specific virtual patches activate only for declared stacks; unset or [auto] activates generic patches only. */
             stacks?: components["schemas"]["NameList"];
             virtual_patches?: {
@@ -1370,6 +1471,59 @@ export interface components {
             /** @description html/template source; fields: .EventID .Status .SiteName */
             html: string;
         };
+        APIDoc: {
+            id: string;
+            name: string;
+            /** @enum {string} */
+            version: "3.0" | "3.1";
+            sha256: string;
+            endpoint_count: number;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        APIDocList: {
+            items: components["schemas"]["APIDoc"][];
+        };
+        PutAPIDoc: {
+            name: string;
+            /** @description The OpenAPI document as JSON or YAML text. External references are not followed. */
+            content: string;
+        };
+        APIEndpoint: {
+            method: string;
+            path: string;
+            summary?: string;
+            /** Format: int64 */
+            schema_violations: number;
+        };
+        APIEndpointList: {
+            items: components["schemas"]["APIEndpoint"][];
+            /** @description Requests for a path or method the document does not describe, as seen */
+            undocumented: components["schemas"]["APIUndocumented"][];
+        };
+        APIUndocumented: {
+            method: string;
+            path: string;
+            /** Format: int64 */
+            count: number;
+        };
+        CABundle: {
+            id: string;
+            name: string;
+            subjects: string[];
+            fingerprint_sha256: string;
+            /** Format: date-time */
+            not_after: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        CABundleList: {
+            items: components["schemas"]["CABundle"][];
+        };
+        UploadCABundle: {
+            name: string;
+            certificates_pem: string;
+        };
         /** @description Node-wide settings (admin listener, trusted proxies, ACME, events, defaults, ip_lists, feeds). */
         GlobalConfig: {
             defaults?: components["schemas"]["Policy"];
@@ -1574,6 +1728,44 @@ export interface components {
                 /** @enum {string} */
                 action?: "challenge" | "block" | "allow";
             }[];
+        };
+        APIPolicy: {
+            enabled?: boolean;
+            /** @description An uploaded OpenAPI document (PUT /api-docs/{id}) */
+            openapi_doc_id?: string;
+            /** @enum {string} */
+            unknown_path_action?: "log" | "block";
+            /** @enum {string} */
+            schema_violation_action?: "log" | "block";
+            /** Format: int64 */
+            max_body_bytes?: number;
+            jwt?: components["schemas"]["JWTRule"][];
+            mtls?: {
+                required_paths?: string[];
+                /** @description An uploaded CA bundle (POST /ca-bundles) */
+                ca_cert_id?: string;
+            };
+        };
+        /** @description Set exactly one of jwks_url, public_key_pem, hmac_secret_env */
+        JWTRule: {
+            match?: {
+                paths?: string[];
+                methods?: string[];
+            };
+            /** @description https only; internal addresses are refused */
+            jwks_url?: string;
+            public_key_pem?: string;
+            /** @description Name of an environment variable on the node */
+            hmac_secret_env?: string;
+            issuer?: string;
+            audiences?: string[];
+            /** @description Go duration, up to 5m (default 30s) */
+            clock_skew?: string;
+            /** @description Go duration, 1m to 24h (default 15m) */
+            refresh_interval?: string;
+            optional?: boolean;
+            /** @enum {string} */
+            action?: "block" | "log";
         };
         TopResult: {
             dim: string;
@@ -3082,6 +3274,175 @@ export interface operations {
         };
     };
     deleteBlockPage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    listAPIDocs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIDocList"];
+                };
+            };
+        };
+    };
+    putAPIDoc: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PutAPIDoc"];
+            };
+        };
+        responses: {
+            /** @description Stored */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIDoc"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    deleteAPIDoc: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    listAPIDocEndpoints: {
+        parameters: {
+            query: {
+                /** @description Site whose violations are counted */
+                site: string;
+                /** @description Default: 24 hours before `to` */
+                from?: string;
+                /** @description Default: now */
+                to?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIEndpointList"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listCABundles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CABundleList"];
+                };
+            };
+        };
+    };
+    uploadCABundle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UploadCABundle"];
+            };
+        };
+        responses: {
+            /** @description Stored */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CABundle"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    deleteCABundle: {
         parameters: {
             query?: never;
             header?: never;

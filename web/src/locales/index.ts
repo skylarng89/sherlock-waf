@@ -2,6 +2,7 @@
 // authors never edit the same one. Adding an area means adding one import here.
 import access from './en/access'
 import analytics from './en/analytics'
+import api from './en/api'
 import audit from './en/audit'
 import auth from './en/auth'
 import bans from './en/bans'
@@ -24,6 +25,7 @@ import users from './en/users'
 export const en = {
   access,
   analytics,
+  api,
   audit,
   auth,
   bans,

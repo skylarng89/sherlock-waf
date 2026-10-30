@@ -642,6 +642,90 @@ func (t sqlTx) DeleteBlockPage(ctx context.Context, id string) error {
 	return affected(t.q.DeleteBlockPage(ctx, id))
 }
 
+// ---- API assets
+
+func openAPIDocFromRow(r db.OpenapiDoc) OpenAPIDoc {
+	return OpenAPIDoc{ID: r.ID, Name: r.Name, Version: r.Version, SHA256: r.Sha256, Body: r.Body, UpdatedAt: fromMicros(r.UpdatedAt)}
+}
+
+func (t sqlTx) PutOpenAPIDoc(ctx context.Context, d OpenAPIDoc) error {
+	return mapErr(t.q.UpsertOpenAPIDoc(ctx, db.UpsertOpenAPIDocParams{
+		ID: d.ID, Name: d.Name, Version: d.Version, Sha256: d.SHA256, Body: d.Body, UpdatedAt: micros(d.UpdatedAt),
+	}))
+}
+
+func (t sqlTx) GetOpenAPIDoc(ctx context.Context, id string) (OpenAPIDoc, error) {
+	r, err := t.q.GetOpenAPIDoc(ctx, id)
+	if err != nil {
+		return OpenAPIDoc{}, mapErr(err)
+	}
+	return openAPIDocFromRow(r), nil
+}
+
+func (t sqlTx) ListOpenAPIDocs(ctx context.Context) ([]OpenAPIDoc, error) {
+	rows, err := t.q.ListOpenAPIDocs(ctx)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	out := make([]OpenAPIDoc, len(rows))
+	for i, r := range rows {
+		out[i] = openAPIDocFromRow(r)
+	}
+	return out, nil
+}
+
+func (t sqlTx) DeleteOpenAPIDoc(ctx context.Context, id string) error {
+	return affected(t.q.DeleteOpenAPIDoc(ctx, id))
+}
+
+func caBundleFromRow(r db.CaBundle) (CABundle, error) {
+	var subjects []string
+	if err := json.Unmarshal([]byte(r.Subjects), &subjects); err != nil {
+		return CABundle{}, fmt.Errorf("decoding subjects of CA bundle %q: %w", r.ID, err)
+	}
+	return CABundle{
+		ID: r.ID, Name: r.Name, Subjects: subjects, Fingerprint: r.Fingerprint, PEM: r.Pem,
+		NotAfter: fromMicros(r.NotAfter), CreatedAt: fromMicros(r.CreatedAt),
+	}, nil
+}
+
+func (t sqlTx) InsertCABundle(ctx context.Context, b CABundle) error {
+	subjects, err := json.Marshal(append([]string{}, b.Subjects...))
+	if err != nil {
+		return err
+	}
+	return mapErr(t.q.InsertCABundle(ctx, db.InsertCABundleParams{
+		ID: b.ID, Name: b.Name, Subjects: string(subjects), Fingerprint: b.Fingerprint, Pem: b.PEM,
+		NotAfter: micros(b.NotAfter), CreatedAt: micros(b.CreatedAt),
+	}))
+}
+
+func (t sqlTx) GetCABundle(ctx context.Context, id string) (CABundle, error) {
+	r, err := t.q.GetCABundle(ctx, id)
+	if err != nil {
+		return CABundle{}, mapErr(err)
+	}
+	return caBundleFromRow(r)
+}
+
+func (t sqlTx) ListCABundles(ctx context.Context) ([]CABundle, error) {
+	rows, err := t.q.ListCABundles(ctx)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	out := make([]CABundle, len(rows))
+	for i, r := range rows {
+		if out[i], err = caBundleFromRow(r); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
+func (t sqlTx) DeleteCABundle(ctx context.Context, id string) error {
+	return affected(t.q.DeleteCABundle(ctx, id))
+}
+
 // ---- Bans
 
 func banFromRow(r db.Ban) Ban {
@@ -682,6 +766,21 @@ func (t sqlTx) DeleteBan(ctx context.Context, id string) error {
 func (t sqlTx) DeleteExpiredBans(ctx context.Context, now time.Time) (int, error) {
 	n, err := t.q.DeleteExpiredBans(ctx, micros(now))
 	return int(n), mapErr(err)
+}
+
+// CountEventsByEndpoint implements Events.
+func (t sqlTx) CountEventsByEndpoint(ctx context.Context, siteID, ruleID string, from, to time.Time, limit int) ([]EndpointCount, error) {
+	rows, err := t.q.CountEventsByEndpoint(ctx, db.CountEventsByEndpointParams{
+		SiteID: siteID, FromTs: micros(from), ToTs: micros(to), RuleID: nullStr(ruleID), MaxRows: clampLimit(limit),
+	})
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	out := make([]EndpointCount, len(rows))
+	for i, r := range rows {
+		out[i] = EndpointCount{Method: r.Method, Path: r.Path, Count: r.N}
+	}
+	return out, nil
 }
 
 // TopEventValues implements Events.

@@ -184,3 +184,50 @@ func TestValidation(t *testing.T) {
 	bad := Handler{SiteID: "s", Rules: []Rule{{Name: "a", Limit: 1, Window: "soon", Action: "block"}}}
 	assert.Error(t, bad.Provision(caddy.Context{}))
 }
+
+type claims map[string]string
+
+func (c claims) Claim(n string) (string, bool) { v, ok := c[n]; return v, ok }
+
+func TestAPIKeys(t *testing.T) {
+	h := newHandler(t, "bank", Handler{Rules: []Rule{
+		{Name: "per-client", Key: "jwt:client_id", Limit: 2, Window: "1m", Action: "block"},
+	}})
+	as := func(client string) func(*policy.Decision) {
+		return func(d *policy.Decision) {
+			if client != "" {
+				d.SetClaims(claims{"client_id": client})
+			}
+		}
+	}
+	// Two clients behind one address have separate buckets.
+	for range 2 {
+		assert.Equal(t, 200, do(t, h, "GET", "/x", "192.0.2.1", nil, as("app-a")).status)
+		assert.Equal(t, 200, do(t, h, "GET", "/x", "192.0.2.1", nil, as("app-b")).status)
+	}
+	assert.Equal(t, 429, do(t, h, "GET", "/x", "192.0.2.1", nil, as("app-a")).status)
+	assert.Equal(t, 429, do(t, h, "GET", "/x", "192.0.2.1", nil, as("app-b")).status)
+	// The same client from another address shares its bucket.
+	assert.Equal(t, 429, do(t, h, "GET", "/x", "192.0.2.99", nil, as("app-a")).status)
+	// No verified claim: the address is the key, so an anonymous client cannot hide in another's bucket.
+	for range 2 {
+		assert.Equal(t, 200, do(t, h, "GET", "/x", "192.0.2.50", nil, as("")).status)
+	}
+	assert.Equal(t, 429, do(t, h, "GET", "/x", "192.0.2.50", nil, as("")).status)
+}
+
+func TestAPIKeyHeaderIsHashedAndCertSubjectKeys(t *testing.T) {
+	h := newHandler(t, "bank2", Handler{Rules: []Rule{
+		{Name: "key", Key: "api_key:X-Api-Key", Limit: 1, Window: "1m", Action: "block"},
+		{Name: "cert", Key: "mtls_subject", Limit: 1, Window: "1m", Action: "block", Paths: []string{"/cert"}},
+	}})
+	hdr := func(k string) map[string]string { return map[string]string{"X-Api-Key": k} }
+	assert.Equal(t, 200, do(t, h, "GET", "/x", "192.0.2.1", hdr("k1"), nil).status)
+	assert.Equal(t, 429, do(t, h, "GET", "/x", "192.0.2.2", hdr("k1"), nil).status, "same key, other address")
+	assert.Equal(t, 200, do(t, h, "GET", "/x", "192.0.2.1", hdr("k2"), nil).status)
+
+	subj := func(s string) func(*policy.Decision) { return func(d *policy.Decision) { d.SetClientCert(s) } }
+	assert.Equal(t, 200, do(t, h, "GET", "/cert", "192.0.2.3", nil, subj("CN=tpp-1")).status)
+	assert.Equal(t, 429, do(t, h, "GET", "/cert", "192.0.2.4", nil, subj("CN=tpp-1")).status)
+	assert.Equal(t, 200, do(t, h, "GET", "/cert", "192.0.2.5", nil, subj("CN=tpp-2")).status)
+}

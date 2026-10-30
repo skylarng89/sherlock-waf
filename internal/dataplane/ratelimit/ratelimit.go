@@ -5,6 +5,8 @@
 package ratelimit
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
@@ -53,6 +55,8 @@ type Rule struct {
 
 	window time.Duration
 	header string
+	claim  string
+	apiKey string
 }
 
 // AutoBan is the per-site auto-ban setting.
@@ -93,6 +97,12 @@ func (h *Handler) Provision(caddy.Context) error {
 		r.window = w
 		if after, ok := strings.CutPrefix(r.Key, config.KeyHeaderPrefix); ok {
 			r.header = after
+		}
+		if after, ok := strings.CutPrefix(r.Key, config.KeyJWTPrefix); ok {
+			r.claim = after
+		}
+		if after, ok := strings.CutPrefix(r.Key, config.KeyAPIKeyPrefix); ok {
+			r.apiKey = after
 		}
 	}
 	if a := h.AutoBan; a != nil {
@@ -159,13 +169,32 @@ func (r *Rule) matches(req *http.Request) bool {
 	return false
 }
 
-func (r *Rule) keyFor(req *http.Request, ip string) string {
-	if r.header != "" {
+// keyFor derives the bucket key. A key that cannot be derived (no header, no
+// verified token, no client certificate) falls back to the address rather than
+// sharing one bucket among every anonymous client.
+func (r *Rule) keyFor(req *http.Request, d *policy.Decision, ip string) string {
+	switch {
+	case r.header != "":
 		if v := req.Header.Get(r.header); v != "" {
 			return "h:" + v
 		}
+	case r.claim != "":
+		// Only claims of a token the API module verified are used: an
+		// unverified claim is attacker-chosen and would let a client pick its bucket.
+		if v, ok := d.Claim(r.claim); ok {
+			return "c:" + v
+		}
+	case r.apiKey != "":
+		if v := req.Header.Get(r.apiKey); v != "" {
+			sum := sha256.Sum256([]byte(v)) // the key itself must not sit in memory or logs
+			return "k:" + hex.EncodeToString(sum[:12])
+		}
+	case r.Key == config.KeyClientCertSubject:
+		if v := d.ClientCertSubject(); v != "" {
+			return "m:" + v
+		}
 	}
-	return "ip:" + ip // header absent: fall back to the address rather than sharing one bucket
+	return "ip:" + ip
 }
 
 // ServeHTTP implements caddyhttp.MiddlewareHandler.
@@ -181,7 +210,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request, next caddyht
 		if !rule.matches(r) {
 			continue
 		}
-		res := limiter.AllowAt(h.SiteID+"|"+rule.Name+"|"+rule.keyFor(r, ip), rule.Limit, rule.window, now)
+		res := limiter.AllowAt(h.SiteID+"|"+rule.Name+"|"+rule.keyFor(r, d, ip), rule.Limit, rule.window, now)
 		if res.Allowed {
 			continue
 		}

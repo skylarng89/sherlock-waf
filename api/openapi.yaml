@@ -29,6 +29,7 @@ tags:
   - { name: system }
   - { name: setup }
   - { name: certificates }
+  - { name: api-protection }
   - { name: bans }
   - { name: tuning }
   - { name: rules }
@@ -625,6 +626,80 @@ paths:
         "404": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
 
+  /api-docs:
+    get:
+      operationId: listAPIDocs
+      tags: [api-protection]
+      summary: Uploaded OpenAPI documents
+      x-sherlock-permission: config:read
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/APIDocList" } } } }
+  /api-docs/{id}:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,62}$" } }]
+    put:
+      operationId: putAPIDoc
+      tags: [api-protection]
+      summary: Create or replace an OpenAPI 3.0/3.1 document (validated and compiled before it is stored)
+      x-sherlock-permission: config:write
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/PutAPIDoc" } } } }
+      responses:
+        "200": { description: Stored, content: { application/json: { schema: { $ref: "#/components/schemas/APIDoc" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+    delete:
+      operationId: deleteAPIDoc
+      tags: [api-protection]
+      summary: Delete an OpenAPI document (refused while a policy uses it)
+      x-sherlock-permission: config:write
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api-docs/{id}/endpoints:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+      - { name: site, in: query, required: true, schema: { type: string }, description: "Site whose violations are counted" }
+      - { name: from, in: query, schema: { type: string, format: date-time }, description: "Default: 24 hours before `to`" }
+      - { name: to, in: query, schema: { type: string, format: date-time }, description: "Default: now" }
+    get:
+      operationId: listAPIDocEndpoints
+      tags: [api-protection]
+      summary: Documented endpoints with the violations seen on them
+      x-sherlock-permission: events:read
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/APIEndpointList" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /ca-bundles:
+    get:
+      operationId: listCABundles
+      tags: [api-protection]
+      summary: Uploaded CA bundles for client-certificate verification
+      x-sherlock-permission: config:read
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/CABundleList" } } } }
+    post:
+      operationId: uploadCABundle
+      tags: [api-protection]
+      summary: Upload one or more CA certificates (PEM, no private keys)
+      x-sherlock-permission: config:write
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/UploadCABundle" } } } }
+      responses:
+        "201": { description: Stored, content: { application/json: { schema: { $ref: "#/components/schemas/CABundle" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /ca-bundles/{id}:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    delete:
+      operationId: deleteCABundle
+      tags: [api-protection]
+      summary: Delete a CA bundle (refused while a policy uses it)
+      x-sherlock-permission: config:write
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+
   /bans:
     get:
       operationId: listBans
@@ -982,6 +1057,7 @@ components:
         rate_limits: { type: array, items: { $ref: "#/components/schemas/RateLimit" } }
         auto_ban: { $ref: "#/components/schemas/AutoBan" }
         bot: { $ref: "#/components/schemas/BotPolicy" }
+        api: { $ref: "#/components/schemas/APIPolicy" }
         stacks: { $ref: "#/components/schemas/NameList", description: "Declared technologies (wordpress, php, spring, ...). Product-specific virtual patches activate only for declared stacks; unset or [auto] activates generic patches only." }
         virtual_patches:
           type: object
@@ -1302,6 +1378,68 @@ components:
       properties:
         html: { type: string, maxLength: 65536, description: "html/template source; fields: .EventID .Status .SiteName" }
 
+    APIDoc:
+      type: object
+      required: [id, name, version, sha256, endpoint_count, updated_at]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        version: { type: string, enum: ["3.0", "3.1"] }
+        sha256: { type: string }
+        endpoint_count: { type: integer }
+        updated_at: { type: string, format: date-time }
+    APIDocList:
+      type: object
+      required: [items]
+      properties: { items: { type: array, items: { $ref: "#/components/schemas/APIDoc" } } }
+    PutAPIDoc:
+      type: object
+      required: [name, content]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 64 }
+        content: { type: string, maxLength: 4194304, description: "The OpenAPI document as JSON or YAML text. External references are not followed." }
+    APIEndpoint:
+      type: object
+      required: [method, path, schema_violations]
+      properties:
+        method: { type: string }
+        path: { type: string }
+        summary: { type: string }
+        schema_violations: { type: integer, format: int64 }
+    APIEndpointList:
+      type: object
+      required: [items, undocumented]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/APIEndpoint" } }
+        undocumented: { type: array, description: "Requests for a path or method the document does not describe, as seen", items: { $ref: "#/components/schemas/APIUndocumented" } }
+    APIUndocumented:
+      type: object
+      required: [method, path, count]
+      properties:
+        method: { type: string }
+        path: { type: string }
+        count: { type: integer, format: int64 }
+    CABundle:
+      type: object
+      required: [id, name, subjects, fingerprint_sha256, not_after, created_at]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        subjects: { type: array, items: { type: string } }
+        fingerprint_sha256: { type: string }
+        not_after: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+    CABundleList:
+      type: object
+      required: [items]
+      properties: { items: { type: array, items: { $ref: "#/components/schemas/CABundle" } } }
+    UploadCABundle:
+      type: object
+      required: [name, certificates_pem]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 64 }
+        certificates_pem: { type: string, maxLength: 65536 }
+
     GlobalConfig:
       type: object
       additionalProperties: true
@@ -1482,6 +1620,44 @@ components:
                   countries: { type: array, items: { type: string } }
                   reputation: { type: boolean }
               action: { type: string, enum: [challenge, block, allow] }
+    APIPolicy:
+      type: object
+      additionalProperties: false
+      properties:
+        enabled: { type: boolean }
+        openapi_doc_id: { type: string, description: "An uploaded OpenAPI document (PUT /api-docs/{id})" }
+        unknown_path_action: { type: string, enum: [log, block] }
+        schema_violation_action: { type: string, enum: [log, block] }
+        max_body_bytes: { type: integer, format: int64, minimum: 1, maximum: 16777216 }
+        jwt:
+          type: array
+          items: { $ref: "#/components/schemas/JWTRule" }
+        mtls:
+          type: object
+          additionalProperties: false
+          properties:
+            required_paths: { type: array, items: { type: string } }
+            ca_cert_id: { type: string, description: "An uploaded CA bundle (POST /ca-bundles)" }
+    JWTRule:
+      type: object
+      additionalProperties: false
+      description: "Set exactly one of jwks_url, public_key_pem, hmac_secret_env"
+      properties:
+        match:
+          type: object
+          additionalProperties: false
+          properties:
+            paths: { type: array, items: { type: string } }
+            methods: { type: array, items: { type: string } }
+        jwks_url: { type: string, description: "https only; internal addresses are refused" }
+        public_key_pem: { type: string }
+        hmac_secret_env: { type: string, description: "Name of an environment variable on the node" }
+        issuer: { type: string }
+        audiences: { type: array, items: { type: string } }
+        clock_skew: { type: string, description: "Go duration, up to 5m (default 30s)" }
+        refresh_interval: { type: string, description: "Go duration, 1m to 24h (default 15m)" }
+        optional: { type: boolean }
+        action: { type: string, enum: [block, log] }
     TopResult:
       type: object
       required: [dim, from, to, items, sampled]

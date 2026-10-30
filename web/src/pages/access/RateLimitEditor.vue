@@ -8,11 +8,15 @@ import NumberControl from '@/pages/sites/controls/NumberControl.vue'
 import SelectControl from '@/pages/sites/controls/SelectControl.vue'
 import TextControl from '@/pages/sites/controls/TextControl.vue'
 import {
+  CLAIM_PATTERN,
   DURATION_PATTERN,
   HEADER_PATTERN,
   HTTP_METHODS,
   MAX_RATE_LIMIT_VALUE,
   NAME_PATTERN,
+  buildKey,
+  KEY_KINDS,
+  parseKey,
   type RateLimit,
 } from './policy'
 
@@ -28,13 +32,13 @@ const emit = defineEmits<{ apply: [item: RateLimit]; cancel: [] }>()
 
 const { t } = useI18n()
 
-const headerKey = props.item?.key?.startsWith('header:')
+const initialKey = parseKey(props.item?.key)
 const draft = reactive({
   name: props.item?.name ?? '',
   paths: [...(props.item?.match?.paths ?? [])],
   methods: [...(props.item?.match?.methods ?? [])],
-  keyKind: headerKey ? 'header' : 'ip',
-  header: headerKey ? (props.item?.key ?? '').slice('header:'.length) : '',
+  keyKind: initialKey.kind,
+  header: initialKey.value,
   limit: props.item?.limit as number | undefined,
   window: props.item?.window ?? '1m',
   action: props.item?.action ?? 'block',
@@ -57,8 +61,13 @@ function validate(): Record<string, string> {
     out.limit = t('access.rateLimits.errors.limit', { max: MAX_RATE_LIMIT_VALUE })
   }
   if (!DURATION_PATTERN.test(draft.window)) out.window = t('access.rateLimits.errors.window')
-  if (draft.keyKind === 'header' && !HEADER_PATTERN.test(draft.header)) {
+  if (
+    (draft.keyKind === 'header' || draft.keyKind === 'api_key') &&
+    !HEADER_PATTERN.test(draft.header)
+  ) {
     out.key = t('access.rateLimits.errors.header')
+  } else if (draft.keyKind === 'jwt' && !CLAIM_PATTERN.test(draft.header)) {
+    out.key = t('access.rateLimits.errors.claim')
   }
   const bad = draft.paths.findIndex((p) => !p.startsWith('/'))
   if (bad >= 0) out.paths = t('access.rateLimits.errors.path', { line: bad + 1 })
@@ -75,7 +84,7 @@ function apply() {
   emit('apply', {
     name: draft.name.trim(),
     ...(Object.keys(match).length ? { match } : {}),
-    key: draft.keyKind === 'header' ? `header:${draft.header}` : 'ip',
+    key: buildKey(draft.keyKind, draft.header),
     limit: draft.limit ?? 0,
     window: draft.window,
     action: draft.action,
@@ -157,17 +166,18 @@ function apply() {
           <SelectControl
             v-bind="attrs"
             :model-value="draft.keyKind"
-            :options="[
-              { value: 'ip', label: t('access.rateLimits.keys.ip') },
-              { value: 'header', label: t('access.rateLimits.keys.header') },
-            ]"
+            :options="KEY_KINDS.map((k) => ({ value: k, label: t(`access.rateLimits.keys.${k}`) }))"
             @update:model-value="draft.keyKind = $event ?? 'ip'"
           />
         </template>
       </SkFormField>
       <SkFormField
-        v-if="draft.keyKind === 'header'"
-        :label="t('access.rateLimits.fields.header')"
+        v-if="draft.keyKind === 'header' || draft.keyKind === 'api_key' || draft.keyKind === 'jwt'"
+        :label="
+          draft.keyKind === 'jwt'
+            ? t('access.rateLimits.fields.claim')
+            : t('access.rateLimits.fields.header')
+        "
         :error="errors.key"
         required
       >

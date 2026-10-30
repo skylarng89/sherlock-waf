@@ -4,7 +4,9 @@ import {
   accessPolicyLists,
   accessPolicyPaths,
   applyNameList,
+  buildKey,
   inheritedRateLimits,
+  parseKey,
   pruneAccessPolicy,
   resolveNameList,
 } from './policy'
@@ -113,5 +115,20 @@ describe('listReferences', () => {
     })
     expect(refs.get('bad')).toEqual(['the global defaults', 'site shop', 'endpoint e of site shop'])
     expect(refs.has('good')).toBe(false)
+  })
+})
+
+describe('rate limit keys', () => {
+  it.each([
+    ['ip', 'ip', ''],
+    [undefined, 'ip', ''],
+    ['header:X-Id', 'header', 'X-Id'],
+    ['jwt:client_id', 'jwt', 'client_id'],
+    ['api_key:X-Api-Key', 'api_key', 'X-Api-Key'],
+    ['mtls_subject', 'mtls_subject', ''],
+  ])('round-trips %s', (key, kind, value) => {
+    const parsed = parseKey(key)
+    expect(parsed).toEqual({ kind, value })
+    expect(buildKey(parsed.kind, parsed.value)).toBe(key ?? 'ip')
   })
 })

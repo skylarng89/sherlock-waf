@@ -1,6 +1,7 @@
 import type { RouteRecordRaw } from 'vue-router'
 import access from './access'
 import analytics from './analytics'
+import api from './api'
 import audit from './audit'
 import auth from './auth'
 import bans from './bans'
@@ -34,6 +35,7 @@ const areas: AreaModule[] = [
   access,
   bans,
   bot,
+  api,
   events,
   tuning,
   analytics,

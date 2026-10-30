@@ -56,6 +56,7 @@ type Tx interface {
 	Events
 	Certificates
 	BlockPages
+	APIAssets
 	Bans
 }
 
@@ -315,6 +316,9 @@ type Events interface {
 	// TopEventValues counts events by one dimension (ip, path, country, site, action)
 	// inside [f.From, f.To), honouring f.SiteID and f.Action, most frequent first.
 	TopEventValues(ctx context.Context, dim string, f EventFilter, limit int) ([]ValueCount, error)
+	// CountEventsByEndpoint counts one site's events that carry ruleID, grouped
+	// by method and concrete request path, busiest first.
+	CountEventsByEndpoint(ctx context.Context, siteID, ruleID string, from, to time.Time, limit int) ([]EndpointCount, error)
 	AddRollup(ctx context.Context, r Rollup) error
 	ListRollups(ctx context.Context, from, to time.Time) ([]Rollup, error)
 	DeleteRollupsBefore(ctx context.Context, cutoff time.Time) (int, error)
@@ -359,6 +363,41 @@ type BlockPages interface {
 	DeleteBlockPage(ctx context.Context, id string) error
 }
 
+// OpenAPIDoc is an uploaded OpenAPI document, kept verbatim.
+type OpenAPIDoc struct {
+	ID        string
+	Name      string
+	Version   string // 3.0 or 3.1
+	SHA256    string // hex digest of Body
+	Body      string
+	UpdatedAt time.Time
+}
+
+// CABundle is an uploaded set of CA certificates that verify client certificates.
+type CABundle struct {
+	ID          string
+	Name        string
+	Subjects    []string
+	Fingerprint string // hex SHA-256 over the DER of every certificate
+	PEM         string
+	NotAfter    time.Time // earliest expiry in the bundle
+	CreatedAt   time.Time
+}
+
+// APIAssets stores OpenAPI documents and client-certificate CA bundles.
+type APIAssets interface {
+	// PutOpenAPIDoc creates or replaces the document with d.ID.
+	PutOpenAPIDoc(ctx context.Context, d OpenAPIDoc) error
+	GetOpenAPIDoc(ctx context.Context, id string) (OpenAPIDoc, error)
+	ListOpenAPIDocs(ctx context.Context) ([]OpenAPIDoc, error)
+	DeleteOpenAPIDoc(ctx context.Context, id string) error
+
+	InsertCABundle(ctx context.Context, b CABundle) error
+	GetCABundle(ctx context.Context, id string) (CABundle, error)
+	ListCABundles(ctx context.Context) ([]CABundle, error)
+	DeleteCABundle(ctx context.Context, id string) error
+}
+
 // Ban sources.
 const (
 	BanManual   = "manual"
@@ -387,6 +426,13 @@ type Bans interface {
 	ListActiveBans(ctx context.Context, now time.Time) ([]Ban, error)
 	DeleteBan(ctx context.Context, id string) error
 	DeleteExpiredBans(ctx context.Context, now time.Time) (int, error)
+}
+
+// EndpointCount is one row of CountEventsByEndpoint.
+type EndpointCount struct {
+	Method string
+	Path   string
+	Count  int64
 }
 
 // ValueCount is one row of a top-N listing.

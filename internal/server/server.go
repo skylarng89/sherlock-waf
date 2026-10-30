@@ -30,6 +30,7 @@ import (
 	"github.com/skylarng89/sherlock-waf/internal/controlplane/auth"
 	"github.com/skylarng89/sherlock-waf/internal/controlplane/tlscert"
 	"github.com/skylarng89/sherlock-waf/internal/dataplane/acl"
+	dpapi "github.com/skylarng89/sherlock-waf/internal/dataplane/api"
 	"github.com/skylarng89/sherlock-waf/internal/dataplane/blockpage"
 	"github.com/skylarng89/sherlock-waf/internal/events"
 	"github.com/skylarng89/sherlock-waf/internal/eventwriter"
@@ -121,7 +122,18 @@ func Run(ctx context.Context, o Options) error {
 	// activation so a stored configuration that uses one boots with it.
 	certFiles := &certstore.Files{Store: env.Store, Secrets: env.Secrets, Dir: filepath.Join(dataDir, "certs")}
 	o.Compiler.CertFiles = certFiles.Paths
+	o.Compiler.CABundles = func(id string) (pem string, err error) {
+		err = env.Store.Tx(ctx, func(ctx context.Context, tx store.Tx) error {
+			b, err := tx.GetCABundle(ctx, id)
+			pem = b.PEM
+			return err
+		})
+		return pem, err
+	}
 	if err := loadBlockPages(ctx, env.Store, log); err != nil {
+		return err
+	}
+	if err := loadOpenAPIDocs(ctx, env.Store, log); err != nil {
 		return err
 	}
 	dp := app.New("", o.Compiler, log, app.WithEventsOutput(outputOr(o.EventsOutput)),
@@ -400,6 +412,24 @@ func loadBlockPages(ctx context.Context, st store.Store, log *slog.Logger) error
 		if err := blockpage.SetTemplate(p.ID, p.HTML); err != nil {
 			// A stored template that no longer renders falls back to the built-in page.
 			log.Error("stored block page is unusable; the default page will be used", "id", p.ID, "error", err)
+		}
+	}
+	return nil
+}
+
+// loadOpenAPIDocs compiles the stored OpenAPI documents for the data plane.
+func loadOpenAPIDocs(ctx context.Context, st store.Store, log *slog.Logger) error {
+	var docs []store.OpenAPIDoc
+	if err := st.Tx(ctx, func(ctx context.Context, tx store.Tx) (err error) {
+		docs, err = tx.ListOpenAPIDocs(ctx)
+		return err
+	}); err != nil {
+		return fmt.Errorf("loading OpenAPI documents: %w", err)
+	}
+	for _, d := range docs {
+		if _, err := dpapi.Specs.Set(ctx, d.ID, []byte(d.Body)); err != nil {
+			// The site keeps running; its requests are simply not checked.
+			log.Error("stored OpenAPI document is unusable", "id", d.ID, "error", err)
 		}
 	}
 	return nil

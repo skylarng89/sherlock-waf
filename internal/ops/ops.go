@@ -312,10 +312,30 @@ func ReferenceChecker(st store.Store) func(context.Context, *config.Root) config
 					}
 				}
 			}
+			for id, paths := range refs.OpenAPIDocs {
+				if _, err := tx.GetOpenAPIDoc(ctx, id); err != nil {
+					if !errors.Is(err, store.ErrNotFound) {
+						return err
+					}
+					for _, p := range paths {
+						errs = append(errs, config.Error{Path: p, Code: config.CodeNotFound, Message: fmt.Sprintf("OpenAPI document %q does not exist", id)})
+					}
+				}
+			}
+			for id, paths := range refs.CACerts {
+				if _, err := tx.GetCABundle(ctx, id); err != nil {
+					if !errors.Is(err, store.ErrNotFound) {
+						return err
+					}
+					for _, p := range paths {
+						errs = append(errs, config.Error{Path: p, Code: config.CodeNotFound, Message: fmt.Sprintf("CA bundle %q does not exist", id)})
+					}
+				}
+			}
 			return nil
 		})
 		if err != nil { // fail closed: a store error is not "all references exist"
-			return config.Errors{{Code: config.CodeInvalid, Message: "could not verify referenced certificates and block pages: " + err.Error()}}
+			return config.Errors{{Code: config.CodeInvalid, Message: "could not verify referenced certificates, block pages and API assets: " + err.Error()}}
 		}
 		slices.SortFunc(errs, func(a, b config.Error) int { return strings.Compare(a.Path, b.Path) })
 		return errs

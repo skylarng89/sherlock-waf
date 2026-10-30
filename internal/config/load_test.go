@@ -90,8 +90,8 @@ sites:
   - id: a
     hosts: [a.example.com]
     upstreams: { targets: ["h:1"] }
-    policy: { api: { enabled: true } }
-`, "/sites/0/policy/api", CodeUnknownField},
+    policy: { dlp: { enabled: true } }
+`, "/sites/0/policy/dlp", CodeUnknownField},
 		{"wrong version", "schema_version: 2\nsites: []\n", "/schema_version", CodeInvalid},
 		{"no sites", "schema_version: 1\n", "/sites", CodeRequired},
 		{"alias", "schema_version: 1\nx: &a 1\nsites: *a\n", "/sites", CodeSyntax},

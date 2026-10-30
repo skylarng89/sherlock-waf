@@ -54,6 +54,16 @@ type BlockPage struct {
 	UpdatedAt int64
 }
 
+type CaBundle struct {
+	ID          string
+	Name        string
+	Subjects    string
+	Fingerprint string
+	Pem         string
+	NotAfter    int64
+	CreatedAt   int64
+}
+
 type Certificate struct {
 	ID          string
 	Name        string
@@ -111,6 +121,15 @@ type EventRollups1m struct {
 type Kv struct {
 	Key   string
 	Value string
+}
+
+type OpenapiDoc struct {
+	ID        string
+	Name      string
+	Version   string
+	Sha256    string
+	Body      string
+	UpdatedAt int64
 }
 
 type Secret struct {

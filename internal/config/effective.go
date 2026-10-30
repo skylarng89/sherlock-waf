@@ -28,6 +28,7 @@ type EffectivePolicy struct {
 	RateLimits []RateLimit        `json:"rate_limits"`
 	AutoBan    EffectiveAutoBan   `json:"auto_ban"`
 	Bot        EffectiveBot       `json:"bot"`
+	API        EffectiveAPI       `json:"api"`
 	// Stacks are the declared technologies; empty or ["auto"] activates
 	// generic virtual patches only.
 	Stacks         []string                `json:"stacks"`
@@ -80,6 +81,7 @@ func (r *Root) EffectivePolicy(s *Site, ep *Endpoint) EffectivePolicy {
 		ACL:            newEffectiveACL(),
 		RateLimits:     []RateLimit{},
 		Bot:            newEffectiveBot(),
+		API:            newEffectiveAPI(),
 		Sources:        map[string]string{},
 	}
 	for _, f := range []string{
@@ -113,6 +115,7 @@ func (r *Root) EffectivePolicy(s *Site, ep *Endpoint) EffectivePolicy {
 		eff.apply(l.pol, l.name, &failSet, &blockingSet)
 		eff.applyAccess(l.pol, l.name)
 		eff.applyBot(l.pol, l.name)
+		eff.applyAPI(l.pol, l.name)
 		eff.applyRules(l.pol, l.name)
 	}
 	eff.sortRateLimits()
