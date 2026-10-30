@@ -491,7 +491,12 @@ func extract(o RestoreOptions, dir string) (BackupManifest, error) {
 		if _, dup := got[name]; dup {
 			return m, fmt.Errorf("backup lists %q twice", name)
 		}
-		dst := filepath.Join(dir, filepath.FromSlash(name))
+		base := filepath.Clean(dir)
+		dst := filepath.Clean(filepath.Join(base, filepath.FromSlash(name)))
+		rel, err := filepath.Rel(base, dst)
+		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+			return m, fmt.Errorf("backup contains an unsafe entry %q", name)
+		}
 		if err := os.MkdirAll(filepath.Dir(dst), 0o700); err != nil {
 			return m, err
 		}

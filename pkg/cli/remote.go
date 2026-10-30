@@ -38,8 +38,8 @@ func newRemote(server, token, pin string) (*remote, error) {
 	tc := &tls.Config{MinVersion: tls.VersionTLS12}
 	if pin != "" {
 		want := strings.ToLower(strings.ReplaceAll(pin, ":", ""))
-		tc.InsecureSkipVerify = true //nolint:gosec // replaced by the SPKI pin check below
 		// VerifyConnection (not VerifyPeerCertificate) so the pin is also enforced on resumed sessions.
+		// Keep standard TLS verification enabled and enforce pinning as an additional check.
 		tc.VerifyConnection = func(cs tls.ConnectionState) error {
 			if len(cs.PeerCertificates) == 0 {
 				return errors.New("server presented no certificate")

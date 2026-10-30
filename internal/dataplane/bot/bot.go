@@ -340,7 +340,7 @@ func (h *Handler) verify(w http.ResponseWriter, r *http.Request, d *policy.Decis
 // safeReturn only ever returns a path on this site: an open redirect would turn
 // the challenge into a phishing helper.
 func safeReturn(p string) string {
-	if p == "" || p[0] != '/' || strings.HasPrefix(p, "//") || strings.ContainsAny(p, "\\\r\n") || strings.HasPrefix(p, Prefix) {
+	if p == "" || p[0] != '/' || (len(p) > 1 && (p[1] == '/' || p[1] == '\\')) || strings.HasPrefix(p, "//") || strings.ContainsAny(p, "\\\r\n") || strings.HasPrefix(p, Prefix) {
 		return "/"
 	}
 	if u, err := url.Parse(p); err != nil || u.Host != "" || u.Scheme != "" {

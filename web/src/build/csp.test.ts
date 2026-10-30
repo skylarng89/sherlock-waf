@@ -25,7 +25,7 @@ describe('production build and CSP', () => {
     expect(index).toBeDefined()
     const html = text(index as Rollup.OutputAsset)
 
-    const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)]
+    const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi)]
     expect(scripts.length).toBeGreaterThan(0)
     for (const [, attrs, body] of scripts) {
       expect(attrs).toMatch(/\bsrc="\/assets\//)
