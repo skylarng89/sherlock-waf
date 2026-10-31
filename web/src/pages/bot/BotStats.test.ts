@@ -34,7 +34,7 @@ describe('overview bot card', () => {
     expect(api.GET).toHaveBeenCalledWith(
       '/stats/top',
       expect.objectContaining({
-        params: { query: expect.objectContaining({ dim: 'rule', limit: 100 }) },
+        params: { query: expect.objectContaining({ dim: 'rule', limit: 50 }) },
       }),
     )
   })

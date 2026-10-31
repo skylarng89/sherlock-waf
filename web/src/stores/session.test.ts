@@ -33,6 +33,22 @@ describe('session store', () => {
     expect(await session.fetchMe()).toBe('partial')
   })
 
+  it('keeps an authenticated session when a refresh is throttled, but a 401 still signs out', async () => {
+    const session = useSessionStore()
+    api.GET.mockResolvedValueOnce(ok(adminMe))
+    await session.fetchMe()
+
+    api.GET.mockResolvedValueOnce(problem(429))
+    expect(await session.fetchMe()).toBe('authenticated')
+    expect(session.me?.username).toBe('ada')
+
+    api.GET.mockResolvedValueOnce(problem(401))
+    expect(await session.fetchMe()).toBe('anonymous')
+
+    api.GET.mockResolvedValueOnce(problem(429))
+    expect(await session.fetchMe()).toBe('anonymous')
+  })
+
   it('treats a transport failure as signed out', async () => {
     api.GET.mockRejectedValueOnce(new TypeError('offline'))
     expect(await useSessionStore().fetchMe()).toBe('anonymous')

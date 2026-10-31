@@ -44,6 +44,11 @@ export const useSessionStore = defineStore('session', () => {
       setMe(data)
     } catch (e) {
       if (e instanceof ApiError && e.kind === 'forbidden') clear('partial')
+      // A throttled or failed refresh says nothing about the session: only a
+      // 401 (or no prior session) means signed out, so a busy moment does not
+      // send an authenticated user to the sign-in page.
+      else if (e instanceof ApiError && e.kind !== 'unauthenticated' && me.value)
+        return status.value
       else clear('anonymous')
     }
     return status.value

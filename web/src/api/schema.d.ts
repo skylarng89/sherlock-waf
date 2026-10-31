@@ -399,6 +399,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Change your own password (ends your other sessions; this one stays signed in) */
+        post: operations["changePassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Your signed-in browser sessions */
+        get: operations["listSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/sessions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Sign out one of your other browser sessions (not the current one; use logout for that) */
+        delete: operations["revokeSession"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tokens": {
         parameters: {
             query?: never;
@@ -1235,7 +1286,7 @@ export interface components {
             code: string;
         };
         MFAEnrolment: {
-            /** @description Base32 seed */
+            /** @description Base32 seed, shown once */
             secret: string;
             otpauth_uri: string;
         };
@@ -1312,6 +1363,27 @@ export interface components {
             /** @description shk_<id>_<secret>, shown once */
             token: string;
         };
+        ChangePassword: {
+            /** Format: password */
+            current_password: string;
+            /** Format: password */
+            new_password: string;
+        };
+        Session: {
+            /** @description Opaque identifier: the hex SHA-256 of the session cookie. It cannot be used as a credential. */
+            id: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            last_seen_at: string;
+            /** Format: date-time */
+            expires_at: string;
+            /** @description True for the session making this request */
+            current: boolean;
+        };
+        SessionList: {
+            items: components["schemas"]["Session"][];
+        };
         AuditEntry: {
             /** Format: int64 */
             seq: number;
@@ -1348,6 +1420,8 @@ export interface components {
                 seq?: number;
                 hash?: string;
             };
+            /** @description Longest API token lifetime in days; 0 means no limit. */
+            token_max_lifetime_days?: number;
         };
         SetupStatus: {
             setup_required: boolean;
@@ -1656,7 +1730,7 @@ export interface components {
             /** @description ip or header:<name> */
             key?: string;
             limit: number;
-            /** @description Go duration */
+            /** @description Go duration, e.g. 1m */
             window: string;
             /** @enum {string} */
             action?: "block" | "challenge" | "log";
@@ -2107,7 +2181,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Signed in */
+            /** @description Signed in, or a second step is required */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -2863,6 +2937,78 @@ export interface operations {
             404: components["responses"]["Problem"];
         };
     };
+    changePassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePassword"];
+            };
+        };
+        responses: {
+            /** @description Changed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+        };
+    };
+    listSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    revokeSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revoked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
     listTokens: {
         parameters: {
             query?: never;
@@ -2906,6 +3052,8 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
         };
     };
     deleteToken: {
@@ -3085,6 +3233,7 @@ export interface operations {
                     "application/json": components["schemas"]["UpdateApplyResult"];
                 };
             };
+            403: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
             501: components["responses"]["Problem"];

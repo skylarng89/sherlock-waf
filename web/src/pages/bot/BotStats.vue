@@ -24,7 +24,7 @@ async function load() {
     const res = await call(
       client.GET('/stats/top', {
         params: {
-          query: { dim: 'rule', from: from.toISOString(), to: to.toISOString(), limit: 100 },
+          query: { dim: 'rule', from: from.toISOString(), to: to.toISOString(), limit: 50 },
         },
       }),
       { toast: false },

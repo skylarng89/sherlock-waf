@@ -78,6 +78,8 @@ export async function startNode(opts: {
   const logFile = join(opts.dataDir, 'server.log')
   const env = { ...process.env }
   delete env.SHERLOCK_ADMIN_LISTEN
+  // The suite drives every page as one administrator, far faster than a person would.
+  env.SHERLOCK_API_RATE_LIMIT = '20000'
   const child = spawn(
     opts.bin,
     [

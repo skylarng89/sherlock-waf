@@ -22,6 +22,7 @@ export default {
   anyNetwork: 'Any network',
   noExpiry: 'Never',
   neverUsed: 'Never',
+  expiresSoon: 'Expires soon',
   you: '(you)',
   scopes: {
     read: 'Read',
@@ -45,7 +46,11 @@ export default {
     cidrsHelp:
       'CIDR ranges, separated by commas or new lines, for example 203.0.113.0/24. Leave empty to allow any network.',
     expires: 'Expires (optional)',
-    expiresHelp: 'Leave empty for a token that does not expire. Shorter lifetimes are safer.',
+    expiresHelp:
+      'Leave empty for the longest lifetime this node allows. Shorter lifetimes are safer.',
+    expiresLimit:
+      'This node allows tokens to live up to {days} days. Longer lifetimes are refused.',
+    expiresNoLimit: 'This node does not limit token lifetimes.',
     expiresInvalid: 'Enter a valid date and time.',
     submit: 'Create token',
     submitting: 'Creating',

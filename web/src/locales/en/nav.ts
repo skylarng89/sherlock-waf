@@ -28,6 +28,7 @@ export default {
   },
   user: {
     menu: 'Account menu',
+    account: 'Account',
     signedInAs: 'Signed in as {name}',
     role: 'Role: {role}',
     signOut: 'Sign out',

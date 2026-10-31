@@ -66,6 +66,15 @@ onBeforeUnmount(() => {
         {{ t('nav.user.signedInAs', { name: session.me.username }) }}<br />
         {{ t('nav.user.role', { role: session.me.role }) }}
       </p>
+      <RouterLink
+        to="/account"
+        class="mt-1 flex w-full items-center gap-2 rounded-sk-sm px-2 py-2 text-left hover:bg-sk-surface-muted"
+        data-testid="account-link"
+        @click="close()"
+      >
+        <i class="ti ti-settings" aria-hidden="true" />
+        {{ t('nav.user.account') }}
+      </RouterLink>
       <button
         type="button"
         class="mt-1 flex w-full items-center gap-2 rounded-sk-sm px-2 py-2 text-left hover:bg-sk-surface-muted"

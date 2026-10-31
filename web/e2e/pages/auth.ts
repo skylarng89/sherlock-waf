@@ -12,25 +12,21 @@ export class LoginPage extends Shell {
 
   // The server allows 5 sign-in attempts a minute per client address, and a whole
   // suite signs in from one address, so a throttled attempt waits out the
-  // countdown the page shows and tries again instead of failing the test.
+  // countdown the page shows and tries again instead of failing the test. The
+  // outcome comes from the login response, not from page text: the countdown
+  // message stays on screen after a successful retry until the route changes.
   async signIn(username: string, password: string): Promise<void> {
     for (let attempt = 0; attempt < 4; attempt++) {
       await this.username.fill(username)
       await this.password.fill(password)
-      await this.submit.click()
-      const throttled = this.page.getByText(
-        /Too many sign-in attempts|You can try signing in again now/,
-      )
-      const left = this.page
-        .waitForURL((u) => !u.pathname.startsWith('/login') || u.pathname !== '/login', {
-          timeout: 15_000,
-        })
-        .then(() => 'left')
-      const blocked = throttled
-        .first()
-        .waitFor({ timeout: 15_000 })
-        .then(() => 'blocked')
-      if ((await Promise.race([left, blocked]).catch(() => 'left')) === 'left') return
+      const [response] = await Promise.all([
+        this.page.waitForResponse(
+          (r) =>
+            r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/auth/login'),
+        ),
+        this.submit.click(),
+      ])
+      if (response.status() !== 429) return
       await this.page.getByText('You can try signing in again now.').waitFor({ timeout: 90_000 })
     }
   }

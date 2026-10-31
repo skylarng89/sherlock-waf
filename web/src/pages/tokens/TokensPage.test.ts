@@ -114,4 +114,39 @@ describe('TokensPage', () => {
     await flushPromises()
     expect(api.DELETE).toHaveBeenCalledWith('/tokens/{id}', { params: { path: { id: 't1' } } })
   })
+
+  it('flags tokens that expire within 14 days', async () => {
+    const day = 24 * 60 * 60 * 1000
+    api.GET.mockResolvedValue(
+      ok({
+        items: [
+          token('soon', 'u1', { expires_at: new Date(Date.now() + 5 * day).toISOString() }),
+          token('later', 'u1', { expires_at: new Date(Date.now() + 30 * day).toISOString() }),
+          token('never', 'u1'),
+          token('gone', 'u1', { expires_at: new Date(Date.now() - day).toISOString() }),
+        ],
+      }),
+    )
+    const { wrapper } = await renderWithApp(TokensPage, { me: adminMe })
+    const badge = (id: string) =>
+      wrapper.find(`[data-testid="token-${id}"] [data-testid="expires-soon"]`)
+    expect(badge('soon').exists()).toBe(true)
+    expect(badge('soon').text()).toContain('Expires soon')
+    expect(badge('later').exists()).toBe(false)
+    expect(badge('never').exists()).toBe(false)
+    expect(badge('gone').exists(), 'an expired token is not an upcoming expiry').toBe(false)
+  })
+
+  it('explains the node lifetime limit in the create form', async () => {
+    api.GET.mockImplementation((path: string) =>
+      Promise.resolve(
+        path === '/system/info'
+          ? ok({ version: 'x', token_max_lifetime_days: 365 })
+          : ok({ items: [] }),
+      ),
+    )
+    const { wrapper } = await renderWithApp(TokensPage, { me: adminMe })
+    await flushPromises()
+    expect(wrapper.text()).toContain('up to 365 days')
+  })
 })

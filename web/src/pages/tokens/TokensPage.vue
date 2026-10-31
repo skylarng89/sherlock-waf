@@ -19,6 +19,7 @@ type Scope = Token['scopes'][number]
 
 const SCOPES: Scope[] = ['read', 'write', 'events:read', 'admin']
 const RENDERED = ['name', 'scopes', 'expires_at']
+const EXPIRY_WARNING_MS = 14 * 24 * 60 * 60 * 1000
 
 const { t } = useI18n()
 const { client, call } = useApi()
@@ -30,6 +31,8 @@ const tokens = ref<Token[]>([])
 const loading = ref(true)
 const loadError = ref('')
 const showOwner = computed(() => session.can('users:manage'))
+// Days a token may live on this node, from /system/info; null while unknown.
+const maxLifetimeDays = ref<number | null>(null)
 
 const name = ref('')
 const scopes = ref<Scope[]>([])
@@ -76,7 +79,10 @@ async function load() {
     loading.value = false
   }
 }
-onMounted(load)
+onMounted(() => {
+  void load()
+  void loadLifetimeLimit()
+})
 
 function clearSecret() {
   secret.value = ''
@@ -177,7 +183,29 @@ async function confirmRevoke() {
   }
 }
 
+const expiryHelp = computed(() => {
+  if (maxLifetimeDays.value === null) return t('tokens.create.expiresHelp')
+  if (maxLifetimeDays.value === 0) return t('tokens.create.expiresNoLimit')
+  return `${t('tokens.create.expiresHelp')} ${t('tokens.create.expiresLimit', { days: maxLifetimeDays.value })}`
+})
+
 const isOwn = (token: Token) => token.user_id === session.me?.id
+
+const expiresSoon = (token: Token, now = Date.now()) => {
+  if (!token.expires_at) return false
+  const left = new Date(token.expires_at).getTime() - now
+  return left > 0 && left <= EXPIRY_WARNING_MS
+}
+
+async function loadLifetimeLimit() {
+  try {
+    const info = (await call(client.GET('/system/info'), { toast: false })).data
+    maxLifetimeDays.value =
+      typeof info.token_max_lifetime_days === 'number' ? info.token_max_lifetime_days : null
+  } catch {
+    maxLifetimeDays.value = null
+  }
+}
 </script>
 
 <template>
@@ -253,7 +281,18 @@ const isOwn = (token: Token) => token.user_id === session.me?.id
               <td class="p-2">
                 {{ token.cidrs.length ? token.cidrs.join(', ') : t('tokens.anyNetwork') }}
               </td>
-              <td class="p-2">{{ fmt(token.expires_at, t('tokens.noExpiry')) }}</td>
+              <td class="p-2">
+                {{ fmt(token.expires_at, t('tokens.noExpiry')) }}
+                <span
+                  v-if="expiresSoon(token)"
+                  class="ml-2 inline-block rounded-sk bg-sk-warning-bg px-2 py-0.5 text-sm font-medium text-sk-warning"
+                  data-testid="expires-soon"
+                  :title="t('tokens.expiresSoon')"
+                >
+                  <i class="ti ti-clock-exclamation" aria-hidden="true" />
+                  {{ t('tokens.expiresSoon') }}
+                </span>
+              </td>
               <td class="p-2">{{ fmt(token.last_used_at, t('tokens.neverUsed')) }}</td>
               <td class="p-2">{{ fmt(token.created_at, '') }}</td>
               <td class="p-2">
@@ -360,8 +399,8 @@ const isOwn = (token: Token) => token.user_id === session.me?.id
         </SkFormField>
         <SkFormField
           :label="t('tokens.create.expires')"
-          :help="t('tokens.create.expiresHelp')"
-          :error="form.errorFor('expires_at')"
+          :help="expiryHelp"
+          :error="form.errorFor('expires_at') || undefined"
         >
           <template #default="{ attrs, invalid }">
             <input

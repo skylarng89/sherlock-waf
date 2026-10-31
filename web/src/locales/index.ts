@@ -1,6 +1,7 @@
 // Merges the per-area message files. Each area owns exactly one file so parallel
 // authors never edit the same one. Adding an area means adding one import here.
 import access from './en/access'
+import account from './en/account'
 import analytics from './en/analytics'
 import api from './en/api'
 import audit from './en/audit'
@@ -24,6 +25,7 @@ import users from './en/users'
 
 export const en = {
   access,
+  account,
   analytics,
   api,
   audit,
