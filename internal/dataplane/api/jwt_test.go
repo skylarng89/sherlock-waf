@@ -254,3 +254,25 @@ func FuzzVerify(f *testing.F) {
 		}
 	})
 }
+
+func TestKeyWithoutIDMatchesAnyKid(t *testing.T) {
+	ecKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	other, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	v := newVerifier(Key{Public: &ecKey.PublicKey})
+
+	_, err = v.Verify(sign(t, "ES256", "issuer-key-1", validClaims(), ecSigner(t, ecKey)))
+	require.NoError(t, err, "a configured key has no ID, so the token's kid must not exclude it")
+	_, err = v.Verify(sign(t, "ES256", "", validClaims(), ecSigner(t, ecKey)))
+	require.NoError(t, err)
+
+	// The kid is a hint only: the signature still has to verify.
+	_, err = v.Verify(sign(t, "ES256", "issuer-key-1", validClaims(), ecSigner(t, other)))
+	assert.ErrorIs(t, err, ErrSignature)
+
+	// Keys that do have IDs are still selected by name.
+	named := newVerifier(Key{ID: "a", Public: &ecKey.PublicKey})
+	_, err = named.Verify(sign(t, "ES256", "b", validClaims(), ecSigner(t, ecKey)))
+	assert.ErrorIs(t, err, ErrNoKey)
+}

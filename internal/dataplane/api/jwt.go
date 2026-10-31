@@ -66,8 +66,15 @@ func matchKeys(keys []Key, kid string) []Key {
 	if kid != "" {
 		var out []Key
 		for _, k := range keys {
-			if k.ID == kid {
+			// A key without an ID (a configured PEM or secret, or a JWKS entry
+			// with no kid) cannot be selected by name. The kid is only a lookup
+			// hint, so such a key is tried for any kid and the signature still
+			// has to verify against it.
+			if k.ID == kid || k.ID == "" {
 				out = append(out, k)
+			}
+			if len(out) == maxTryKeys {
+				break
 			}
 		}
 		return out
