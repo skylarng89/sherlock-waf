@@ -191,8 +191,19 @@ func Run(ctx context.Context, o Options) error {
 		env.Audit.AddSink(s)
 	}
 
-	authSvc := auth.New(auth.Config{Store: env.Store, Secrets: env.Secrets, Audit: env.Audit, Hasher: env.Hasher, Logger: log})
+	tokenMax, err := ops.TokenMaxLifetimeFromEnv()
+	if err != nil {
+		_ = dp.Stop(ctx)
+		return err
+	}
+	rateLimit, err := apiRateLimitFromEnv()
+	if err != nil {
+		_ = dp.Stop(ctx)
+		return err
+	}
+	authSvc := auth.New(auth.Config{Store: env.Store, Secrets: env.Secrets, Audit: env.Audit, Hasher: env.Hasher, Logger: log, TokenMaxLifetime: tokenMax})
 	info := o.Info
+	info.TokenMaxLifetimeDays = int(tokenMax / (24 * time.Hour))
 	info.Features = append([]string{"control-plane"}, info.Features...)
 	for _, e := range o.Extensions {
 		info.Features = append(info.Features, "extension:"+e.Name())
@@ -207,7 +218,7 @@ func Run(ctx context.Context, o Options) error {
 		Update: upd,
 		Store:  env.Store, Config: cfg, Auth: authSvc, Audit: env.Audit, Hasher: env.Hasher,
 		Info: info, Authorizer: host.authorizer, Logger: log,
-		Secrets: env.Secrets, Certs: certFiles, Setup: gate, DataDir: dataDir,
+		Secrets: env.Secrets, Certs: certFiles, Setup: gate, DataDir: dataDir, PrincipalRequestsPerMinute: rateLimit,
 		Feeds: func() []api.FeedStatus { return feedStatuses(fm) }, EventStats: dp.EventStats,
 	})
 	if err != nil {

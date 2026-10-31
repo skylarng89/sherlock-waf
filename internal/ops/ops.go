@@ -13,6 +13,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -27,6 +28,25 @@ import (
 
 // EnvDatabaseURL selects the database; empty means SQLite in the data dir.
 const EnvDatabaseURL = "SHERLOCK_DATABASE_URL"
+
+// EnvAPITokenMaxDays caps API token lifetimes in days; 0 removes the cap. The
+// server and the CLI both read it, so a token minted either way obeys the same limit.
+const EnvAPITokenMaxDays = "SHERLOCK_API_TOKEN_MAX_DAYS"
+
+// TokenMaxLifetimeFromEnv reads EnvAPITokenMaxDays. Unset means the default; a
+// value that is not a non-negative whole number is an error, because silently
+// falling back could mint longer-lived tokens than the operator intended.
+func TokenMaxLifetimeFromEnv() (time.Duration, error) {
+	v := strings.TrimSpace(os.Getenv(EnvAPITokenMaxDays))
+	if v == "" {
+		return auth.DefaultTokenMaxLifetime, nil
+	}
+	days, err := strconv.Atoi(v)
+	if err != nil || days < 0 {
+		return 0, fmt.Errorf("%s must be a whole number of days, 0 for no limit (got %q)", EnvAPITokenMaxDays, v)
+	}
+	return time.Duration(days) * 24 * time.Hour, nil
+}
 
 // Env is an opened node state.
 type Env struct {
@@ -197,7 +217,11 @@ func (e *Env) CreateToken(ctx context.Context, username, name string, scopes, ci
 	if err != nil {
 		return auth.CreatedToken{}, err
 	}
-	svc := auth.New(auth.Config{Store: e.Store, Secrets: e.Secrets, Audit: e.Audit, Hasher: e.Hasher, Logger: e.Logger})
+	maxLifetime, err := TokenMaxLifetimeFromEnv()
+	if err != nil {
+		return auth.CreatedToken{}, err
+	}
+	svc := auth.New(auth.Config{Store: e.Store, Secrets: e.Secrets, Audit: e.Audit, Hasher: e.Hasher, Logger: e.Logger, TokenMaxLifetime: maxLifetime})
 	ct, err := svc.CreateToken(ctx, u.ID, name, scopes, cidrs, expires)
 	if err != nil {
 		return auth.CreatedToken{}, err

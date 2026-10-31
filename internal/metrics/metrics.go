@@ -15,6 +15,10 @@ import (
 var Registry = prometheus.NewRegistry()
 
 var (
+	apiThrottled = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "sherlock_api_throttled_total",
+		Help: "Control-plane requests refused with 429 by the request limiter, by scope (principal or anonymous).",
+	}, []string{"scope"})
 	requests = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "sherlock_requests_total",
 		Help: "Requests with a security decision, by site and action. Clean requests count as action=allow.",
@@ -44,7 +48,7 @@ var (
 )
 
 func init() {
-	Registry.MustRegister(requests, requestDuration, wafDuration, configVersion, crsVersion,
+	Registry.MustRegister(requests, requestDuration, wafDuration, configVersion, crsVersion, apiThrottled,
 		internalErrorCollector{src: policy.InternalErrors.Load},
 		prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 			Name: "sherlock_requests_in_flight",
@@ -52,6 +56,9 @@ func init() {
 		}, func() float64 { return float64(policy.InFlight.Load()) }),
 		collectors.NewGoCollector(), collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
 }
+
+// ObserveAPIThrottled counts one control-plane request refused by the request limiter.
+func ObserveAPIThrottled(scope string) { apiThrottled.WithLabelValues(scope).Inc() }
 
 // ObserveRequest records one finished request. It is called on the request
 // path, so it only touches pre-created collectors.

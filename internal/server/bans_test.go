@@ -37,6 +37,11 @@ func TestAutoBansArePersistedAuditedAndRestored(t *testing.T) {
 		return n == 1
 	}, 5*time.Second, 50*time.Millisecond, "the ban reaches the database")
 
+	// Stop the persister before reading the chain: Verify reads the log and its
+	// head separately, so an append in flight would look like a truncated log.
+	cancel()
+	<-done
+
 	var entries []store.AuditEntry
 	require.NoError(t, env.Store.Tx(t.Context(), func(ctx context.Context, tx store.Tx) (err error) {
 		entries, err = tx.ListAudit(ctx, 0, 10)
@@ -48,8 +53,6 @@ func TestAutoBansArePersistedAuditedAndRestored(t *testing.T) {
 	rep, err := audit.Verify(t.Context(), env.Store)
 	require.NoError(t, err)
 	assert.Nil(t, rep.Problem)
-	cancel()
-	<-done
 
 	// A restart restores the live ban set from the database.
 	acl.Bans.Replace(nil)

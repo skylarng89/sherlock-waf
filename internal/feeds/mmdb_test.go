@@ -271,7 +271,7 @@ func TestMaxMindCredentialsNeverReachStatusOrLogs(t *testing.T) {
 	// careless upstream might. The status must not store them.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
-		_, _ = w.Write([]byte("denied for " + r.Header.Get("Authorization") + " " + testKey))
+		_, _ = w.Write([]byte("denied for account " + testAccount + " with key " + testKey))
 	}))
 	defer srv.Close()
 
