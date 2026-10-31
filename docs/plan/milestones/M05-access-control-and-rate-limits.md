@@ -11,16 +11,16 @@ Cheap, fast checks before the WAF: allow/deny lists, geo, reputation, rate limit
 
 ## Tasks
 
-- [ ] **M5-T1** `internal/policy/ipset`: fast CIDR set (radix/patricia) for IPv4/IPv6 with benchmarks.
-- [ ] **M5-T2** `sherlock_acl` module: allow lists (skip rate limit and bot), deny lists, country allow/deny, reputation threshold, temporary bans, password gate (bcrypt/argon2 hash, 401 with `WWW-Authenticate`).
-- [ ] **M5-T3** Feeds job (`internal/controlplane/feeds`): GeoIP DB (DB-IP Lite default; MaxMind with licence key optional) download when `auto_update` is on, else manual upload; reputation lists (FireHOL level1, Spamhaus DROP); atomic swap into the data plane; SSRF-safe outbound client (`internal/netx`).
-- [ ] **M5-T4** CrowdSec bouncer: poll LAPI decisions stream, apply as bans with source `crowdsec`.
-- [ ] **M5-T5** `internal/policy/ratelimit`: sliding-window counter (two-bucket approximation), sharded map, memory cap with LRU eviction, `RateLimitBackend` interface (extension point).
-- [ ] **M5-T6** `sherlock_ratelimit` module: rules by path glob, method, key (ip, header), actions block (429 + `Retry-After`), challenge (hands to bot module, effective from M6), log.
-- [ ] **M5-T7** Auto-ban: count blocks per IP per site in window → ban; bans table and in-memory set; API `GET/POST/DELETE /bans`.
-- [ ] **M5-T8** API + UI: IP lists page, site ACL tab, rate limits tab, bans page with unban.
-- [ ] **M5-T8b** Global ACL lists and global rate limits applied to all sites through `global.defaults`, with per-site/endpoint `opt_out` (FR-POL-5), audited.
-- [ ] **M5-T9** Tests: unit, benchmarks (ACL check < 1 µs p99 for 100k CIDRs), e2e (ban after repeated attacks).
+- [x] **M5-T1** `internal/policy/ipset`: fast CIDR set (radix/patricia) for IPv4/IPv6 with benchmarks.
+- [x] **M5-T2** `sherlock_acl` module: allow lists (skip rate limit and bot), deny lists, country allow/deny, reputation threshold, temporary bans, password gate (bcrypt/argon2 hash, 401 with `WWW-Authenticate`).
+- [x] **M5-T3** Feeds job (`internal/controlplane/feeds`): GeoIP DB (DB-IP Lite default; MaxMind with licence key optional) download when `auto_update` is on, else manual upload; reputation lists (FireHOL level1, Spamhaus DROP); atomic swap into the data plane; SSRF-safe outbound client (`internal/netx`).
+- [x] **M5-T4** CrowdSec bouncer: poll LAPI decisions stream, apply as bans with source `crowdsec`.
+- [x] **M5-T5** `internal/policy/ratelimit`: sliding-window counter (two-bucket approximation), sharded map, memory cap with LRU eviction, `RateLimitBackend` interface (extension point).
+- [x] **M5-T6** `sherlock_ratelimit` module: rules by path glob, method, key (ip, header), actions block (429 + `Retry-After`), challenge (hands to bot module, effective from M6), log.
+- [x] **M5-T7** Auto-ban: count blocks per IP per site in window → ban; bans table and in-memory set; API `GET/POST/DELETE /bans`.
+- [x] **M5-T8** API + UI: IP lists page, site ACL tab, rate limits tab, bans page with unban.
+- [x] **M5-T8b** Global ACL lists and global rate limits applied to all sites through `global.defaults`, with per-site/endpoint `opt_out` (FR-POL-5), audited.
+- [x] **M5-T9** Tests: unit, benchmarks (ACL check < 1 µs p99 for 100k CIDRs), e2e (ban after repeated attacks).
 
 ## Acceptance criteria
 

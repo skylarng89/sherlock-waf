@@ -11,16 +11,16 @@ Everything a design partner needs: see and understand attacks, roll out from det
 
 ## Tasks
 
-- [ ] **M7-T1** Attack explorer: filterable, paginated event table (site, action, rule, IP, country, path, time range, free text), saved filters in URL, live tail via SSE with pause.
-- [ ] **M7-T2** Event detail page: request summary, findings with CRS rule description and links, anomaly score breakdown, client info, "similar events" count; all data rendered as text (XSS-safe; Playwright test with payloads).
-- [ ] **M7-T3** Analytics: time series (requests, blocks, challenges by site), top rules, top IPs, top paths, top countries (ECharts, with table fallbacks for accessibility).
-- [ ] **M7-T4** Would-block report (FR-FIN-3): for a detect-mode site and period, count and list requests that would have been blocked, grouped by rule and path; export CSV; one-click "switch to block" from the report.
-- [ ] **M7-T5** System page: version info, CRS version and age, update available, backups list, health of feeds, disk usage, event drop counter.
-- [ ] **M7-T6** Packaging: nfpm `.deb`/`.rpm` with systemd unit (hardening from deployment.md), `deploy/install/install.sh` (detects distro, verifies cosign signature, installs, starts, prints setup URL), Docker Compose example, container image runs as non-root with read-only root FS.
-- [ ] **M7-T7** Updater: `sherlock update [--check|--bundle FILE]` and `POST /system/update/apply`; downloads release manifest, verifies cosign signature and checksums, backs up, swaps binary atomically, restarts via systemd (or prints instructions in containers).
-- [ ] **M7-T8** Backup/restore commands and daily backup job (data-model.md).
-- [ ] **M7-T9** Internal ASVS 5.0 L2 review of the control plane; findings fixed or ticketed with severity.
-- [ ] **M7-T10** User docs: install guide per method, first site, detect-to-block rollout guide, backup/restore, upgrade.
+- [x] **M7-T1** Attack explorer: filterable, paginated event table (site, action, rule, IP, country, path, time range, free text), saved filters in URL, live tail via SSE with pause.
+- [x] **M7-T2** Event detail page: request summary, findings with CRS rule description and links, anomaly score breakdown, client info, "similar events" count; all data rendered as text (XSS-safe; Playwright test with payloads).
+- [x] **M7-T3** Analytics: time series (requests, blocks, challenges by site), top rules, top IPs, top paths, top countries (ECharts, with table fallbacks for accessibility).
+- [x] **M7-T4** Would-block report (FR-FIN-3): for a detect-mode site and period, count and list requests that would have been blocked, grouped by rule and path; export CSV; one-click "switch to block" from the report.
+- [x] **M7-T5** System page: version info, CRS version and age, update available, backups list, health of feeds, disk usage, event drop counter.
+- [x] **M7-T6** Packaging: nfpm `.deb`/`.rpm` with systemd unit (hardening from deployment.md), `deploy/install/install.sh` (detects distro, verifies cosign signature, installs, starts, prints setup URL), Docker Compose example, container image runs as non-root with read-only root FS.
+- [x] **M7-T7** Updater: `sherlock update [--check|--bundle FILE]` and `POST /system/update/apply`; downloads release manifest, verifies cosign signature and checksums, backs up, swaps binary atomically, restarts via systemd (or prints instructions in containers).
+- [x] **M7-T8** Backup/restore commands and daily backup job (data-model.md).
+- [x] **M7-T9** Internal ASVS 5.0 L2 review of the control plane; findings fixed or ticketed with severity.
+- [x] **M7-T10** User docs: install guide per method, first site, detect-to-block rollout guide, backup/restore, upgrade.
 
 ## Acceptance criteria (Phase 2 gate)
 

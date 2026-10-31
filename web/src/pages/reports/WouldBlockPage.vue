@@ -23,6 +23,8 @@ const RANGES = { '24h': 86_400_000, '7d': 7 * 86_400_000, '30d': 30 * 86_400_000
 type RangeKey = keyof typeof RANGES
 
 const { t } = useI18n()
+
+const openLabel = (id: string) => t('reports.requests.open', { id })
 const route = useRoute()
 const router = useRouter()
 const session = useSessionStore()
@@ -333,9 +335,7 @@ async function switchToBlock() {
                       class="text-sk-accent underline"
                     >
                       <time :datetime="r.ts">{{ formatTime(r.ts) }}</time>
-                      <span class="sr-only">
-                        {{ t('reports.requests.open', { id: r.event_id }) }}</span
-                      >
+                      <span class="sr-only">{{ openLabel(r.event_id) }}</span>
                     </RouterLink>
                   </th>
                   <td class="p-2 font-mono text-sm">{{ r.client_ip }}</td>

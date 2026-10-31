@@ -40,9 +40,10 @@ func newHealthcheckCommand() *cobra.Command {
 			if ip := net.ParseIP(host); host != "localhost" && (ip == nil || !ip.IsLoopback()) {
 				return fmt.Errorf("healthcheck only probes the local node, not %q", host)
 			}
-			// The node serves TLS on loopback; keep certificate verification enabled.
+			// The node serves a self-signed certificate by default and the probe never
+			// leaves loopback, so there is no peer identity to verify.
 			client := &http.Client{Timeout: timeout, Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12},
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true, MinVersion: tls.VersionTLS12}, //nolint:gosec // loopback-only probe, see above
 			}}
 			req, err := http.NewRequestWithContext(cmd.Context(), http.MethodGet, "https://"+net.JoinHostPort(host, port)+"/readyz", http.NoBody)
 			if err != nil {

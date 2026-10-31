@@ -11,17 +11,17 @@ Make false positives quick and safe to fix, which is where most WAF deployments 
 
 ## Tasks
 
-- [ ] **M8-T1** Exclusion model and compiler: remove rule by ID/tag for a scope (site, path glob, method), remove target from rule (`ctl:ruleRemoveTargetById`), generated as CRS-style runtime exclusion rules before CRS includes; golden tests.
-- [ ] **M8-T2** "Create exclusion from event" API and wizard: proposes the narrowest exclusion (this rule, this target, this path, this method), shows how many past events it would have affected, and warns when it would disable a whole attack category.
-- [ ] **M8-T3** Custom rules editor (per site): SecLang with syntax highlighting (CodeMirror 6), validation by compiling in a throwaway Coraza instance, forbidden directives/actions (T9) rejected with clear messages, rule ID range 10000–99999 reserved for users.
-- [ ] **M8-T4** Outbound inspection toggle (FR-WAF-8) with response body limit and content-type filter; findings appear like inbound ones.
-- [ ] **M8-T5** Paranoia level helper: UI explains PL1–PL4 and shows the would-block delta of raising the level using stored detect-only findings (requires recording findings above blocking PL with `log` action: compile `blocking_paranoia_level` < `paranoia_level` support).
-- [ ] **M8-T6** CRS info: list of rules with descriptions (generated from CRS files at build time), search, per-site enabled/disabled state.
-- [ ] **M8-T6b** Virtual-patching framework (FR-VP, ADR-0013): `rules/virtual-patches/` format (rule + metadata), reserved ID range, loader into Coraza before CRS, `stacks` declaration on sites (`policy.stacks`) and activation logic, `virtual_patches` policy field (enabled, disabled list) at all three levels.
-- [ ] **M8-T6c** Initial pack: 15–25 rules for high-profile, actively exploited web CVEs relevant to target users, each with metadata, nuclei/go-ftw positive test and benign negative test; `covered-by-crs.yaml` for CVEs CRS already blocks.
-- [ ] **M8-T6d** `kev-watch.yml` workflow opening triage issues from the CISA KEV feed; `docs/security/virtual-patching-process.md` followed for the initial pack.
-- [ ] **M8-T6e** UI: Virtual patches page (catalogue with CVE, product, severity, KEV badge, state per site, hits), site/endpoint toggles, "Covered CVEs" summary on overview; API `GET /virtual-patches`.
-- [ ] **M8-T7** Tests: go-ftw still passes with sample exclusions; benign corpus extended with app-specific samples (WordPress, Django admin, JSON APIs) and their exclusion packages documented.
+- [x] **M8-T1** Exclusion model and compiler: remove rule by ID/tag for a scope (site, path glob, method), remove target from rule (`ctl:ruleRemoveTargetById`), generated as CRS-style runtime exclusion rules before CRS includes; golden tests.
+- [x] **M8-T2** "Create exclusion from event" API and wizard: proposes the narrowest exclusion (this rule, this target, this path, this method), shows how many past events it would have affected, and warns when it would disable a whole attack category.
+- [x] **M8-T3** Custom rules editor (per site): SecLang with syntax highlighting (CodeMirror 6), validation by compiling in a throwaway Coraza instance, forbidden directives/actions (T9) rejected with clear messages, rule ID range 10000–99999 reserved for users.
+- [x] **M8-T4** Outbound inspection toggle (FR-WAF-8) with response body limit and content-type filter; findings appear like inbound ones.
+- [x] **M8-T5** Paranoia level helper: UI explains PL1–PL4 and shows the would-block delta of raising the level using stored detect-only findings (requires recording findings above blocking PL with `log` action: compile `blocking_paranoia_level` < `paranoia_level` support).
+- [x] **M8-T6** CRS info: list of rules with descriptions (generated from CRS files at build time), search, per-site enabled/disabled state.
+- [x] **M8-T6b** Virtual-patching framework (FR-VP, ADR-0013): `rules/virtual-patches/` format (rule + metadata), reserved ID range, loader into Coraza before CRS, `stacks` declaration on sites (`policy.stacks`) and activation logic, `virtual_patches` policy field (enabled, disabled list) at all three levels.
+- [x] **M8-T6c** Initial pack: 15–25 rules for high-profile, actively exploited web CVEs relevant to target users, each with metadata, nuclei/go-ftw positive test and benign negative test; `covered-by-crs.yaml` for CVEs CRS already blocks.
+- [x] **M8-T6d** `kev-watch.yml` workflow opening triage issues from the CISA KEV feed; `docs/security/virtual-patching-process.md` followed for the initial pack.
+- [x] **M8-T6e** UI: Virtual patches page (catalogue with CVE, product, severity, KEV badge, state per site, hits), site/endpoint toggles, "Covered CVEs" summary on overview; API `GET /virtual-patches`.
+- [x] **M8-T7** Tests: go-ftw still passes with sample exclusions; benign corpus extended with app-specific samples (WordPress, Django admin, JSON APIs) and their exclusion packages documented.
 
 ## Acceptance criteria
 

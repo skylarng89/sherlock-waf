@@ -11,17 +11,17 @@ Configuration moves from a file into a store, managed through an authenticated, 
 
 ## Tasks
 
-- [ ] **M3-T1** Store: goose migrations and sqlc queries for both dialects (tables: config_versions, sites, users, sessions, api_tokens, secrets, audit_log, events, event_rollups_1m, kv). `SHERLOCK_DB` DSN selection. Store test suite on SQLite and Postgres (testcontainers).
-- [ ] **M3-T2** Node key and `internal/secrets` (XChaCha20-Poly1305), key from file or env.
-- [ ] **M3-T3** `configsvc`: load latest applied version at boot; apply = validate → compile → `caddy.Load` → commit version + diff + audit; rollback; ETag/If-Match concurrency.
-- [ ] **M3-T4** Event batch writer to the store + rollups; retention job. Remove the temporary JSONL sink or keep it as an option.
-- [ ] **M3-T5** `api/openapi.yaml` for the M3 routes in api.md (auth, me, config, versions, global defaults, sites CRUD, endpoints CRUD, effective-policy, users, tokens, audit, events list/get, system/info). `x-sherlock-permission` on every operation. Generate server types (oapi-codegen strict server) and the TS client.
-- [ ] **M3-T6** Admin listener (`SHERLOCK_ADMIN_LISTEN`) with TLS (self-signed generated at first start until an admin hostname with ACME is set), separate `http.Server`, strict security headers and CSP, request size limits, timeouts, CIDR allow-list.
-- [ ] **M3-T7** Auth: argon2id passwords, login rate limiting and backoff, TOTP MFA (RFC 6238, mandatory for admin role), sessions per api.md, CSRF double-submit, API tokens with scopes/CIDR/expiry. Permission middleware from the spec's `x-sherlock-permission`.
-- [ ] **M3-T8** Audit service writing hash-chained rows for logins, failed logins, every config change, user/token changes.
-- [ ] **M3-T9** `pkg/extension` v0: `Extension`, `Host`, `Authorizer`, `AuthProvider`, `AuditSink`, `EventStore` interfaces with core defaults and a fake implementation used in tests. `cmd/sherlock` uses `extension.None()`.
-- [ ] **M3-T10** CLI: `sherlock user create|reset-password|reset-mfa`, `sherlock config export|import|apply|validate`, `sherlock token create`.
-- [ ] **M3-T11** API tests: every route × {anonymous, viewer, admin, token with each scope} × {valid, invalid input}.
+- [x] **M3-T1** Store: goose migrations and sqlc queries for both dialects (tables: config_versions, sites, users, sessions, api_tokens, secrets, audit_log, events, event_rollups_1m, kv). `SHERLOCK_DB` DSN selection. Store test suite on SQLite and Postgres (testcontainers).
+- [x] **M3-T2** Node key and `internal/secrets` (XChaCha20-Poly1305), key from file or env.
+- [x] **M3-T3** `configsvc`: load latest applied version at boot; apply = validate → compile → `caddy.Load` → commit version + diff + audit; rollback; ETag/If-Match concurrency.
+- [x] **M3-T4** Event batch writer to the store + rollups; retention job. Remove the temporary JSONL sink or keep it as an option.
+- [x] **M3-T5** `api/openapi.yaml` for the M3 routes in api.md (auth, me, config, versions, global defaults, sites CRUD, endpoints CRUD, effective-policy, users, tokens, audit, events list/get, system/info). `x-sherlock-permission` on every operation. Generate server types (oapi-codegen strict server) and the TS client.
+- [x] **M3-T6** Admin listener (`SHERLOCK_ADMIN_LISTEN`) with TLS (self-signed generated at first start until an admin hostname with ACME is set), separate `http.Server`, strict security headers and CSP, request size limits, timeouts, CIDR allow-list.
+- [x] **M3-T7** Auth: argon2id passwords, login rate limiting and backoff, TOTP MFA (RFC 6238, mandatory for admin role), sessions per api.md, CSRF double-submit, API tokens with scopes/CIDR/expiry. Permission middleware from the spec's `x-sherlock-permission`.
+- [x] **M3-T8** Audit service writing hash-chained rows for logins, failed logins, every config change, user/token changes.
+- [x] **M3-T9** `pkg/extension` v0: `Extension`, `Host`, `Authorizer`, `AuthProvider`, `AuditSink`, `EventStore` interfaces with core defaults and a fake implementation used in tests. `cmd/sherlock` uses `extension.None()`.
+- [x] **M3-T10** CLI: `sherlock user create|reset-password|reset-mfa`, `sherlock config export|import|apply|validate`, `sherlock token create`.
+- [x] **M3-T11** API tests: every route × {anonymous, viewer, admin, token with each scope} × {valid, invalid input}.
 
 ## Acceptance criteria
 
