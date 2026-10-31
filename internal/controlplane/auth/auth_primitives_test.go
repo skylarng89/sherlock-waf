@@ -120,10 +120,12 @@ func TestRandomStringShapeAndHash(t *testing.T) {
 }
 
 func TestValidatePasswordRejectsPredictable(t *testing.T) {
-	for _, bad := range []string{"password1234", "PASSWORD1234", "aaaaaaaaaaaa", "123456789012", "abcdefghijkl", "short", "            "} {
+	// a1b2c3d4e5f6g7 was accepted before the breach-corpus check (S-06); it is a
+	// common password in the corpus, so it is refused now.
+	for _, bad := range []string{"password1234", "PASSWORD1234", "aaaaaaaaaaaa", "123456789012", "abcdefghijkl", "short", "            ", "a1b2c3d4e5f6g7"} {
 		assert.ErrorIs(t, ValidatePassword(bad), ErrWeakPassword, bad)
 	}
-	for _, good := range []string{"correct horse battery", "tr0ub4dor&3-staple", "a1b2c3d4e5f6g7"} {
+	for _, good := range []string{"correct horse battery", "tr0ub4dor&3-staple", "vH4-Lq9xm2TcWd"} {
 		assert.NoError(t, ValidatePassword(good), good)
 	}
 }

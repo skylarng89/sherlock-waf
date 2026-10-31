@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync/atomic"
 
 	"golang.org/x/crypto/argon2"
 )
@@ -36,7 +37,12 @@ var ErrWeakPassword = errors.New("password does not meet the policy")
 // argon2id runs so a login flood cannot exhaust memory (each run takes 64 MiB).
 type Hasher struct {
 	slots chan struct{}
+	runs  atomic.Int64
 }
+
+// Runs reports how many argon2id computations this Hasher has started. Tests
+// use it to prove that a request was refused before any hashing.
+func (h *Hasher) Runs() int64 { return h.runs.Load() }
 
 // NewHasher allows at most concurrency simultaneous hash computations.
 func NewHasher(concurrency int) *Hasher {
@@ -55,11 +61,9 @@ func (h *Hasher) acquire(ctx context.Context) (release func(), err error) {
 	}
 }
 
-// commonPasswords are widely used passwords that are long enough to pass the
-// length rule (shorter ones fail it already). It is a floor, not a breach-corpus
-// check: ASVS asks for the top 3000, which needs a bigger list than this file
-// should carry (ticketed in docs/security/asvs-review-m7.md).
-var commonPasswords = map[string]struct{}{
+// curatedPasswords are short-list entries kept from the first password policy
+// (F-04) so that they stay refused even if the corpus file changes.
+var curatedPasswords = map[string]struct{}{
 	"password1234": {}, "password12345": {}, "password123456": {}, "passw0rd1234": {}, "p@ssw0rd1234": {},
 	"123456789012": {}, "1234567890123": {}, "12345678901234": {}, "123456789abc": {}, "qwertyuiop12": {},
 	"qwertyuiopas": {}, "qwertyuiop123": {}, "qwerty123456": {}, "qwertyuiopasdfghjkl": {}, "1q2w3e4r5t6y": {},
@@ -70,13 +74,14 @@ var commonPasswords = map[string]struct{}{
 	"baseball12345": {}, "dragon123456": {}, "superman1234": {}, "princess1234": {}, "sunshine1234": {},
 }
 
-// tooPredictable reports a password that is on the common list or is one
-// character repeated, or a straight run of digits or letters.
+// tooPredictable reports a password that is on the common lists (the corpus
+// and the curated short list), or is one character repeated, or a straight run
+// of digits or letters.
 func tooPredictable(p string) bool {
-	lower := strings.ToLower(p)
-	if _, ok := commonPasswords[lower]; ok {
+	if isCommonPassword(p) {
 		return true
 	}
+	lower := strings.ToLower(p)
 	repeated, run := true, true
 	for i := 1; i < len(lower); i++ {
 		repeated = repeated && lower[i] == lower[0]
@@ -86,7 +91,8 @@ func tooPredictable(p string) bool {
 }
 
 // ValidatePassword applies the password policy: length 12..1024, not blank and
-// not trivially predictable.
+// not predictable: not a common password under any spelling the corpus check
+// normalises (S-06), not one repeated character and not a straight run.
 func ValidatePassword(p string) error {
 	switch {
 	case len(p) < MinPasswordLength:
@@ -108,6 +114,7 @@ func (h *Hasher) Hash(ctx context.Context, password string) (string, error) {
 		return "", err
 	}
 	defer release()
+	h.runs.Add(1)
 	salt := make([]byte, saltLen)
 	if _, err := rand.Read(salt); err != nil {
 		return "", fmt.Errorf("generating salt: %w", err)
@@ -129,6 +136,7 @@ func (h *Hasher) Verify(ctx context.Context, password, encoded string) (bool, er
 		return false, err
 	}
 	defer release()
+	h.runs.Add(1)
 	sum := argon2.IDKey([]byte(password), p.salt, p.time, p.memory, p.threads, uint32(len(p.sum))) //nolint:gosec // length bounded by parsePHC
 	return subtle.ConstantTimeCompare(sum, p.sum) == 1, nil
 }

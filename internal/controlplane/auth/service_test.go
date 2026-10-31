@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"fmt"
 	"net/netip"
 	"path/filepath"
 	"sync"
@@ -223,10 +224,12 @@ func TestPerIPThrottle(t *testing.T) {
 func TestPerUsernameThrottleCoversUnknownNames(t *testing.T) {
 	e := newEnv(t, RoleViewer)
 	var te *ThrottledError
-	for i := range 6 {
-		_, err := e.svc.Login(t.Context(), "198.51.100."+string(rune('1'+i)), "ua", "ghost", "x")
-		if i < 5 {
-			require.ErrorIs(t, err, ErrInvalidCredentials)
+	// The username ceiling is 20 a minute across all clients (S-07): 20 distinct
+	// clients may try, the 21st is refused whatever its address.
+	for i := range 21 {
+		_, err := e.svc.Login(t.Context(), fmt.Sprintf("198.51.100.%d", i+1), "ua", "ghost", "x")
+		if i < 20 {
+			require.ErrorIs(t, err, ErrInvalidCredentials, "attempt %d", i+1)
 		} else {
 			require.ErrorAs(t, err, &te, "unknown usernames are throttled too, so lockout does not reveal which exist")
 		}

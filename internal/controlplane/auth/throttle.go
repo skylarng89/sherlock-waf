@@ -45,6 +45,83 @@ func (l *ipLimiter) allow(key string) (ok bool, retryAfter time.Duration) {
 	return true, 0
 }
 
+// peek reports whether key is already at its limit, without counting anything.
+// It lets a caller refuse work before doing it and count only the failures.
+func (l *ipLimiter) peek(key string) (blocked bool, retryAfter time.Duration) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	now := l.now()
+	cutoff := now.Add(-l.window)
+	h := l.hits[key]
+	for len(h) > 0 && !h[0].After(cutoff) {
+		h = h[1:]
+	}
+	l.hits[key] = h
+	if len(h) >= l.limit {
+		return true, h[0].Add(l.window).Sub(now)
+	}
+	return false, 0
+}
+
+// coalescer counts events per key and says when a summary row is due: the
+// first event of a key, then the first one after each window. The count it
+// returns is the events since the previous due row, so a flood yields one row
+// per window instead of one per request.
+type coalescer struct {
+	window time.Duration
+	maxKey int
+	now    func() time.Time
+
+	mu     sync.Mutex
+	counts map[string]*coalesced
+}
+
+type coalesced struct {
+	last  time.Time
+	count int
+}
+
+func newCoalescer(window time.Duration, maxKey int, now func() time.Time) *coalescer {
+	return &coalescer{window: window, maxKey: maxKey, now: now, counts: map[string]*coalesced{}}
+}
+
+// note counts one event for key and reports the count to write, if one is due.
+func (c *coalescer) note(key string) (count int, due bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	now := c.now()
+	e := c.counts[key]
+	if e == nil {
+		if len(c.counts) >= c.maxKey {
+			c.pruneLocked(now)
+		}
+		e = &coalesced{}
+		c.counts[key] = e
+	}
+	e.count++
+	if !e.last.IsZero() && now.Sub(e.last) < c.window {
+		return 0, false
+	}
+	count, e.count, e.last = e.count, 0, now
+	return count, true
+}
+
+// pruneLocked forgets idle keys. Under a flood of distinct addresses it may
+// forget a key that still had a pending count, which only under-reports it.
+func (c *coalescer) pruneLocked(now time.Time) {
+	for k, e := range c.counts {
+		if now.Sub(e.last) >= c.window {
+			delete(c.counts, k)
+		}
+	}
+	for k := range c.counts {
+		if len(c.counts) < c.maxKey {
+			break
+		}
+		delete(c.counts, k)
+	}
+}
+
 func (l *ipLimiter) evictLocked(cutoff time.Time) {
 	for k, h := range l.hits {
 		if len(h) == 0 || !h[len(h)-1].After(cutoff) {

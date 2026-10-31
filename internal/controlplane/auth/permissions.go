@@ -14,13 +14,16 @@ const (
 	PermAuthenticated = "authenticated" // any full session or token
 	PermSessionAny    = "session-any"   // any session, including a partial one
 	PermSessionPart   = "session-partial"
-	PermConfigRead    = "config:read"
-	PermConfigWrite   = "config:write"
-	PermEventsRead    = "events:read"
-	PermUsersManage   = "users:manage"
-	PermTokensOwn     = "tokens:own"
-	PermAuditRead     = "audit:read"
-	PermSystemRead    = "system:read"
+	// PermSessionFull is a full browser session only: no API tokens and no pre-MFA sessions.
+	// Used for self-service credential and session management.
+	PermSessionFull = "session-full"
+	PermConfigRead  = "config:read"
+	PermConfigWrite = "config:write"
+	PermEventsRead  = "events:read"
+	PermUsersManage = "users:manage"
+	PermTokensOwn   = "tokens:own"
+	PermAuditRead   = "audit:read"
+	PermSystemRead  = "system:read"
 	// PermSystemUpdate installs a new binary: admin only, and never part of the read or write scopes.
 	PermSystemUpdate = "system:update"
 )

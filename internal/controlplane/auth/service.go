@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/netip"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/skylarng89/sherlock-waf/internal/audit"
@@ -27,6 +28,19 @@ const (
 	issuer          = "Sherlock WAF"
 	mfaPurpose      = "user_mfa_totp"
 	tokenPrefix     = "shk"
+
+	// MaxTokensPerUser bounds how many API tokens one account may hold at once.
+	MaxTokensPerUser = 50
+	// DefaultTokenMaxLifetime applies when SHERLOCK_API_TOKEN_MAX_DAYS is unset.
+	DefaultTokenMaxLifetime = 365 * 24 * time.Hour
+
+	// Failed API-token presentations per client IP per minute before the
+	// lookup is refused (docs/security/asvs-review-m7.md S-04).
+	tokenFailLimit  = 10
+	tokenFailWindow = time.Minute
+	// Coalesced auth.token_failed rows: at most one per IP per window.
+	tokenAuditWindow = time.Minute
+	maxTokenAuditKey = 10_000
 )
 
 // Errors returned to callers; the API maps them to problem documents.
@@ -37,6 +51,10 @@ var (
 	ErrInvalidCode        = errors.New("invalid verification code")
 	ErrUnauthenticated    = errors.New("not authenticated")
 	ErrWrongStage         = errors.New("session is not at this authentication stage")
+	// ErrTokenLifetime means expires_at is later than the configured maximum.
+	ErrTokenLifetime = errors.New("token expiry is beyond the maximum lifetime")
+	// ErrTokenLimit means the account already holds MaxTokensPerUser tokens.
+	ErrTokenLimit = errors.New("token limit reached")
 )
 
 // ThrottledError reports a login refused by rate limiting or a lock.
@@ -79,13 +97,25 @@ type Config struct {
 	Hasher  *Hasher
 	Logger  *slog.Logger
 	Now     func() time.Time
+	// TokenMaxLifetime caps an API token's life; zero means no limit.
+	TokenMaxLifetime time.Duration
 }
 
 // Service performs authentication.
 type Service struct {
 	Config
-	ipLimit   *ipLimiter
-	nameLimit *ipLimiter
+	ipLimit       *ipLimiter
+	pairLimit     *ipLimiter // keyed by (client IP, username)
+	nameLimit     *ipLimiter // keyed by username: a larger ceiling across all clients
+	passwordLimit *ipLimiter // keyed by user id: bounds guesses at the current password
+	tokenFails    *ipLimiter // failed token presentations per client IP
+
+	tokenMu    sync.Mutex // serialises the per-user token count with the insert
+	tokenAudit *coalescer
+
+	// afterPasswordVerify runs in tests between verifying the current password
+	// and writing the new one.
+	afterPasswordVerify func()
 }
 
 // New builds a Service; Logger and Now default sensibly.
@@ -101,9 +131,15 @@ func New(c Config) *Service {
 	}
 	return &Service{
 		Config: c,
-		// 5 attempts/min per IP and per username (docs/architecture/api.md).
-		ipLimit:   newIPLimiter(5, time.Minute, c.Now),
-		nameLimit: newIPLimiter(5, time.Minute, c.Now),
+		// 5 attempts/min per IP and per (IP, username). The username ceiling is
+		// larger so a distributed guess cannot lock out a known administrator
+		// with 5 attempts from one place (docs/security/asvs-review-m7.md S-07).
+		ipLimit:       newIPLimiter(5, time.Minute, c.Now),
+		pairLimit:     newIPLimiter(5, time.Minute, c.Now),
+		nameLimit:     newIPLimiter(20, time.Minute, c.Now),
+		passwordLimit: newIPLimiter(5, time.Minute, c.Now),
+		tokenFails:    newIPLimiter(tokenFailLimit, tokenFailWindow, c.Now),
+		tokenAudit:    newCoalescer(tokenAuditWindow, maxTokenAuditKey, c.Now),
 	}
 }
 
@@ -123,7 +159,9 @@ func (s *Service) userByID(ctx context.Context, id string) (store.User, error) {
 func (s *Service) audit(ctx context.Context, actorID, ip, action, objectID string, details any) {
 	in := audit.Input{ActorType: "user", ActorID: actorID, IP: ip, Action: action, ObjectType: "user", ObjectID: objectID, Details: details}
 	if actorID == "" {
-		in.ActorType = "anonymous"
+		// The audit table only admits user, token and system actors; an
+		// unauthenticated caller is recorded as the system's "anonymous" actor.
+		in.ActorType, in.ActorID = audit.ActorSystem, "anonymous"
 	}
 	if err := s.Audit.Record(ctx, s.Store, in); err != nil {
 		s.Logger.Error("recording audit entry failed", "action", action, "error", err)
@@ -138,7 +176,12 @@ func (s *Service) Login(ctx context.Context, ip, userAgent, username, password s
 		s.audit(ctx, "", ip, "auth.login_throttled", "", map[string]any{"scope": "ip"})
 		return Grant{}, &ThrottledError{RetryAfter: wait}
 	}
-	if ok, wait := s.nameLimit.allow(strings.ToLower(username)); !ok {
+	name := strings.ToLower(username)
+	if ok, wait := s.pairLimit.allow(ip + "\x00" + name); !ok {
+		s.audit(ctx, "", ip, "auth.login_throttled", "", map[string]any{"scope": "ip_username"})
+		return Grant{}, &ThrottledError{RetryAfter: wait}
+	}
+	if ok, wait := s.nameLimit.allow(name); !ok {
 		s.audit(ctx, "", ip, "auth.login_throttled", "", map[string]any{"scope": "username"})
 		return Grant{}, &ThrottledError{RetryAfter: wait}
 	}
@@ -191,6 +234,10 @@ func (s *Service) recordFailure(ctx context.Context, u store.User, ip, reason st
 		s.Logger.Error("recording login failure failed", "user_id", u.ID, "error", err)
 	}
 	s.audit(ctx, u.ID, ip, "auth.login_failed", u.ID, map[string]any{"reason": reason, "failed_count": failed})
+	if !until.IsZero() {
+		// This failure started a lock; attempts during the lock do not reach here, so this is once per lock.
+		s.audit(ctx, u.ID, ip, "auth.account_locked", u.ID, map[string]any{"failed_count": failed, "locked_seconds": int(lockoutFor(failed).Seconds())})
+	}
 }
 
 func (s *Service) newSession(ctx context.Context, u store.User, stage, ip, ua string) (Grant, error) {
@@ -204,8 +251,19 @@ func (s *Service) newSession(ctx context.Context, u store.User, stage, ip, ua st
 		ID: hashToken(tok), UserID: u.ID, Stage: stage, CreatedAt: now, LastSeenAt: now,
 		ExpiresAt: now.Add(life), IP: ip, UserAgent: truncate(ua, 256), CSRFTokenHash: hashToken(csrf),
 	}
-	if err := s.Store.Tx(ctx, func(ctx context.Context, tx store.Tx) error { return tx.CreateSession(ctx, rec) }); err != nil {
+	var evicted *store.AuditEntry
+	if err := s.Store.Tx(ctx, func(ctx context.Context, tx store.Tx) (err error) {
+		if stage == store.StageFull {
+			if evicted, err = s.evictOldestFull(ctx, tx, u.ID); err != nil {
+				return err
+			}
+		}
+		return tx.CreateSession(ctx, rec)
+	}); err != nil {
 		return Grant{}, fmt.Errorf("creating session: %w", err)
+	}
+	if evicted != nil {
+		s.Audit.Deliver(ctx, *evicted)
 	}
 	return Grant{SessionToken: tok, CSRFToken: csrf, Expires: rec.ExpiresAt, Stage: stage, User: u}, nil
 }
@@ -434,8 +492,17 @@ func (s *Service) CreateToken(ctx context.Context, userID, name string, scopes, 
 		return CreatedToken{}, fmt.Errorf("cidrs: %w", err)
 	}
 	now := s.Now()
-	if !expires.IsZero() && !expires.After(now) {
-		return CreatedToken{}, errors.New("expires_at must be in the future")
+	if expires.IsZero() {
+		if s.TokenMaxLifetime > 0 {
+			expires = now.Add(s.TokenMaxLifetime)
+		}
+	} else {
+		if !expires.After(now) {
+			return CreatedToken{}, errors.New("expires_at must be in the future")
+		}
+		if s.TokenMaxLifetime > 0 && expires.After(now.Add(s.TokenMaxLifetime)) {
+			return CreatedToken{}, ErrTokenLifetime
+		}
 	}
 	id, err := ids.New(now)
 	if err != nil {
@@ -445,7 +512,21 @@ func (s *Service) CreateToken(ctx context.Context, userID, name string, scopes, 
 	sj, _ := json.Marshal(scopes)
 	cj, _ := json.Marshal(append([]string{}, cidrs...))
 	rec := store.Token{ID: id, UserID: userID, Name: name, TokenHash: hashToken(secret), Scopes: sj, CIDRs: cj, ExpiresAt: expires, CreatedAt: now}
-	if err := s.Store.Tx(ctx, func(ctx context.Context, tx store.Tx) error { return tx.CreateToken(ctx, rec) }); err != nil {
+	s.tokenMu.Lock()
+	defer s.tokenMu.Unlock()
+	if err := s.Store.Tx(ctx, func(ctx context.Context, tx store.Tx) error {
+		existing, err := tx.ListTokensByUser(ctx, userID)
+		if err != nil {
+			return err
+		}
+		if len(existing) >= MaxTokensPerUser {
+			return ErrTokenLimit
+		}
+		return tx.CreateToken(ctx, rec)
+	}); err != nil {
+		if errors.Is(err, ErrTokenLimit) {
+			return CreatedToken{}, err
+		}
 		return CreatedToken{}, fmt.Errorf("storing token: %w", err)
 	}
 	return CreatedToken{Record: rec, Secret: tokenPrefix + "_" + id + "_" + secret}, nil
@@ -454,6 +535,28 @@ func (s *Service) CreateToken(ctx context.Context, userID, name string, scopes, 
 // AuthenticateToken resolves a bearer value of the form shk_<id>_<secret>
 // presented from ip.
 func (s *Service) AuthenticateToken(ctx context.Context, bearer string, ip netip.Addr) (Principal, error) {
+	key := ip.String()
+	if blocked, wait := s.tokenFails.peek(key); blocked {
+		return Principal{}, &ThrottledError{RetryAfter: wait}
+	}
+	p, err := s.resolveToken(ctx, bearer, ip)
+	if errors.Is(err, ErrUnauthenticated) {
+		s.tokenFails.allow(key)
+		s.noteTokenFailure(ctx, key)
+	}
+	return p, err
+}
+
+// noteTokenFailure writes at most one auth.token_failed row per IP per window,
+// carrying how many failures arrived since the previous row. The presented
+// bearer and token id are never recorded.
+func (s *Service) noteTokenFailure(ctx context.Context, ip string) {
+	if n, due := s.tokenAudit.note(ip); due {
+		s.audit(ctx, "", ip, "auth.token_failed", "", map[string]any{"failures": n, "window_seconds": int(tokenAuditWindow.Seconds())})
+	}
+}
+
+func (s *Service) resolveToken(ctx context.Context, bearer string, ip netip.Addr) (Principal, error) {
 	parts := strings.Split(bearer, "_")
 	if len(parts) != 3 || parts[0] != tokenPrefix || parts[1] == "" || parts[2] == "" || len(bearer) > 200 {
 		return Principal{}, ErrUnauthenticated
