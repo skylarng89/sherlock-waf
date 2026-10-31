@@ -18,6 +18,7 @@ const ADMIN_PAGES: { name: string; path: string; title: RegExp }[] = [
   { name: 'block-pages', path: '/certificates/block-pages', title: /block page/i },
   { name: 'users', path: '/users', title: /^Users$/ },
   { name: 'tokens', path: '/tokens', title: /^API tokens$/ },
+  { name: 'account', path: '/account', title: /^Account$/ },
   { name: 'audit', path: '/audit', title: /audit/i },
   { name: 'history', path: '/history', title: /history/i },
   { name: 'history-detail', path: '/history/:version', title: /./ },

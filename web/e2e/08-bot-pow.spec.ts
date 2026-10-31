@@ -106,7 +106,7 @@ test.describe('bot defence: proof-of-work challenge', () => {
             const to = new Date().toISOString()
             const from = new Date(Date.now() - 3_600_000).toISOString()
             const top = await api.json<{ items: { value: string; count: number }[] }>(
-              await api.get(`/stats/top?dim=rule&limit=100&from=${from}&to=${to}`),
+              await api.get(`/stats/top?dim=rule&limit=50&from=${from}&to=${to}`),
             )
             return top.items.find((i) => i.value === 'challenge-passed')?.count ?? 0
           },
