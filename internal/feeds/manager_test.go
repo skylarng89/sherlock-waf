@@ -177,16 +177,6 @@ func TestGeoBadDownloadNeverReplacesAGoodDatabase(t *testing.T) {
 	assert.True(t, acl.Status().GeoReady, "and still loaded")
 }
 
-func TestMaxMindIsReportedAsUnsupported(t *testing.T) {
-	resetACL(t)
-	m := New(Options{DataDir: t.TempDir()})
-	m.Apply(config.Feeds{GeoIP: config.GeoIPFeed{Provider: config.GeoMaxMind, AutoUpdate: true}})
-	m.RefreshGeo(t.Context())
-	s := statusOf(m, "geoip")
-	assert.Equal(t, StateFailed, s.State)
-	assert.Contains(t, s.LastError, "maxmind")
-}
-
 func TestCrowdSecStreamBecomesBans(t *testing.T) {
 	resetACL(t)
 	var seen []string

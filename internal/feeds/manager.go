@@ -2,6 +2,7 @@ package feeds
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,7 +24,27 @@ import (
 
 // Environment variables holding feed credentials; they are never part of the configuration.
 const (
-	EnvCrowdSecKey = "SHERLOCK_CROWDSEC_API_KEY"
+	EnvCrowdSecKey       = "SHERLOCK_CROWDSEC_API_KEY"
+	EnvMaxMindAccountID  = "SHERLOCK_MAXMIND_ACCOUNT_ID"
+	EnvMaxMindLicenseKey = "SHERLOCK_MAXMIND_LICENSE_KEY"
+)
+
+// Geo database files under <data-dir>/geoip and their maximum age before a download is due.
+// GeoLite2 is published weekly, so a week-old MaxMind file is already due.
+const (
+	dbipGeoFile      = "dbip-country-lite.csv.gz"
+	maxMindGeoFile   = "GeoLite2-Country.mmdb"
+	maxMindEntryName = "GeoLite2-Country.mmdb"
+	dbipGeoMaxAge    = 21 * 24 * time.Hour
+	maxMindGeoMaxAge = 8 * 24 * time.Hour
+)
+
+// Size caps for the MaxMind download: the archive as received, the decompressed
+// tar stream (which bounds gzip bombs) and the .mmdb entry itself.
+const (
+	maxMindArchiveCap = 64 << 20
+	maxMindStreamCap  = 256 << 20
+	maxMindEntryCap   = 128 << 20
 )
 
 // State values reported for each feed.
@@ -50,13 +71,17 @@ type URLs struct {
 	DROP    string
 	// DBIPCountry is a format with %s for "YYYY-MM".
 	DBIPCountry string
+	// MaxMindCountry is the GeoLite2-Country permalink (tar.gz). Credentials go
+	// in an Authorization header, never in this URL.
+	MaxMindCountry string
 }
 
 // DefaultURLs are the public sources.
 var DefaultURLs = URLs{
-	FireHOL:     "https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset",
-	DROP:        "https://www.spamhaus.org/drop/drop.txt",
-	DBIPCountry: "https://download.db-ip.com/free/dbip-country-lite-%s.csv.gz",
+	FireHOL:        "https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset",
+	DROP:           "https://www.spamhaus.org/drop/drop.txt",
+	DBIPCountry:    "https://download.db-ip.com/free/dbip-country-lite-%s.csv.gz",
+	MaxMindCountry: "https://download.maxmind.com/geoip/databases/GeoLite2-Country/download?suffix=tar.gz",
 }
 
 // Options configures a Manager.
@@ -71,12 +96,21 @@ type Options struct {
 	CrowdSecEvery   time.Duration
 	HTTPAllowPublic bool // tests: use a client that may dial loopback for every feed
 	APIKey          func() string
+	// MaxMind credentials: the account ID is the HTTP basic user, the licence key the password.
+	MaxMindAccountID  func() string
+	MaxMindLicenseKey func() string
+}
+
+// mmdbLimits bounds the MaxMind download; tests lower them.
+type mmdbLimits struct {
+	archive, stream, entry int64
 }
 
 // Manager refreshes feeds according to the live configuration.
 type Manager struct {
 	o      Options
 	client *http.Client
+	limits mmdbLimits
 
 	mu       sync.Mutex
 	cfg      config.Feeds
@@ -111,7 +145,19 @@ func New(o Options) *Manager {
 	if o.APIKey == nil {
 		o.APIKey = func() string { return os.Getenv(EnvCrowdSecKey) }
 	}
-	m := &Manager{o: o, status: map[string]*Status{}, lists: map[string][]netip.Prefix{}, wake: make(chan struct{}, 1)}
+	if o.MaxMindAccountID == nil {
+		o.MaxMindAccountID = func() string { return os.Getenv(EnvMaxMindAccountID) }
+	}
+	if o.MaxMindLicenseKey == nil {
+		o.MaxMindLicenseKey = func() string { return os.Getenv(EnvMaxMindLicenseKey) }
+	}
+	m := &Manager{
+		o:      o,
+		status: map[string]*Status{},
+		lists:  map[string][]netip.Prefix{},
+		wake:   make(chan struct{}, 1),
+		limits: mmdbLimits{archive: maxMindArchiveCap, stream: maxMindStreamCap, entry: maxMindEntryCap},
+	}
 	m.client = netx.NewClient(netx.Options{AllowPrivate: o.HTTPAllowPublic, Timeout: 60 * time.Second})
 	return m
 }
@@ -174,7 +220,7 @@ func (m *Manager) stateLocked(name string, s *Status, now time.Time) string {
 }
 
 func (m *Manager) enabledLocked() map[string]bool {
-	e := map[string]bool{"geoip": m.cfg.GeoIP.AutoUpdate || m.geoFileExists(), "crowdsec": m.cfg.CrowdSec.Enabled}
+	e := map[string]bool{"geoip": m.cfg.GeoIP.AutoUpdate || m.geoFileExists(m.cfg.GeoIP.Provider), "crowdsec": m.cfg.CrowdSec.Enabled}
 	for _, l := range m.cfg.ReputationLists {
 		e[l] = true
 	}
@@ -270,51 +316,55 @@ func (m *Manager) publishReputation(enabled []string) {
 	acl.SetFeedStatus(st)
 }
 
-func (m *Manager) geoPath() string {
-	return filepath.Join(m.o.DataDir, "geoip", "dbip-country-lite.csv.gz")
+// geoFileName is the file under <data-dir>/geoip for a provider. Each provider
+// has its own file, so switching providers never loads the wrong format.
+func geoFileName(provider string) string {
+	if provider == config.GeoMaxMind {
+		return maxMindGeoFile
+	}
+	return dbipGeoFile
 }
 
-func (m *Manager) geoFileExists() bool {
-	_, err := os.Stat(m.geoPath())
+func geoMaxAge(provider string) time.Duration {
+	if provider == config.GeoMaxMind {
+		return maxMindGeoMaxAge
+	}
+	return dbipGeoMaxAge
+}
+
+func (m *Manager) geoPath(provider string) string {
+	return filepath.Join(m.o.DataDir, "geoip", geoFileName(provider))
+}
+
+func (m *Manager) geoFileExists(provider string) bool {
+	_, err := os.Stat(m.geoPath(provider))
 	return err == nil
 }
 
 // RefreshGeo loads the country database, downloading it first when auto-update
-// is on and the file is missing or older than three weeks. A file placed in
-// <data-dir>/geoip by hand (a manual upload) is used as is.
+// is on and the file is missing or older than the provider's maximum age. A
+// file placed in <data-dir>/geoip by hand (a manual upload) is used as is.
 func (m *Manager) RefreshGeo(ctx context.Context) {
 	m.mu.Lock()
 	cfg := m.cfg.GeoIP
 	m.mu.Unlock()
-	if cfg.Provider == config.GeoMaxMind {
-		m.setStatus("geoip", 0, errors.New("the maxmind provider is not implemented yet; use dbip-lite"))
-		return
-	}
-	path := m.geoPath()
+	path := m.geoPath(cfg.Provider)
 	info, err := os.Stat(path)
-	stale := err != nil || m.o.Now().Sub(info.ModTime()) > 21*24*time.Hour
+	stale := err != nil || m.o.Now().Sub(info.ModTime()) > geoMaxAge(cfg.Provider)
 	if cfg.AutoUpdate && stale {
-		if err := m.downloadGeo(ctx, path); err != nil {
-			m.o.Logger.Warn("geoip download failed; keeping the previous database", "error", err)
+		if err := m.downloadGeo(ctx, cfg.Provider, path); err != nil {
+			m.o.Logger.Warn("geoip download failed; keeping the previous database", "provider", cfg.Provider, "error", err)
 			m.setStatus("geoip", 0, err)
 		}
 	}
 	raw, err := os.ReadFile(path) //nolint:gosec // path built from the data dir
 	if err != nil {
-		if cfg.AutoUpdate || m.geoFileExists() {
-			m.mu.Lock()
-			if s := m.status["geoip"]; s == nil || s.LastError == "" {
-				m.mu.Unlock()
-				m.setStatus("geoip", 0, fmt.Errorf("reading database: %w", err))
-			} else {
-				m.mu.Unlock()
-			}
-		}
+		m.reportUnreadable(cfg, err)
 		return
 	}
-	db, err := ParseDBIPCountry(raw)
+	db, entries, err := parseGeo(cfg.Provider, raw)
 	if err != nil {
-		m.o.Logger.Warn("geoip database unusable; keeping the previous one", "error", err)
+		m.o.Logger.Warn("geoip database unusable; keeping the previous one", "provider", cfg.Provider, "error", err)
 		m.setStatus("geoip", 0, err)
 		return
 	}
@@ -322,10 +372,66 @@ func (m *Manager) RefreshGeo(ctx context.Context) {
 	st := acl.Status()
 	st.GeoReady = true
 	acl.SetFeedStatus(st)
-	m.setStatus("geoip", db.Len(), nil)
+	m.setStatus("geoip", entries, nil)
 }
 
-func (m *Manager) downloadGeo(ctx context.Context, path string) error {
+// reportUnreadable records why the database cannot be read, unless an earlier
+// failure already explains it.
+func (m *Manager) reportUnreadable(cfg config.GeoIPFeed, err error) {
+	if !cfg.AutoUpdate && !m.geoFileExists(cfg.Provider) {
+		return
+	}
+	m.mu.Lock()
+	s := m.status["geoip"]
+	explained := s != nil && s.LastError != ""
+	m.mu.Unlock()
+	if !explained {
+		m.setStatus("geoip", 0, fmt.Errorf("reading database: %w", err))
+	}
+}
+
+// parseGeo validates raw bytes as the provider's format and returns the lookup and its size.
+func parseGeo(provider string, raw []byte) (acl.CountryLookup, int, error) {
+	if provider == config.GeoMaxMind {
+		db, err := ParseMaxMindCountry(raw)
+		if err != nil {
+			return nil, 0, err
+		}
+		return db, db.Len(), nil
+	}
+	db, err := ParseDBIPCountry(raw)
+	if err != nil {
+		return nil, 0, err
+	}
+	return db, db.Len(), nil
+}
+
+// downloadGeo fetches and validates a database, then replaces the file. A bad
+// download never replaces a good file: validation happens before the rename.
+func (m *Manager) downloadGeo(ctx context.Context, provider, path string) error {
+	body, err := m.fetchGeo(ctx, provider)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return fmt.Errorf("creating geoip dir: %w", err)
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, body, 0o600); err != nil {
+		return fmt.Errorf("writing geoip database: %w", err)
+	}
+	return os.Rename(tmp, path)
+}
+
+// fetchGeo returns a validated database in the provider's on-disk format.
+func (m *Manager) fetchGeo(ctx context.Context, provider string) ([]byte, error) {
+	if provider == config.GeoMaxMind {
+		return m.fetchMaxMind(ctx)
+	}
+	return m.fetchDBIP(ctx)
+}
+
+func (m *Manager) fetchDBIP(ctx context.Context) ([]byte, error) {
 	now := m.o.Now().UTC()
 	var lastErr error
 	for _, month := range []string{now.Format("2006-01"), now.AddDate(0, -1, 0).Format("2006-01")} {
@@ -334,20 +440,52 @@ func (m *Manager) downloadGeo(ctx context.Context, path string) error {
 			lastErr = err
 			continue
 		}
-		if _, err := ParseDBIPCountry(body); err != nil { // never replace a good file with a bad download
+		if _, err := ParseDBIPCountry(body); err != nil {
 			lastErr = err
 			continue
 		}
-		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-			return fmt.Errorf("creating geoip dir: %w", err)
-		}
-		tmp := path + ".tmp"
-		if err := os.WriteFile(tmp, body, 0o600); err != nil {
-			return fmt.Errorf("writing geoip database: %w", err)
-		}
-		return os.Rename(tmp, path)
+		return body, nil
 	}
-	return lastErr
+	return nil, lastErr
+}
+
+// fetchMaxMind downloads the GeoLite2-Country archive with HTTP basic auth and
+// returns the extracted, validated .mmdb. Credentials are redacted from every
+// error before it can reach the status or the log.
+func (m *Manager) fetchMaxMind(ctx context.Context) ([]byte, error) {
+	account, key := m.o.MaxMindAccountID(), m.o.MaxMindLicenseKey()
+	if account == "" || key == "" {
+		return nil, fmt.Errorf("%s and %s must be set", EnvMaxMindAccountID, EnvMaxMindLicenseKey)
+	}
+	basic := base64.StdEncoding.EncodeToString([]byte(account + ":" + key))
+	header := http.Header{"Authorization": {"Basic " + basic}}
+	archive, err := netx.Get(ctx, m.client, m.o.URLs.MaxMindCountry, m.limits.archive, header)
+	if err != nil {
+		return nil, redact(err, account, key, basic)
+	}
+	mmdb, err := extractMMDB(archive, m.limits.stream, m.limits.entry)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := ParseMaxMindCountry(mmdb); err != nil {
+		return nil, err
+	}
+	return mmdb, nil
+}
+
+// redact replaces each secret in err's message. Only the message survives,
+// which is what the status and the logs store.
+func redact(err error, secrets ...string) error {
+	msg := err.Error()
+	for _, s := range secrets {
+		if s != "" {
+			msg = strings.ReplaceAll(msg, s, "<redacted>")
+		}
+	}
+	if msg == err.Error() {
+		return err
+	}
+	return errors.New(msg)
 }
 
 type decision struct {
