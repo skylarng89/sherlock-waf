@@ -55,7 +55,7 @@ func TestAPIDocuments(t *testing.T) {
 	}
 
 	assert.Equal(t, http.StatusUnprocessableEntity, put("pay", "not openapi").Status, "documents that do not compile are refused")
-	assert.Equal(t, http.StatusBadRequest, put("Bad_Id", apiDocYAML).Status)
+	assert.Equal(t, http.StatusUnprocessableEntity, put("Bad_Id", apiDocYAML).Status)
 	assert.Nil(t, dpapi.Specs.Get("pay"), "nothing is loaded after a refusal")
 
 	ok := put("pay", apiDocYAML)

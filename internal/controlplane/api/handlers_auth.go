@@ -2,9 +2,11 @@ package api
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"time"
 
+	"github.com/skylarng89/sherlock-waf/internal/config"
 	"github.com/skylarng89/sherlock-waf/internal/controlplane/api/apigen"
 	"github.com/skylarng89/sherlock-waf/internal/controlplane/auth"
 	"github.com/skylarng89/sherlock-waf/internal/store"
@@ -121,4 +123,55 @@ func (h *handlers) GetMe(ctx context.Context, _ apigen.GetMeRequestObject) (apig
 		return nil, err
 	}
 	return apigen.GetMe200JSONResponse(me(u, p.Permissions)), nil
+}
+
+// fieldProblem is a 422 whose one error names the body field at fault.
+func fieldProblem(path, code, message string) *problem {
+	return &problem{
+		Status: 422, Code: "unprocessable", Title: "Unprocessable entity", Detail: "The request failed validation.",
+		Errors: []config.Error{{Path: path, Code: code, Message: message}},
+	}
+}
+
+func (h *handlers) ChangePassword(ctx context.Context, req apigen.ChangePasswordRequestObject) (apigen.ChangePasswordResponseObject, error) {
+	if req.Body == nil {
+		return nil, errBadRequest("A JSON body is required.")
+	}
+	err := h.s.Auth.ChangePassword(ctx, principalFrom(ctx), ipFrom(ctx), req.Body.CurrentPassword, req.Body.NewPassword)
+	switch {
+	case errors.Is(err, auth.ErrWrongPassword):
+		return nil, fieldProblem("/current_password", "incorrect", "The current password is incorrect.")
+	case errors.Is(err, auth.ErrWeakPassword), errors.Is(err, auth.ErrSameAsCurrent):
+		return nil, fieldProblem("/new_password", "policy", err.Error())
+	case err != nil:
+		return nil, err
+	}
+	return apigen.ChangePassword204Response{}, nil
+}
+
+func (h *handlers) ListSessions(ctx context.Context, _ apigen.ListSessionsRequestObject) (apigen.ListSessionsResponseObject, error) {
+	p := principalFrom(ctx)
+	sessions, err := h.s.Auth.ListSessions(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]apigen.Session, 0, len(sessions))
+	for _, sess := range sessions {
+		items = append(items, apigen.Session{
+			Id: sess.ID, CreatedAt: sess.CreatedAt, LastSeenAt: sess.LastSeenAt, ExpiresAt: sess.ExpiresAt,
+			Current: sess.ID == p.SessionID,
+		})
+	}
+	return apigen.ListSessions200JSONResponse(apigen.SessionList{Items: items}), nil
+}
+
+func (h *handlers) RevokeSession(ctx context.Context, req apigen.RevokeSessionRequestObject) (apigen.RevokeSessionResponseObject, error) {
+	err := h.s.Auth.RevokeSession(ctx, principalFrom(ctx), ipFrom(ctx), req.Id)
+	switch {
+	case errors.Is(err, auth.ErrCurrentSession):
+		return nil, errConflict("Sign out to end your current session.")
+	case err != nil:
+		return nil, err
+	}
+	return apigen.RevokeSession204Response{}, nil
 }

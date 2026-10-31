@@ -65,8 +65,8 @@ func TestConfigRejectsUnknownFieldsAndInvalidValues(t *testing.T) {
 	typo := newSite("blog")
 	typo["upstream"] = "x" // misspelled key
 	r := a.do("POST", "/sites", typo, "If-Match", tag)
-	assert.Equal(t, http.StatusBadRequest, r.Status)
-	assert.Contains(t, string(r.Body), "unknown field")
+	assert.Equal(t, http.StatusUnprocessableEntity, r.Status)
+	assert.Contains(t, string(r.Body), "upstream", "the schema names the unknown field")
 
 	bad := newSite("Bad Id")
 	r = a.do("POST", "/sites", bad, "If-Match", tag)
@@ -84,9 +84,10 @@ func TestValidateEndpointDoesNotApply(t *testing.T) {
 	a := adminSession(h)
 	tag := etagOf(t, a.do("GET", "/config", nil))
 
+	// The schema rejects the id before the domain validator runs, so the
+	// request fails with a problem document instead of a validation report.
 	r := a.do("POST", "/config/validate", `{"schema_version":1,"sites":[{"id":"x y"}]}`)
-	require.Equal(t, http.StatusOK, r.Status)
-	assert.Equal(t, false, r.JSON(t)["valid"])
+	require.Equal(t, http.StatusUnprocessableEntity, r.Status, string(r.Body))
 	assert.NotEmpty(t, r.JSON(t)["errors"])
 	assert.Equal(t, tag, a.do("GET", "/config", nil).Header.Get("ETag"))
 }
@@ -178,9 +179,9 @@ func TestUserManagement(t *testing.T) {
 	h := newHarness(t)
 	a := adminSession(h)
 
-	assert.Equal(t, http.StatusBadRequest, a.do("POST", "/users", map[string]any{"username": "bo", "password": pw, "role": "viewer"}).Status, "short username")
-	assert.Equal(t, http.StatusBadRequest, a.do("POST", "/users", map[string]any{"username": "bobby", "password": "short", "role": "viewer"}).Status, "weak password")
-	assert.Equal(t, http.StatusBadRequest, a.do("POST", "/users", map[string]any{"username": "bobby", "password": pw, "role": "root"}).Status, "unknown role")
+	assert.Equal(t, http.StatusUnprocessableEntity, a.do("POST", "/users", map[string]any{"username": "bo", "password": pw, "role": "viewer"}).Status, "short username")
+	assert.Equal(t, http.StatusUnprocessableEntity, a.do("POST", "/users", map[string]any{"username": "bobby", "password": "short", "role": "viewer"}).Status, "weak password")
+	assert.Equal(t, http.StatusUnprocessableEntity, a.do("POST", "/users", map[string]any{"username": "bobby", "password": pw, "role": "root"}).Status, "unknown role")
 	made := a.do("POST", "/users", map[string]any{"username": "bobby", "password": pw, "role": "viewer"})
 	require.Equal(t, http.StatusCreated, made.Status, string(made.Body))
 	assert.NotContains(t, string(made.Body), "password", "responses never carry credential material")
@@ -225,7 +226,7 @@ func TestTokenLifecycleAndOwnership(t *testing.T) {
 	admin, viewer := adminSession(h), h.mint(h.view, store.StageFull)
 
 	bad := admin.do("POST", "/tokens", map[string]any{"name": "x", "scopes": []string{"root"}})
-	assert.Equal(t, http.StatusBadRequest, bad.Status)
+	assert.Equal(t, http.StatusUnprocessableEntity, bad.Status)
 	assert.Equal(t, http.StatusBadRequest, admin.do("POST", "/tokens", map[string]any{"name": " ", "scopes": []string{"read"}}).Status)
 	assert.Equal(t, http.StatusBadRequest, admin.do("POST", "/tokens", map[string]any{"name": "x", "scopes": []string{"read"}, "cidrs": []string{"nope"}}).Status)
 
@@ -307,11 +308,13 @@ func TestEventsEndpoints(t *testing.T) {
 func TestMalformedBodiesAreBadRequests(t *testing.T) {
 	h := newHarness(t)
 	a := adminSession(h)
-	for name, body := range map[string]string{"empty": "", "truncated": `{"name":`, "wrong type": `{"name":1,"scopes":"read"}`} {
+	for name, body := range map[string]string{"empty": "", "truncated": `{"name":`} {
 		r := a.do("POST", "/tokens", body)
 		assert.Equal(t, http.StatusBadRequest, r.Status, name)
 		assert.Equal(t, "application/problem+json", r.Header.Get("Content-Type"), name)
 	}
+	r := a.do("POST", "/tokens", `{"name":1,"scopes":"read"}`)
+	assert.Equal(t, http.StatusUnprocessableEntity, r.Status, "wrong type is a schema violation")
 	huge := `{"name":"` + strings.Repeat("a", 5<<20) + `"}`
 	assert.Equal(t, http.StatusBadRequest, a.do("POST", "/tokens", huge).Status, "bodies over the limit are refused")
 }

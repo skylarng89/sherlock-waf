@@ -60,8 +60,8 @@ func TestFirstRunSetup(t *testing.T) {
 		return map[string]string{"setup_token": token, "username": user, "password": pass}
 	}
 	assert.Equal(t, http.StatusForbidden, c.do("POST", "/setup/admin", body("wrong", "ada", pw)).Status, "wrong token")
-	assert.Equal(t, http.StatusBadRequest, c.do("POST", "/setup/admin", body(tok, "ab", pw)).Status, "bad username")
-	assert.Equal(t, http.StatusBadRequest, c.do("POST", "/setup/admin", body(tok, "ada", "short")).Status, "weak password")
+	assert.Equal(t, http.StatusUnprocessableEntity, c.do("POST", "/setup/admin", body(tok, "ab", pw)).Status, "bad username")
+	assert.Equal(t, http.StatusUnprocessableEntity, c.do("POST", "/setup/admin", body(tok, "ada", "short")).Status, "weak password")
 	assert.True(t, h.gate.Active(), "rejected input must not burn the token")
 
 	made := c.do("POST", "/setup/admin", body(tok, "ada", pw))
@@ -95,6 +95,25 @@ func TestSetupTokenIsThrottledAndConstantTime(t *testing.T) {
 	tok, _ := os.ReadFile(h.gate.Path())
 	req["setup_token"] = strings.TrimSpace(string(tok))
 	assert.Equal(t, http.StatusTooManyRequests, c.do("POST", "/setup/admin", req).Status, "even the right token waits out the throttle")
+}
+
+func TestSetupRefusesBadTokenBeforeHashing(t *testing.T) {
+	h := newHarnessWith(t, harnessOpts{noUsers: true})
+	c := h.anon()
+	before := h.hasher.Runs()
+	bad := map[string]string{"setup_token": "nope", "username": "ada", "password": pw}
+	for range 5 {
+		assert.Equal(t, http.StatusForbidden, c.do("POST", "/setup/admin", bad).Status)
+	}
+	assert.Equal(t, http.StatusTooManyRequests, c.do("POST", "/setup/admin", bad).Status)
+	assert.Equal(t, before, h.hasher.Runs(), "no argon2 run for a missing or throttled token")
+	assert.True(t, h.gate.Active(), "failed attempts leave the gate armed")
+
+	tok, _ := os.ReadFile(h.gate.Path())
+	h.gate.now = func() time.Time { return time.Now().Add(2 * time.Minute) } // clear the throttle window
+	good := map[string]string{"setup_token": strings.TrimSpace(string(tok)), "username": "ada", "password": pw}
+	require.Equal(t, http.StatusCreated, c.do("POST", "/setup/admin", good).Status)
+	assert.Equal(t, before+1, h.hasher.Runs(), "exactly one hash for the valid request")
 }
 
 func TestSetupIsClosedWhenUsersExist(t *testing.T) {
@@ -205,13 +224,16 @@ func TestTimeseries(t *testing.T) {
 	only := q("&step=1h&site=shop")["points"].([]any)[0].(map[string]any)["counts"].(map[string]any)
 	assert.EqualValues(t, 7, only["block"], "the site filter applies")
 
-	for name, path := range map[string]string{
-		"missing from":    "/stats/timeseries?to=2026-01-02T00:00:00Z",
-		"inverted":        "/stats/timeseries?from=2026-01-02T00:00:00Z&to=2026-01-01T00:00:00Z",
-		"bad step":        "/stats/timeseries?from=2026-01-01T00:00:00Z&to=2026-01-02T00:00:00Z&step=7m",
-		"too many points": "/stats/timeseries?from=2020-01-01T00:00:00Z&to=2026-01-02T00:00:00Z&step=1m",
+	for name, c := range map[string]struct {
+		path   string
+		status int
+	}{
+		"missing from":    {"/stats/timeseries?to=2026-01-02T00:00:00Z", http.StatusBadRequest},
+		"inverted":        {"/stats/timeseries?from=2026-01-02T00:00:00Z&to=2026-01-01T00:00:00Z", http.StatusBadRequest},
+		"bad step":        {"/stats/timeseries?from=2026-01-01T00:00:00Z&to=2026-01-02T00:00:00Z&step=7m", http.StatusUnprocessableEntity},
+		"too many points": {"/stats/timeseries?from=2020-01-01T00:00:00Z&to=2026-01-02T00:00:00Z&step=1m", http.StatusBadRequest},
 	} {
-		assert.Equal(t, http.StatusBadRequest, a.do("GET", path, nil).Status, name)
+		assert.Equal(t, c.status, a.do("GET", c.path, nil).Status, name)
 	}
 }
 
@@ -293,7 +315,7 @@ func TestBlockPages(t *testing.T) {
 	assert.Equal(t, http.StatusUnprocessableEntity, put("corp", "{{.Nope}}").Status, "templates that fail to render are refused")
 	assert.Equal(t, http.StatusUnprocessableEntity, put("corp", "{{.Status").Status)
 	assert.Equal(t, http.StatusBadRequest, put("default", "<p>x</p>").Status, "the built-in page cannot be replaced")
-	assert.Equal(t, http.StatusBadRequest, a.do("PUT", "/block-pages/Bad_Id", map[string]string{"html": "x"}).Status, "ids are slugs")
+	assert.Equal(t, http.StatusUnprocessableEntity, a.do("PUT", "/block-pages/Bad_Id", map[string]string{"html": "x"}).Status, "ids are slugs")
 
 	ok := put("corp", "<h1>Blocked {{.Status}}</h1><p>{{.EventID}}</p>")
 	require.Equal(t, http.StatusOK, ok.Status, string(ok.Body))

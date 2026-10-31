@@ -293,7 +293,7 @@ func TestVirtualPatchCatalogueStateAndToggle(t *testing.T) {
 
 	// Declare the stack through the ordinary site PATCH.
 	tag := etagOf(t, a.do("GET", "/sites/shop", nil))
-	patched := a.do("PATCH", "/sites/shop", map[string]any{"policy": map[string]any{"stacks": []string{"wordpress"}}}, "If-Match", tag)
+	patched := a.do("PATCH", "/sites/shop", map[string]any{"policy": map[string]any{"stacks": []string{"wordpress"}}}, "If-Match", tag, "Content-Type", "application/merge-patch+json")
 	require.Equal(t, http.StatusOK, patched.Status, string(patched.Body))
 	wp := ""
 	for _, it := range a.do("GET", "/virtual-patches?q=file+manager", nil).JSON(t)["items"].([]any) {
@@ -313,7 +313,7 @@ func TestVirtualPatchCatalogueStateAndToggle(t *testing.T) {
 	assert.Equal(t, "active", state(wp))
 
 	assert.Equal(t, http.StatusNotFound, a.do("PUT", "/sites/shop/virtual-patches/SV-1999-0001", map[string]any{"enabled": false}, "If-Match", etagOf(t, on)).Status)
-	assert.Equal(t, http.StatusBadRequest, a.do("GET", "/virtual-patches?severity=bogus", nil).Status)
+	assert.Equal(t, http.StatusUnprocessableEntity, a.do("GET", "/virtual-patches?severity=bogus", nil).Status)
 	assert.Equal(t, http.StatusNotFound, a.do("GET", "/virtual-patches?site=ghost", nil).Status)
 
 	filtered := a.do("GET", "/virtual-patches?kev=true&severity=critical&q=confluence", nil).JSON(t)["items"].([]any)
@@ -340,7 +340,7 @@ func TestParanoiaImpactPredictsAdditionalBlocks(t *testing.T) {
 	assert.NotEmpty(t, j["advice"])
 
 	tag := etagOf(t, a.do("GET", "/sites/shop", nil))
-	require.Equal(t, http.StatusOK, a.do("PATCH", "/sites/shop", map[string]any{"policy": map[string]any{"waf": map[string]any{"paranoia_level": 2, "blocking_paranoia_level": 1}}}, "If-Match", tag).Status)
+	require.Equal(t, http.StatusOK, a.do("PATCH", "/sites/shop", map[string]any{"policy": map[string]any{"waf": map[string]any{"paranoia_level": 2, "blocking_paranoia_level": 1}}}, "If-Match", tag, "Content-Type", "application/merge-patch+json").Status)
 
 	j = a.do("GET", "/sites/shop/paranoia-impact?target=2", nil).JSON(t)
 	assert.Equal(t, true, j["observable"])
@@ -350,6 +350,6 @@ func TestParanoiaImpactPredictsAdditionalBlocks(t *testing.T) {
 	assert.Equal(t, []any{map[string]any{"rule_id": "942260", "count": float64(2)}}, j["by_rule"])
 	assert.Equal(t, []any{map[string]any{"path": "/b", "count": float64(2)}}, j["by_path"])
 
-	assert.Equal(t, http.StatusBadRequest, a.do("GET", "/sites/shop/paranoia-impact?target=5", nil).Status)
+	assert.Equal(t, http.StatusUnprocessableEntity, a.do("GET", "/sites/shop/paranoia-impact?target=5", nil).Status)
 	assert.Equal(t, http.StatusNotFound, a.do("GET", "/sites/ghost/paranoia-impact?target=2", nil).Status)
 }

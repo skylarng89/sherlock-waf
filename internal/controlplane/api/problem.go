@@ -78,6 +78,8 @@ func toProblem(err error) (p *problem, internal bool) {
 		return newProblem(403, "wrong_stage", "Wrong sign-in step", "This step is not available for your session."), false
 	case errors.Is(err, auth.ErrWeakPassword):
 		return errBadRequest(err.Error()), false
+	case errors.Is(err, auth.ErrPasswordChangedConcurrently):
+		return errConflict("password changed concurrently"), false
 	}
 	return newProblem(500, "internal", "Internal error", "The request could not be completed."), true
 }

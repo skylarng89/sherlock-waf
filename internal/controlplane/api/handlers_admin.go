@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/skylarng89/sherlock-waf/internal/audit"
+	"github.com/skylarng89/sherlock-waf/internal/config"
 	"github.com/skylarng89/sherlock-waf/internal/controlplane/api/apigen"
 	"github.com/skylarng89/sherlock-waf/internal/controlplane/auth"
 	"github.com/skylarng89/sherlock-waf/internal/ids"
@@ -419,7 +420,12 @@ func (h *handlers) CreateToken(ctx context.Context, req apigen.CreateTokenReques
 	}
 	p := principalFrom(ctx)
 	ct, err := h.s.Auth.CreateToken(ctx, p.UserID, name, scopes, cidrs, exp)
-	if err != nil {
+	switch {
+	case errors.Is(err, auth.ErrTokenLifetime):
+		return nil, tokenLifetimeProblem(h.s.Auth.TokenMaxLifetime)
+	case errors.Is(err, auth.ErrTokenLimit):
+		return nil, errConflict(fmt.Sprintf("You already have %d API tokens. Revoke one before creating another.", auth.MaxTokensPerUser))
+	case err != nil:
 		return nil, errBadRequest(err.Error())
 	}
 	if err := h.s.Audit.Record(ctx, h.s.Store, audit.Input{
@@ -434,6 +440,16 @@ func (h *handlers) CreateToken(ctx context.Context, req apigen.CreateTokenReques
 		out.Scopes = append(out.Scopes, apigen.CreatedTokenScopes(s))
 	}
 	return apigen.CreateToken201JSONResponse(out), nil
+}
+
+// tokenLifetimeProblem is the 422 field error for an expires_at beyond the maximum.
+func tokenLifetimeProblem(maxLifetime time.Duration) *problem {
+	p := newProblem(422, "unprocessable", "Unprocessable entity", "expires_at is later than the maximum token lifetime.")
+	p.Errors = []config.Error{{
+		Path: "/expires_at", Code: "max_lifetime",
+		Message: fmt.Sprintf("must be no more than %d days from now", int(maxLifetime/(24*time.Hour))),
+	}}
+	return p
 }
 
 func (h *handlers) DeleteToken(ctx context.Context, req apigen.DeleteTokenRequestObject) (apigen.DeleteTokenResponseObject, error) {
@@ -507,6 +523,8 @@ func (h *handlers) GetSystemInfo(ctx context.Context, _ apigen.GetSystemInfoRequ
 	if in.Commit != "" {
 		out.Commit = &in.Commit
 	}
+	days := in.TokenMaxLifetimeDays
+	out.TokenMaxLifetimeDays = &days
 	if head := h.s.Config.Head(); head != "" {
 		out.ConfigVersion = &head
 	}

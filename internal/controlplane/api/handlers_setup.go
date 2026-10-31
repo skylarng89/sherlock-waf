@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -54,12 +53,9 @@ func (h *handlers) CreateFirstAdmin(ctx context.Context, req apigen.CreateFirstA
 	if err := auth.ValidatePassword(b.Password); err != nil {
 		return nil, err
 	}
-	hash, err := h.s.Hasher.Hash(ctx, b.Password)
-	if err != nil {
-		return nil, err
-	}
-
-	ok, wait := h.s.Setup.attempt(b.SetupToken)
+	// The token is checked before the argon2 run so an unauthenticated caller
+	// cannot spend hashing capacity without holding the token.
+	ok, wait := h.s.Setup.verify(b.SetupToken)
 	switch {
 	case wait > 0:
 		return nil, &auth.ThrottledError{RetryAfter: wait}
@@ -68,10 +64,13 @@ func (h *handlers) CreateFirstAdmin(ctx context.Context, req apigen.CreateFirstA
 		return nil, errForbidden("The setup token is not valid.")
 	}
 
+	hash, err := h.s.Hasher.Hash(ctx, b.Password)
+	if err != nil {
+		return nil, err
+	}
 	now := h.s.Now()
 	id, err := ids.New(now)
 	if err != nil {
-		h.s.Setup.restore(b.SetupToken)
 		return nil, err
 	}
 	u := store.User{ID: id, Username: b.Username, PasswordHash: hash, Role: auth.RoleAdmin, CreatedAt: now}
@@ -95,11 +94,9 @@ func (h *handlers) CreateFirstAdmin(ctx context.Context, req apigen.CreateFirstA
 		return err
 	})
 	if err != nil {
-		if !errors.Is(err, closed) {
-			h.s.Setup.restore(b.SetupToken) // the admin was not created; do not burn the token
-		}
 		return nil, err
 	}
+	h.s.Setup.consume()
 	h.s.Audit.Deliver(ctx, entry)
 	return apigen.CreateFirstAdmin201JSONResponse(userDTO(u, now)), nil
 }

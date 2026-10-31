@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/cookiejar"
@@ -24,6 +25,7 @@ import (
 	"github.com/skylarng89/sherlock-waf/internal/configsvc"
 	"github.com/skylarng89/sherlock-waf/internal/controlplane/auth"
 	"github.com/skylarng89/sherlock-waf/internal/ops"
+	"github.com/skylarng89/sherlock-waf/internal/policy/ratelimit"
 	"github.com/skylarng89/sherlock-waf/internal/secrets"
 	"github.com/skylarng89/sherlock-waf/internal/store"
 )
@@ -57,6 +59,8 @@ type harness struct {
 	secrets *secrets.Service
 	certs   *certstore.Files
 	gate    *SetupGate
+	hasher  *auth.Hasher
+	tokens  map[string]string
 }
 
 func sha(s string) string { h := sha256.Sum256([]byte(s)); return hex.EncodeToString(h[:]) }
@@ -66,6 +70,9 @@ const seedConfig = `{"schema_version":1,"sites":[{"id":"shop","hosts":["shop.exa
 type harnessOpts struct {
 	noUsers bool
 	update  UpdateService
+	limits  ratelimit.Backend
+	// principalLimit overrides the per-principal request budget.
+	principalLimit int
 }
 
 func newHarness(t *testing.T) *harness { return newHarnessWith(t, harnessOpts{}) }
@@ -92,7 +99,7 @@ func newHarnessWith(t *testing.T, o harnessOpts) *harness {
 
 	hash, err := hasher.Hash(ctx, pw)
 	require.NoError(t, err)
-	h := &harness{t: t, st: st, auth: as, cfg: cfg, audit: au, plane: pl}
+	h := &harness{t: t, st: st, auth: as, cfg: cfg, audit: au, plane: pl, hasher: hasher, tokens: map[string]string{}}
 	h.dataDir = t.TempDir()
 	h.secrets = secrets.New(key)
 	mk := func(id, name, role string) store.User {
@@ -114,7 +121,7 @@ func newHarnessWith(t *testing.T, o harnessOpts) *harness {
 	cfg.SetReferenceChecker(testRefs(st))
 	s, err := New(Deps{
 		Store: st, Config: cfg, Auth: as, Audit: au, Hasher: hasher, Info: Info{Version: "test", CRSVersion: "4.25.0"},
-		Secrets: h.secrets, Certs: certs, Setup: h.gate, DataDir: h.dataDir, Update: o.update,
+		Secrets: h.secrets, Certs: certs, Setup: h.gate, DataDir: h.dataDir, Update: o.update, Limits: o.limits, PrincipalRequestsPerMinute: o.principalLimit,
 	})
 	require.NoError(t, err)
 	h.srv = httptest.NewTLSServer(s.Handler())
@@ -153,13 +160,21 @@ func (h *harness) mint(u store.User, stage string) *session {
 	return s
 }
 
-// token mints an API token for u.
+// token returns a client holding an API token for u with these scopes and
+// CIDRs. Tokens are minted once per shape: the per-user token cap (50) would
+// otherwise be exhausted by a matrix test that asks for a token per operation.
 func (h *harness) token(u store.User, scopes []string, cidrs []string) *session {
 	h.t.Helper()
-	ct, err := h.auth.CreateToken(h.t.Context(), u.ID, "t", scopes, cidrs, time.Time{})
-	require.NoError(h.t, err)
+	key := fmt.Sprint(u.ID, scopes, cidrs)
+	secret, ok := h.tokens[key]
+	if !ok {
+		ct, err := h.auth.CreateToken(h.t.Context(), u.ID, "t", scopes, cidrs, time.Time{})
+		require.NoError(h.t, err)
+		secret = ct.Secret
+		h.tokens[key] = secret
+	}
 	s := h.anon()
-	s.bearer = ct.Secret
+	s.bearer = secret
 	return s
 }
 

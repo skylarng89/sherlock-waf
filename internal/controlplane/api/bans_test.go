@@ -28,7 +28,11 @@ func TestBanLifecycle(t *testing.T) {
 		"unknown site": {"ip": "203.0.113.77", "duration_seconds": 600, "site_id": "ghost"},
 	}
 	for name, body := range bad {
-		assert.Equal(t, http.StatusBadRequest, a.do("POST", "/bans", body).Status, name)
+		want := http.StatusBadRequest
+		if name == "no duration" || name == "too short" || name == "too long" {
+			want = http.StatusUnprocessableEntity // the document's schema rejects these before the handler
+		}
+		assert.Equal(t, want, a.do("POST", "/bans", body).Status, name)
 	}
 
 	made := a.do("POST", "/bans", map[string]any{"ip": "203.0.113.77", "duration_seconds": 3600, "reason": "scanner"})

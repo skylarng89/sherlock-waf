@@ -146,18 +146,18 @@ func TestPasswordHashIsRedactedAndPreserved(t *testing.T) {
 	site2 := got.JSON(t)
 	delete(site2["policy"].(map[string]any)["acl"].(map[string]any)["password_gate"].(map[string]any), "password_hash")
 	delete(site2, "endpoints")
-	patch := a.do("PATCH", "/sites/gated", map[string]any{"policy": site2["policy"]}, "If-Match", fresh())
+	patch := a.do("PATCH", "/sites/gated", map[string]any{"policy": site2["policy"]}, "If-Match", fresh(), "Content-Type", "application/merge-patch+json")
 	require.Equal(t, http.StatusOK, patch.Status, string(patch.Body))
 	assert.Equal(t, hash, storedHash(t, h, "gated"), "an omitted hash is not cleared")
 
 	// PATCH carrying the placeholder keeps it too.
-	patch = a.do("PATCH", "/sites/gated", map[string]any{"policy": map[string]any{"acl": map[string]any{"password_gate": map[string]any{"password_hash": config.RedactedPlaceholder, "username": "renamed"}}}}, "If-Match", fresh())
+	patch = a.do("PATCH", "/sites/gated", map[string]any{"policy": map[string]any{"acl": map[string]any{"password_gate": map[string]any{"password_hash": config.RedactedPlaceholder, "username": "renamed"}}}}, "If-Match", fresh(), "Content-Type", "application/merge-patch+json")
 	require.Equal(t, http.StatusOK, patch.Status, string(patch.Body))
 	assert.Equal(t, hash, storedHash(t, h, "gated"))
 
 	// A real new hash replaces it.
 	newHash := strings.Replace(hash, "aGFzaGhhc2hoYXNoaGFzaA", "bmV3aGFzaG5ld2hhc2g", 1)
-	patch = a.do("PATCH", "/sites/gated", map[string]any{"policy": map[string]any{"acl": map[string]any{"password_gate": map[string]any{"password_hash": newHash}}}}, "If-Match", fresh())
+	patch = a.do("PATCH", "/sites/gated", map[string]any{"policy": map[string]any{"acl": map[string]any{"password_gate": map[string]any{"password_hash": newHash}}}}, "If-Match", fresh(), "Content-Type", "application/merge-patch+json")
 	require.Equal(t, http.StatusOK, patch.Status, string(patch.Body))
 	assert.Equal(t, newHash, storedHash(t, h, "gated"))
 

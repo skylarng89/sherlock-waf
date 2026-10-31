@@ -58,9 +58,10 @@ func (g *SetupGate) Active() bool {
 	return g.token != ""
 }
 
-// attempt checks token and, on success, consumes the gate. wait > 0 means
-// throttled; ok is false for a wrong token.
-func (g *SetupGate) attempt(token string) (ok bool, wait time.Duration) {
+// verify checks token in constant time and throttles failures. It does not
+// consume the gate: the caller consumes it only after the administrator row is
+// committed, so a request that fails later leaves the token usable.
+func (g *SetupGate) verify(token string) (ok bool, wait time.Duration) {
 	if g == nil {
 		return false, 0
 	}
@@ -85,17 +86,13 @@ func (g *SetupGate) attempt(token string) (ok bool, wait time.Duration) {
 		g.failures = append(g.failures, now)
 		return false, 0
 	}
-	g.token = ""
-	_ = os.Remove(g.path)
 	return true, 0
 }
 
-// restore re-arms a gate whose consumption did not lead to an admin being created.
-func (g *SetupGate) restore(token string) {
+// consume retires the gate once the first administrator exists.
+func (g *SetupGate) consume() {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	if g.token == "" {
-		g.token = strings.TrimSpace(token)
-		_ = os.WriteFile(g.path, []byte(g.token+"\n"), 0o600)
-	}
+	g.token = ""
+	_ = os.Remove(g.path)
 }

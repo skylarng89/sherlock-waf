@@ -75,8 +75,8 @@ func TestEventFilteringThroughTheAPI(t *testing.T) {
 	assert.Equal(t, []string{"01B"}, ids("mode=detect"))
 	assert.Equal(t, []string{"01C"}, ids("q=login"))
 	assert.Equal(t, []string{"01A"}, ids("q=942100"), "rule ids are searchable")
-	assert.Equal(t, http.StatusBadRequest, a.do("GET", "/events?country=nl", nil).Status, "country must be a capital code")
-	assert.Equal(t, http.StatusBadRequest, a.do("GET", "/events?mode=maybe", nil).Status)
+	assert.Equal(t, http.StatusUnprocessableEntity, a.do("GET", "/events?country=nl", nil).Status, "country must be a capital code")
+	assert.Equal(t, http.StatusUnprocessableEntity, a.do("GET", "/events?mode=maybe", nil).Status)
 }
 
 func TestTopListings(t *testing.T) {
@@ -108,7 +108,11 @@ func TestTopListings(t *testing.T) {
 		"too wide": "/stats/top?dim=ip&from=2000-01-01T00:00:00Z&to=2030-01-01T00:00:00Z",
 		"no range": "/stats/top?dim=ip",
 	} {
-		assert.Equal(t, http.StatusBadRequest, a.do("GET", q, nil).Status, name)
+		want := http.StatusBadRequest
+		if name == "bad dim" {
+			want = http.StatusUnprocessableEntity
+		}
+		assert.Equal(t, want, a.do("GET", q, nil).Status, name)
 	}
 }
 

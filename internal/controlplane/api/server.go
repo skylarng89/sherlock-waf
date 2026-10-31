@@ -20,13 +20,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/getkin/kin-openapi/openapi3"
+
 	"github.com/skylarng89/sherlock-waf/internal/audit"
 	"github.com/skylarng89/sherlock-waf/internal/certstore"
 	"github.com/skylarng89/sherlock-waf/internal/config"
 	"github.com/skylarng89/sherlock-waf/internal/configsvc"
 	"github.com/skylarng89/sherlock-waf/internal/controlplane/api/apigen"
 	"github.com/skylarng89/sherlock-waf/internal/controlplane/auth"
+	"github.com/skylarng89/sherlock-waf/internal/metrics"
+	"github.com/skylarng89/sherlock-waf/internal/oapi"
 	"github.com/skylarng89/sherlock-waf/internal/policy"
+	"github.com/skylarng89/sherlock-waf/internal/policy/ratelimit"
 	"github.com/skylarng89/sherlock-waf/internal/secrets"
 	"github.com/skylarng89/sherlock-waf/internal/store"
 	"github.com/skylarng89/sherlock-waf/pkg/extension"
@@ -51,10 +56,12 @@ const (
 
 // Info is static build information reported by /system/info.
 type Info struct {
-	Version    string
-	Commit     string
-	CRSVersion string
-	Features   []string
+	// TokenMaxLifetimeDays is the longest an API token may live; zero means no limit.
+	TokenMaxLifetimeDays int
+	Version              string
+	Commit               string
+	CRSVersion           string
+	Features             []string
 }
 
 // Deps are the services the API is built on.
@@ -87,13 +94,21 @@ type Deps struct {
 	Update UpdateService
 	// DataDir is where Caddy keeps the certificates it obtains (ACME status).
 	DataDir string
+	// Limits counts control-plane requests per principal and per anonymous
+	// client IP (S-08). Nil uses an in-process limiter.
+	Limits ratelimit.Backend
+	// PrincipalRequestsPerMinute is the per-user or per-token request budget;
+	// zero or less uses DefaultPrincipalRequestsPerMinute.
+	PrincipalRequestsPerMinute int
 }
 
 // Server is the HTTP API.
 type Server struct {
 	Deps
-	log   *slog.Logger
-	perms map[string]string // "METHOD /api/v1/path/{param}" -> permission
+	log       *slog.Logger
+	perms     map[string]string // "METHOD /api/v1/path/{param}" -> permission
+	validator *oapi.Validator
+	limits    ratelimit.Backend
 
 	updates updateCache
 }
@@ -109,22 +124,38 @@ func New(d Deps) (*Server, error) {
 	if d.Hasher == nil {
 		d.Hasher = auth.NewHasher(4)
 	}
-	perms, err := permissionTable()
+	spec, err := apigen.GetSpec()
+	if err != nil {
+		return nil, fmt.Errorf("loading embedded openapi spec: %w", err)
+	}
+	perms, err := permissionTableFor(spec)
 	if err != nil {
 		return nil, err
 	}
-	return &Server{Deps: d, log: d.Logger, perms: perms}, nil
+	validator, err := newRequestValidator(spec)
+	if err != nil {
+		return nil, err
+	}
+	if d.Limits == nil {
+		d.Limits = ratelimit.New(requestLimiterKeys)
+	}
+	return &Server{Deps: d, log: d.Logger, perms: perms, validator: validator, limits: d.Limits}, nil
 }
 
-// permissionTable reads x-sherlock-permission from the embedded spec. A missing
-// or unknown value is a start-up error: no route may exist without a decision.
+// permissionTable reads x-sherlock-permission from the embedded spec.
 func permissionTable() (map[string]string, error) {
 	spec, err := apigen.GetSpec()
 	if err != nil {
 		return nil, fmt.Errorf("loading embedded openapi spec: %w", err)
 	}
+	return permissionTableFor(spec)
+}
+
+// permissionTableFor maps each operation to its permission. A missing or unknown
+// value is a start-up error: no route may exist without a decision.
+func permissionTableFor(spec *openapi3.T) (map[string]string, error) {
 	known := map[string]bool{
-		auth.PermPublic: true, auth.PermAuthenticated: true, auth.PermSessionAny: true, auth.PermSessionPart: true,
+		auth.PermPublic: true, auth.PermAuthenticated: true, auth.PermSessionAny: true, auth.PermSessionPart: true, auth.PermSessionFull: true,
 		auth.PermConfigRead: true, auth.PermConfigWrite: true, auth.PermEventsRead: true, auth.PermUsersManage: true,
 		auth.PermTokensOwn: true, auth.PermAuditRead: true, auth.PermSystemRead: true, auth.PermSystemUpdate: true,
 	}
@@ -239,7 +270,11 @@ func (s *Server) guard(mux *http.ServeMux) http.Handler {
 			return
 		}
 		if perm == auth.PermPublic {
-			if err := strictBody(r, pattern); err != nil {
+			if err := s.limitAnonymous(r); err != nil {
+				s.errorHandler(w, r, err)
+				return
+			}
+			if err := s.checkRequest(r, pattern); err != nil {
 				s.errorHandler(w, r, err)
 				return
 			}
@@ -252,16 +287,72 @@ func (s *Server) guard(mux *http.ServeMux) http.Handler {
 			s.errorHandler(w, r, err)
 			return
 		}
+		if err := s.limitPrincipal(r.Context(), p); err != nil {
+			s.errorHandler(w, r, err)
+			return
+		}
 		if err := s.authorise(r, p, pattern, perm, bySession); err != nil {
 			s.errorHandler(w, r, err)
 			return
 		}
-		if err := strictBody(r, pattern); err != nil {
+		if err := s.checkRequest(r, pattern); err != nil {
 			s.errorHandler(w, r, err)
 			return
 		}
 		mux.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), keyPrincipal, p)))
 	})
+}
+
+// Request limits per minute (S-08). A browser session polls at most one 5 s
+// events refresh plus 30 s page refreshes (web/src), a few requests a minute;
+// 300 leaves room for a busy operator and a scripted client. Anonymous callers
+// of public operations are limited per client IP; login and setup have their
+// own, stricter limiters on top of this one.
+const (
+	// DefaultPrincipalRequestsPerMinute is the budget when SHERLOCK_API_RATE_LIMIT is unset.
+	DefaultPrincipalRequestsPerMinute = 300
+	anonymousRequestsPerMinute        = 120
+	requestWindow                     = time.Minute
+	requestLimiterKeys                = 100_000
+)
+
+// limitPrincipal counts a request against the authenticated caller. It runs
+// after authentication, so an unauthenticated request never spends a victim's budget.
+func (s *Server) limitPrincipal(ctx context.Context, p auth.Principal) error {
+	key := "user:" + p.UserID
+	if p.IsToken() {
+		key = "token:" + p.TokenID
+	}
+	limit := s.PrincipalRequestsPerMinute
+	if limit <= 0 {
+		limit = DefaultPrincipalRequestsPerMinute
+	}
+	return s.limitRequest(ctx, key, limit, "principal")
+}
+
+func (s *Server) limitAnonymous(r *http.Request) error {
+	return s.limitRequest(r.Context(), "anon:"+ipFrom(r.Context()), anonymousRequestsPerMinute, "anonymous")
+}
+
+func (s *Server) limitRequest(ctx context.Context, key string, limit int, scope string) error {
+	res, err := s.limits.Allow(ctx, key, limit, requestWindow)
+	if err != nil {
+		return fmt.Errorf("checking the request limit: %w", err)
+	}
+	if res.Allowed {
+		return nil
+	}
+	metrics.ObserveAPIThrottled(scope)
+	return &auth.ThrottledError{RetryAfter: res.RetryAfter}
+}
+
+// checkRequest validates the request against the document and the strict
+// configuration decoder. Authentication and authorisation have already run.
+func (s *Server) checkRequest(r *http.Request, pattern string) error {
+	if err := s.validateRequest(r); err != nil {
+		return err
+	}
+	return strictBody(r, pattern)
 }
 
 func (s *Server) authenticate(r *http.Request) (p auth.Principal, bySession bool, err error) {
@@ -301,6 +392,11 @@ func (s *Server) authorise(r *http.Request, p auth.Principal, pattern, perm stri
 	case auth.PermSessionPart:
 		if !bySession || !partial {
 			return errForbidden("This step is only available during sign-in.")
+		}
+		return nil
+	case auth.PermSessionFull:
+		if !bySession || partial {
+			return errForbidden("This operation needs a signed-in browser session.")
 		}
 		return nil
 	}

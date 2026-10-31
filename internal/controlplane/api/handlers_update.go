@@ -66,6 +66,11 @@ func (h *handlers) GetUpdateStatus(ctx context.Context, _ apigen.GetUpdateStatus
 }
 
 func (h *handlers) ApplyUpdate(ctx context.Context, _ apigen.ApplyUpdateRequestObject) (apigen.ApplyUpdateResponseObject, error) {
+	// Installing a release replaces the running binary: a browser session with
+	// system:update must do it, never a long-lived token (S-05).
+	if principalFrom(ctx).IsToken() {
+		return nil, errForbidden("Updates can only be applied from a browser session, not an API token.")
+	}
 	if h.s.Update == nil {
 		return nil, errUpdatesOff()
 	}

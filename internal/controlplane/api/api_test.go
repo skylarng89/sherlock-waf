@@ -35,7 +35,7 @@ func specOps(t *testing.T) []op {
 		}
 	}
 	slices.SortFunc(ops, func(a, b op) int { return strings.Compare(a.method+a.path, b.method+b.path) })
-	require.GreaterOrEqual(t, len(ops), 37)
+	require.GreaterOrEqual(t, len(ops), 40)
 	return ops
 }
 
@@ -62,6 +62,12 @@ func allowed(perm string, kind string, held []string) bool {
 		return kind == "partial"
 	case "authenticated":
 		return kind == "full" || kind == "token"
+	case "session-full":
+		return kind == "full"
+	case "system:update":
+		// Replacing the binary is a browser-session action only (S-05): a token with
+		// the admin scope is refused by the handler.
+		return kind == "full" && slices.Contains(held, perm)
 	}
 	return (kind == "full" || kind == "token") && slices.Contains(held, perm)
 }
