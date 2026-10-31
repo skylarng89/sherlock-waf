@@ -111,3 +111,72 @@ func (c internalErrorCollector) Collect(ch chan<- prometheus.Metric) {
 		ch <- prometheus.MustNewConstMetric(internalDesc, prometheus.CounterValue, float64(c.src()))
 	}
 }
+
+// UpstreamStatus is one origin's health as last probed by the server.
+type UpstreamStatus struct {
+	Site     string
+	Upstream string
+	Healthy  bool
+}
+
+// CertExpiry is the expiry of the certificate that serves a site host.
+type CertExpiry struct {
+	Site     string
+	Host     string
+	NotAfter time.Time
+}
+
+// RegisterUpstreamHealth exposes sherlock_upstream_healthy from src, which is
+// called at scrape time and must return a snapshot without doing I/O. It
+// replaces any earlier registration.
+func RegisterUpstreamHealth(src func() []UpstreamStatus) {
+	Registry.Unregister(upstreamCollector{})
+	Registry.MustRegister(upstreamCollector{src: src})
+}
+
+// RegisterCertExpiry exposes sherlock_cert_expiry_seconds from src, which is
+// called at scrape time and must return a snapshot without doing I/O. It
+// replaces any earlier registration.
+func RegisterCertExpiry(src func() []CertExpiry) {
+	Registry.Unregister(certExpiryCollector{})
+	Registry.MustRegister(certExpiryCollector{src: src, now: time.Now})
+}
+
+var (
+	upstreamDesc = prometheus.NewDesc("sherlock_upstream_healthy", "1 when the last health probe of the upstream succeeded, 0 when it failed.", []string{"site", "upstream"}, nil)
+	certDesc     = prometheus.NewDesc("sherlock_cert_expiry_seconds", "Seconds until the certificate serving the host expires; negative once it has expired.", []string{"site", "host"}, nil)
+)
+
+type upstreamCollector struct{ src func() []UpstreamStatus }
+
+func (upstreamCollector) Describe(ch chan<- *prometheus.Desc) { ch <- upstreamDesc }
+
+func (c upstreamCollector) Collect(ch chan<- prometheus.Metric) {
+	if c.src == nil {
+		return
+	}
+	for _, u := range c.src() {
+		v := 0.0
+		if u.Healthy {
+			v = 1
+		}
+		ch <- prometheus.MustNewConstMetric(upstreamDesc, prometheus.GaugeValue, v, u.Site, u.Upstream)
+	}
+}
+
+type certExpiryCollector struct {
+	src func() []CertExpiry
+	now func() time.Time
+}
+
+func (certExpiryCollector) Describe(ch chan<- *prometheus.Desc) { ch <- certDesc }
+
+func (c certExpiryCollector) Collect(ch chan<- prometheus.Metric) {
+	if c.src == nil {
+		return
+	}
+	now := c.now()
+	for _, e := range c.src() {
+		ch <- prometheus.MustNewConstMetric(certDesc, prometheus.GaugeValue, e.NotAfter.Sub(now).Seconds(), e.Site, e.Host)
+	}
+}

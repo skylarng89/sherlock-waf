@@ -35,6 +35,7 @@ import (
 	"github.com/skylarng89/sherlock-waf/internal/events"
 	"github.com/skylarng89/sherlock-waf/internal/eventwriter"
 	"github.com/skylarng89/sherlock-waf/internal/feeds"
+	"github.com/skylarng89/sherlock-waf/internal/metrics"
 	"github.com/skylarng89/sherlock-waf/internal/ops"
 	"github.com/skylarng89/sherlock-waf/internal/policy"
 	"github.com/skylarng89/sherlock-waf/internal/store"
@@ -158,6 +159,25 @@ func Run(ctx context.Context, o Options) error {
 		// Stay up so an operator can fix or roll back through the API; /readyz reports it.
 		log.Error("stored configuration could not be activated; serving the API in degraded mode", "error", err)
 	}
+
+	prober := newUpstreamProber(cfg, certFiles.Paths, log)
+	metrics.RegisterUpstreamHealth(prober.Snapshot)
+	jobs.Go(func() { prober.Run(bg) })
+
+	expiry := newCertExpiryWatch(cfg, func(ctx context.Context) (map[string]store.Certificate, error) {
+		var cs []store.Certificate
+		err := env.Store.Tx(ctx, func(ctx context.Context, tx store.Tx) (err error) {
+			cs, err = tx.ListCertificates(ctx)
+			return err
+		})
+		byID := make(map[string]store.Certificate, len(cs))
+		for _, c := range cs {
+			byID[c.ID] = c
+		}
+		return byID, err
+	}, dataDir, log)
+	metrics.RegisterCertExpiry(expiry.Snapshot)
+	jobs.Go(func() { expiry.Run(bg) })
 
 	host := newHost(o, env, log)
 	for _, ext := range o.Extensions {
