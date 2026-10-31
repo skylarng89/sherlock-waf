@@ -351,15 +351,19 @@ func (m *Manager) RefreshGeo(ctx context.Context) {
 	path := m.geoPath(cfg.Provider)
 	info, err := os.Stat(path)
 	stale := err != nil || m.o.Now().Sub(info.ModTime()) > geoMaxAge(cfg.Provider)
+	var downloadErr error
 	if cfg.AutoUpdate && stale {
-		if err := m.downloadGeo(ctx, cfg.Provider, path); err != nil {
-			m.o.Logger.Warn("geoip download failed; keeping the previous database", "provider", cfg.Provider, "error", err)
-			m.setStatus("geoip", 0, err)
+		if downloadErr = m.downloadGeo(ctx, cfg.Provider, path); downloadErr != nil {
+			m.o.Logger.Warn("geoip download failed; keeping the previous database", "provider", cfg.Provider, "error", downloadErr)
 		}
 	}
 	raw, err := os.ReadFile(path) //nolint:gosec // path built from the data dir
 	if err != nil {
-		m.reportUnreadable(cfg, err)
+		if downloadErr != nil {
+			m.setStatus("geoip", 0, downloadErr) // the reason the file is missing
+		} else {
+			m.reportUnreadable(cfg, err)
+		}
 		return
 	}
 	db, entries, err := parseGeo(cfg.Provider, raw)
@@ -372,7 +376,8 @@ func (m *Manager) RefreshGeo(ctx context.Context) {
 	st := acl.Status()
 	st.GeoReady = true
 	acl.SetFeedStatus(st)
-	m.setStatus("geoip", entries, nil)
+	// A failed download still reports as failed even though the previous file loaded.
+	m.setStatus("geoip", entries, downloadErr)
 }
 
 // reportUnreadable records why the database cannot be read, unless an earlier

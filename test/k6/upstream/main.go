@@ -1,11 +1,12 @@
 // Command upstream is the benchmark origin: it answers every request with a
 // fixed 1 KB body as fast as Go allows, so measured latency is Sherlock's and
-// not the application's.
+// not the application's. POST /payments (the API benchmark) answers 201 instead.
 package main
 
 import (
 	"bytes"
 	"flag"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -21,7 +22,14 @@ func main() {
 	srv := &http.Server{
 		Addr:              *addr,
 		ReadHeaderTimeout: 5 * time.Second,
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPost && r.URL.Path == "/payments" {
+				_, _ = io.Copy(io.Discard, r.Body)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusCreated)
+				_, _ = io.WriteString(w, `{"status":"created"}`)
+				return
+			}
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 			w.Header().Set("Content-Length", length)
 			_, _ = w.Write(body)

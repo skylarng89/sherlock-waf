@@ -2,12 +2,8 @@ package api
 
 import (
 	"context"
-	"crypto/x509"
-	"encoding/pem"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -124,7 +120,7 @@ func (h *handlers) GetACMEStatus(ctx context.Context, _ apigen.GetACMEStatusRequ
 			item := apigen.ACMEStatus{Site: s.ID, Host: host}
 			switch {
 			case s.TLS.Mode == config.TLSACME:
-				exp, ok := acmeCertExpiry(h.s.DataDir, host)
+				exp, ok := certstore.ACMEExpiry(h.s.DataDir, host)
 				if ok {
 					item.State, item.NotAfter = apigen.ACMEStatusStateIssued, &exp
 				} else {
@@ -156,31 +152,6 @@ func ptr[T any](v T) *T { return &v }
 func wildcardCovers(names []string, host string) bool {
 	_, rest, ok := strings.Cut(host, ".")
 	return ok && slices.Contains(names, "*."+rest)
-}
-
-// acmeCertExpiry finds the certificate Caddy obtained for host under its
-// storage layout (certificates/<issuer>/<host>/<host>.crt) and returns its expiry.
-func acmeCertExpiry(dataDir, host string) (time.Time, bool) {
-	if dataDir == "" || strings.ContainsAny(host, `/\`) || strings.HasPrefix(host, ".") {
-		return time.Time{}, false
-	}
-	matches, _ := filepath.Glob(filepath.Join(dataDir, "certificates", "*", host, host+".crt"))
-	var best time.Time
-	for _, m := range matches {
-		raw, err := os.ReadFile(m) //nolint:gosec // path built from the data dir and a validated host name
-		if err != nil {
-			continue
-		}
-		blk, _ := pem.Decode(raw)
-		if blk == nil {
-			continue
-		}
-		c, err := x509.ParseCertificate(blk.Bytes)
-		if err == nil && c.NotAfter.After(best) {
-			best = c.NotAfter
-		}
-	}
-	return best, !best.IsZero()
 }
 
 // --- block pages ---
