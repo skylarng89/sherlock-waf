@@ -12,9 +12,9 @@ ignore:
   '^920100-5$': 'CONNECT is rejected by 911100 (403) before the malformed target is judged; the test expects 400'
   # The expected 400 comes from Apache's own request parser, not from a CRS rule.
   '^920100-8$': 'colon in the path: the 400 is produced by Apache; Go net/http accepts it and CRS 920100 does not flag it'
-  # resp: 66 test(s) + the phase-5 reporting rules (RESPONSE-980-CORRELATION.conf)
-  '^980170-': 'Phase-5 reporting rules (RESPONSE-980-CORRELATION) are not loaded: only REQUEST-* CRS files are, since response inspection is out of scope until a later milestone.'
-  '^95[0-9]{4}-': 'Response-phase CRS rules (950-956: data leakages, web shells) are not loaded. Response inspection (outbound_inspection) is out of scope until a later milestone, so no response rule can fire.'
+  # Phase-5 reporting rule 980170. Its tests 1 and 2 send Host: 127.0.0.1; Sherlock answers that unconfigured host with 421
+  # before the WAF runs (verified: "HTTP/1.1 421 Misdirected Request"), so no rule can log. Test 3 expects no log and passes.
+  '^980170-(1|2)$': 'The test sends Host: 127.0.0.1. Sherlock routes by Host and answers 421 for any host that is not configured, so the WAF never sees the request. That is by design (unknown host -> 421), not a missed detection.'
   # optional: 6 test(s)
   '^920360-(1)$': 'Optional CRS length/size limits (tx.arg_name_length, arg_length, max_num_args, total_arg_length, max_file_size, combined_file_sizes) are disabled by default in CRS and Sherlock does not expose them yet; the limits are deployment-specific (WAF tuning arrives in M8).'
   '^920370-(1)$': 'Optional CRS length/size limits (tx.arg_name_length, arg_length, max_num_args, total_arg_length, max_file_size, combined_file_sizes) are disabled by default in CRS and Sherlock does not expose them yet; the limits are deployment-specific (WAF tuning arrives in M8).'
@@ -32,6 +32,10 @@ ignore:
   '^944140-(3|8)$': 'The test sends the payload in a header whose name contains an underscore or a dot (X_Filename, X.Filename). Caddy 2.11 drops such headers by default (GHSA-f59h-q822-g45g, GHSA-49wc-4hcv-v58q), so neither the WAF nor the upstream ever sees them; there is no bypass to detect.'
   # logdata: 1 test(s)
   '^933120-(2)$': "Asserts on ModSecurity's logdata text ('... found within ARGS:var:'). Sherlock events carry the target and matched value as separate fields instead (docs/architecture/events.md)."
+  # blocking: 959100 fires only when the outbound anomaly score reaches tx.outbound_anomaly_score_threshold, which this run
+  # sets to 10000 (as the CRS project does), so it can never fire here. Verified: with the threshold at 4, 953120 scores 4
+  # and 959100-1/-3 pass; test 2 expects no 959100 and passes at 10000.
+  '^959100-(1|3)$': '959100 fires only when the outbound anomaly score reaches the threshold, and this run sets it to 10000, so it cannot fire. Verified by lowering the threshold to 4 for one run: 953120 scores 4, 959100 fires and these tests pass.'
   # blocking: 3 test(s)
   '^949110-(1|4|5)$': "949110 only fires when the anomaly threshold is reached; this run raises thresholds to 10000 (as the CRS project does) so tests judge detection by rule ID. Blocking is covered by Sherlock's own block-mode tests and the e2e smoke test."
   # dupct: 1 test(s)

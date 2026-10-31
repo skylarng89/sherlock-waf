@@ -1,0 +1,17 @@
+openapi: 3.0.3
+info: { title: Payments benchmark, version: "1" }
+paths:
+  /payments:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount, currency]
+              additionalProperties: false
+              properties:
+                amount: { type: integer, minimum: 1 }
+                currency: { type: string, enum: [EUR, USD] }
+      responses: { "201": { description: created } }

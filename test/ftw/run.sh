@@ -53,6 +53,7 @@ sites:
         blocking_paranoia_level: ${pl}
         inbound_threshold: 10000
         outbound_threshold: 10000
+        outbound_inspection: true
         exclusions:
           - id: ftw-sample-scoped
             match: { paths: ["/sherlock-sample-app/**"], methods: [POST] }

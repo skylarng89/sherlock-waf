@@ -39,7 +39,8 @@
 | `SHERLOCK_NODE_KEY_FILE` / `SHERLOCK_NODE_KEY` | `<data-dir>/node.key` |
 | `SHERLOCK_BACKUP`, `SHERLOCK_BACKUP_KEEP`, `SHERLOCK_BACKUP_PASSPHRASE_FILE` | daily, keep 7, unencrypted |
 | `SHERLOCK_TURNSTILE_SECRET`, `SHERLOCK_HCAPTCHA_SECRET` | unset (bot-defence provider secrets) |
-| `SHERLOCK_CROWDSEC_API_KEY`, `SHERLOCK_MAXMIND_LICENSE_KEY` | unset (optional feeds) |
+| `SHERLOCK_CROWDSEC_API_KEY` | unset (optional feeds) |
+| `SHERLOCK_MAXMIND_ACCOUNT_ID`, `SHERLOCK_MAXMIND_LICENSE_KEY` | unset (optional; needed only for the MaxMind GeoIP provider) |
 | `SHERLOCK_API_URL`, `SHERLOCK_TOKEN`, `SHERLOCK_TLS_PIN` | CLI client settings for `sherlock config … --server` |
 
 There is no `SHERLOCK_DATA_DIR`, `SHERLOCK_DB`, `SHERLOCK_HTTP_LISTEN`, `SHERLOCK_NODE_NAME` or `SHERLOCK_LOG_LEVEL`.
@@ -49,7 +50,12 @@ Everything else is configuration in the store, managed via API/dashboard/YAML.
 ## Operating
 
 - Health: `GET /healthz` (process up), `GET /readyz` (store reachable, data plane running, config applied).
-- Metrics: `GET /metrics` on the admin listener (CIDR protected via `global.admin.allowed_cidrs`; the control plane adds token auth in M3). Key series: `sherlock_requests_total{site,action}`, `sherlock_request_duration_seconds`, `sherlock_waf_duration_seconds`, `sherlock_events_published_total`, `sherlock_events_dropped_total`, `sherlock_internal_errors_total`, `sherlock_requests_in_flight`, `sherlock_config_version_info`, `sherlock_crs_version_info`. Not yet exposed (they need Caddy state the data plane does not publish): `sherlock_upstream_healthy{site,upstream}` and `sherlock_cert_expiry_seconds`.
+- Metrics: `GET /metrics` on the admin listener (CIDR protected via `global.admin.allowed_cidrs`; the control plane adds token auth in M3). Key series: `sherlock_requests_total{site,action}`, `sherlock_request_duration_seconds`, `sherlock_waf_duration_seconds`, `sherlock_events_published_total`, `sherlock_events_dropped_total`, `sherlock_internal_errors_total`, `sherlock_requests_in_flight`, `sherlock_config_version_info`, `sherlock_crs_version_info`.
+
+Upstream and certificate health (both read from snapshots that background jobs refresh, so a scrape causes no probes, disk reads or database queries):
+
+- `sherlock_upstream_healthy{site,upstream}`: `1` when the last probe of the origin succeeded, `0` when it failed. The gauge has series only for sites that define `upstreams.targets`, one per target (`host:port`). Sherlock probes every 15 s, with at most eight probes in flight and a per-probe timeout of `upstreams.health_check.timeout` (default 2 s). With `upstreams.health_check.path` set, a probe is a GET of that path over the same scheme and TLS settings as traffic, and only a 2xx response counts as healthy; redirects are not followed. Without a path, a probe is a TCP connect only. This is Sherlock's own probe, not Caddy's internal pool state, which is not reachable without the disabled admin API. A value of `0` means the last probe failed, not that the origin is confirmed down.
+- `sherlock_cert_expiry_seconds{site,host}`: seconds until the certificate that serves the host expires, refreshed every 60 s. A negative value means the certificate has already expired. Uploaded certificates use the stored `NotAfter`, and a host is only reported when the certificate covers it. ACME certificates are read from the copy Caddy stores under `$DATA_DIR/certificates/`. A host has no series until its certificate exists, and wildcard ACME hosts have none because Caddy stores them under a different name. Alert on the value falling below a threshold, such as 14 days (`1209600`), rather than on the series disappearing.
 
 ### Admin listener (since M2)
 

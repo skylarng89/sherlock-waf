@@ -60,7 +60,10 @@ sites:
 
 The feeds job refreshes in the background and swaps data atomically, with no restart and no dropped requests. A failed download keeps the previous data and shows as `failed` (or `stale` after a long time) on the Access page and in `GET /feeds/status`.
 
-- **GeoIP** — DB-IP Lite country data. With `auto_update` it downloads the current month's file (falling back to the previous month) into `<data-dir>/geoip/`. To work offline, place `dbip-country-lite.csv.gz` there yourself. MaxMind is accepted in the configuration but not implemented yet and is reported as failed.
+- **GeoIP** — choose the country source with `geoip.provider`:
+  - `dbip-lite` (default): DB-IP Lite country data. With `auto_update` it downloads the current month's file (falling back to the previous month) into `<data-dir>/geoip/dbip-country-lite.csv.gz`. To work offline, place that file there yourself.
+  - `maxmind`: MaxMind GeoLite2-Country. Set `SHERLOCK_MAXMIND_ACCOUNT_ID` and `SHERLOCK_MAXMIND_LICENSE_KEY` (both from your MaxMind account; the account ID is the HTTP basic user, the licence key the password). With `auto_update` it downloads the archive when the file is missing or older than eight days and stores the extracted `<data-dir>/geoip/GeoLite2-Country.mmdb`. The file is checked to be a country database before it replaces the old one. To work offline, place a `GeoLite2-Country.mmdb` there yourself. The credentials are sent only in the request header and never appear in the status or the logs.
+  - A failed download keeps the previous database in force and shows as `failed`.
 - **Reputation lists** — FireHOL level 1 and Spamhaus DROP. A download that is empty or not a list is treated as a failure, never as "allow everyone".
 - **CrowdSec** — polls the local API's decision stream and applies `ban` decisions for single addresses as bans. The API key comes from the environment (`SHERLOCK_CROWDSEC_API_KEY`), never the configuration.
 

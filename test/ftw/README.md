@@ -29,11 +29,18 @@ regression environment also does:
   blocked and tests judge **detection** by rule ID. Blocking is covered by
   Sherlock's own block-mode tests and the e2e smoke test.
 
+Response inspection is on for the `ftw` site (`waf.outbound_inspection: true`),
+so `RESPONSE-*.conf` (950–956, 959, 980) is loaded and the response body is
+checked with the default outbound content types. The backend answers
+`/reflect` with the decoded `body` field of the JSON payload that the response
+tests send, using the request's `Content-Type`; every other path answers `ok`.
+
 ## Which tests run
 
 Tests for rules of a higher paranoia level cannot fire at a lower one, so
 `test/ftw/plfilter` selects only tests whose rule is at or below the level under
-test (from the `paranoia-level/N` tags in the rule files).
+test (from the `paranoia-level/N` tags in the rule files). It reads both
+`REQUEST-*.conf` and `RESPONSE-*.conf`, so response tests are selected too.
 
 | Level | Tests selected |
 | --- | --- |
@@ -50,8 +57,8 @@ against Sherlock's real behaviour:
 
 | Group | Why the test cannot pass |
 | --- | --- |
-| Response rules (950–956, 980) | Only `REQUEST-*` CRS files are loaded; response inspection is out of scope until a later milestone. |
-| Missing/foreign/IP `Host` (920270–920350, 922130, 931130, 943110 …) | Sherlock routes by `Host` and answers `421` for any unconfigured host, so the WAF never sees the request. By design. |
+| Response blocking (959100-1, 959100-3) | Rule 959100 fires only when the outbound score reaches the threshold, which this run sets to 10000. Verified by lowering it to 4 for one run. |
+| Missing/foreign/IP `Host` (920270–920350, 922130, 931130, 943110, 980170-1/-2 …) | Sherlock routes by `Host` and answers `421` for any unconfigured host, so the WAF never sees the request. By design. |
 | Header names with `_` or `.` (933110, 933220, 944140) | Caddy 2.11 drops them by default (GHSA-f59h-q822-g45g, GHSA-49wc-4hcv-v58q); neither the WAF nor the upstream sees them, so there is no bypass to detect. |
 | Optional length limits (920360–920410) | Disabled by default in CRS; Sherlock does not expose the limits until WAF tuning (M8). |
 | Protocol edge cases (920430, 920610 …) | Go's HTTP server rejects or parses these before the handler chain; the expected status comes from Apache's parser. |
