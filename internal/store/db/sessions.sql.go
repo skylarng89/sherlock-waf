@@ -35,6 +35,23 @@ func (q *Queries) DeleteSession(ctx context.Context, id string) error {
 	return err
 }
 
+const deleteUserSessionForUser = `-- name: DeleteUserSessionForUser :execrows
+DELETE FROM sessions WHERE id = $1 AND user_id = $2
+`
+
+type DeleteUserSessionForUserParams struct {
+	ID     string
+	UserID string
+}
+
+func (q *Queries) DeleteUserSessionForUser(ctx context.Context, arg DeleteUserSessionForUserParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteUserSessionForUser, arg.ID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const deleteUserSessions = `-- name: DeleteUserSessions :exec
 DELETE FROM sessions WHERE user_id = $1
 `
@@ -42,6 +59,23 @@ DELETE FROM sessions WHERE user_id = $1
 func (q *Queries) DeleteUserSessions(ctx context.Context, userID string) error {
 	_, err := q.db.ExecContext(ctx, deleteUserSessions, userID)
 	return err
+}
+
+const deleteUserSessionsExcept = `-- name: DeleteUserSessionsExcept :execrows
+DELETE FROM sessions WHERE user_id = $1 AND id <> $2
+`
+
+type DeleteUserSessionsExceptParams struct {
+	UserID string
+	KeepID string
+}
+
+func (q *Queries) DeleteUserSessionsExcept(ctx context.Context, arg DeleteUserSessionsExceptParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteUserSessionsExcept, arg.UserID, arg.KeepID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const getSession = `-- name: GetSession :one
@@ -97,6 +131,44 @@ func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) er
 		arg.CsrfTokenHash,
 	)
 	return err
+}
+
+const listUserSessions = `-- name: ListUserSessions :many
+SELECT id, user_id, stage, created_at, last_seen_at, expires_at, ip, user_agent, csrf_token_hash
+FROM sessions WHERE user_id = $1 ORDER BY created_at, id
+`
+
+func (q *Queries) ListUserSessions(ctx context.Context, userID string) ([]Session, error) {
+	rows, err := q.db.QueryContext(ctx, listUserSessions, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Session{}
+	for rows.Next() {
+		var i Session
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Stage,
+			&i.CreatedAt,
+			&i.LastSeenAt,
+			&i.ExpiresAt,
+			&i.Ip,
+			&i.UserAgent,
+			&i.CsrfTokenHash,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const touchSession = `-- name: TouchSession :exec

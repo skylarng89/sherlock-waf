@@ -18,3 +18,13 @@ DELETE FROM sessions WHERE user_id = sqlc.arg(user_id);
 
 -- name: DeleteExpiredSessions :execrows
 DELETE FROM sessions WHERE expires_at < sqlc.arg(now) OR last_seen_at < sqlc.arg(idle_before);
+
+-- name: ListUserSessions :many
+SELECT id, user_id, stage, created_at, last_seen_at, expires_at, ip, user_agent, csrf_token_hash
+FROM sessions WHERE user_id = sqlc.arg(user_id) ORDER BY created_at, id;
+
+-- name: DeleteUserSessionForUser :execrows
+DELETE FROM sessions WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id);
+
+-- name: DeleteUserSessionsExcept :execrows
+DELETE FROM sessions WHERE user_id = sqlc.arg(user_id) AND id <> sqlc.arg(keep_id);

@@ -36,7 +36,9 @@ type Querier interface {
 	DeleteSession(ctx context.Context, id string) error
 	DeleteToken(ctx context.Context, id string) (int64, error)
 	DeleteUser(ctx context.Context, id string) (int64, error)
+	DeleteUserSessionForUser(ctx context.Context, arg DeleteUserSessionForUserParams) (int64, error)
 	DeleteUserSessions(ctx context.Context, userID string) error
+	DeleteUserSessionsExcept(ctx context.Context, arg DeleteUserSessionsExceptParams) (int64, error)
 	GetAuditHead(ctx context.Context) (GetAuditHeadRow, error)
 	GetBan(ctx context.Context, id string) (Ban, error)
 	GetBlockPage(ctx context.Context, id string) (BlockPage, error)
@@ -77,6 +79,7 @@ type Querier interface {
 	ListSites(ctx context.Context) ([]Site, error)
 	ListTokens(ctx context.Context) ([]ApiToken, error)
 	ListTokensByUser(ctx context.Context, userID string) ([]ApiToken, error)
+	ListUserSessions(ctx context.Context, userID string) ([]Session, error)
 	ListUsers(ctx context.Context) ([]User, error)
 	RecordLoginFailure(ctx context.Context, arg RecordLoginFailureParams) error
 	RecordLoginSuccess(ctx context.Context, arg RecordLoginSuccessParams) error
@@ -94,6 +97,7 @@ type Querier interface {
 	UnlockUser(ctx context.Context, id string) error
 	UpdateSecret(ctx context.Context, arg UpdateSecretParams) (int64, error)
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) (int64, error)
+	UpdateUserPasswordIfCurrent(ctx context.Context, arg UpdateUserPasswordIfCurrentParams) (int64, error)
 	UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) (int64, error)
 	UpsertBan(ctx context.Context, arg UpsertBanParams) error
 	UpsertBlockPage(ctx context.Context, arg UpsertBlockPageParams) error

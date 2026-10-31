@@ -168,6 +168,9 @@ type Users interface {
 	CountUsers(ctx context.Context) (int, error)
 	// SetUserPassword also clears the failure counter and any lock.
 	SetUserPassword(ctx context.Context, id, hash string) error
+	// SetUserPasswordIfCurrent replaces the hash only while it still equals
+	// currentHash (compare-and-set). It reports false when another change won.
+	SetUserPasswordIfCurrent(ctx context.Context, id, currentHash, hash string) (bool, error)
 	SetUserRole(ctx context.Context, id, role string) error
 	SetUserDisabled(ctx context.Context, id string, disabled bool) error
 	// SetUserMFA sets (or, with an empty secret id and false, clears) the TOTP secret and resets the replay step.
@@ -207,6 +210,13 @@ type Sessions interface {
 	TouchSession(ctx context.Context, id string, at time.Time) error
 	DeleteSession(ctx context.Context, id string) error
 	DeleteUserSessions(ctx context.Context, userID string) error
+	// ListUserSessions returns every session of userID, oldest first.
+	ListUserSessions(ctx context.Context, userID string) ([]Session, error)
+	// DeleteUserSessionForUser removes session id only when it belongs to userID,
+	// and reports whether a row was deleted (false for another user's or an unknown id).
+	DeleteUserSessionForUser(ctx context.Context, id, userID string) (bool, error)
+	// DeleteUserSessionsExcept removes every session of userID except keepID and returns how many went.
+	DeleteUserSessionsExcept(ctx context.Context, userID, keepID string) (int, error)
 	// DeleteExpiredSessions removes sessions past their absolute expiry or idle since idleBefore.
 	DeleteExpiredSessions(ctx context.Context, now, idleBefore time.Time) (int, error)
 }

@@ -39,6 +39,7 @@ func Run(t *testing.T, newStore Factory) {
 		"users and login throttling":   testUsers,
 		"mfa step replay protection":   testMFAStep,
 		"sessions":                     testSessions,
+		"sessions of one user":         testUserSessions,
 		"tokens":                       testTokens,
 		"deleting a user cascades":     testCascade,
 		"audit head and ordering":      testAudit,
@@ -281,6 +282,23 @@ func testUsers(t *testing.T, s store.Store) {
 		assert.Zero(t, u.FailedCount, "a password reset clears the failure counter")
 		assert.True(t, u.LockedUntil.IsZero(), "and the lock")
 
+		// Compare-and-set: a stale current hash loses and changes nothing.
+		require.NoError(t, tx.RecordLoginFailure(ctx, "u1", 2, lock))
+		won, err := tx.SetUserPasswordIfCurrent(ctx, "u1", "$argon2id$stale", "$argon2id$lost")
+		require.NoError(t, err)
+		assert.False(t, won, "the stored hash no longer matches, so the change is refused")
+		u, _ = tx.UserByID(ctx, "u1")
+		assert.Equal(t, "$argon2id$new", u.PasswordHash, "a refused compare-and-set writes nothing")
+		assert.Equal(t, 2, u.FailedCount)
+
+		won, err = tx.SetUserPasswordIfCurrent(ctx, "u1", "$argon2id$new", "$argon2id$cas")
+		require.NoError(t, err)
+		assert.True(t, won)
+		u, _ = tx.UserByID(ctx, "u1")
+		assert.Equal(t, "$argon2id$cas", u.PasswordHash)
+		assert.Zero(t, u.FailedCount, "a successful compare-and-set clears the failure counter and lock")
+		assert.True(t, u.LockedUntil.IsZero())
+
 		require.NoError(t, tx.RecordLoginSuccess(ctx, "u1", base))
 		u, _ = tx.UserByID(ctx, "u1")
 		assert.True(t, u.LastLoginAt.Equal(base))
@@ -367,6 +385,53 @@ func testSessions(t *testing.T, s store.Store) {
 		require.NoError(t, tx.DeleteSession(ctx, "h1"))
 		_, err = tx.GetSession(ctx, "h1")
 		assert.ErrorIs(t, err, store.ErrNotFound)
+		return nil
+	})
+}
+
+// testUserSessions pins the per-user session queries: listing is scoped to the
+// user, and deleting by id never reaches another user's row.
+func testUserSessions(t *testing.T, s store.Store) {
+	tx(t, s, func(ctx context.Context, tx store.Tx) error {
+		require.NoError(t, tx.CreateUser(ctx, user("u1", "alice")))
+		require.NoError(t, tx.CreateUser(ctx, user("u2", "bob")))
+		mk := func(id, uid, stage string, at time.Time) store.Session {
+			return store.Session{ID: id, UserID: uid, Stage: stage, CreatedAt: at, LastSeenAt: at, ExpiresAt: at.Add(time.Hour), IP: "i", UserAgent: "u", CSRFTokenHash: "c"}
+		}
+		require.NoError(t, tx.CreateSession(ctx, mk("a", "u1", store.StageFull, base)))
+		require.NoError(t, tx.CreateSession(ctx, mk("b", "u1", store.StageFull, base.Add(time.Minute))))
+		require.NoError(t, tx.CreateSession(ctx, mk("p", "u1", store.StagePasswordOK, base.Add(2*time.Minute))))
+		require.NoError(t, tx.CreateSession(ctx, mk("x", "u2", store.StageFull, base)))
+
+		got, err := tx.ListUserSessions(ctx, "u1")
+		require.NoError(t, err)
+		require.Len(t, got, 3, "only u1's sessions")
+		assert.Equal(t, []string{"a", "b", "p"}, []string{got[0].ID, got[1].ID, got[2].ID}, "oldest first")
+
+		empty, err := tx.ListUserSessions(ctx, "nobody")
+		require.NoError(t, err)
+		assert.Empty(t, empty)
+
+		deleted, err := tx.DeleteUserSessionForUser(ctx, "x", "u1")
+		require.NoError(t, err)
+		assert.False(t, deleted, "another user's session is not deleted")
+		_, err = tx.GetSession(ctx, "x")
+		require.NoError(t, err)
+
+		deleted, err = tx.DeleteUserSessionForUser(ctx, "a", "u1")
+		require.NoError(t, err)
+		assert.True(t, deleted)
+		deleted, err = tx.DeleteUserSessionForUser(ctx, "a", "u1")
+		require.NoError(t, err)
+		assert.False(t, deleted, "an already-deleted id reports nothing deleted")
+
+		n, err := tx.DeleteUserSessionsExcept(ctx, "u1", "b")
+		require.NoError(t, err)
+		assert.Equal(t, 1, n, "only the partial session goes")
+		_, err = tx.GetSession(ctx, "b")
+		require.NoError(t, err)
+		_, err = tx.GetSession(ctx, "x")
+		require.NoError(t, err, "other users are untouched")
 		return nil
 	})
 }
@@ -745,6 +810,7 @@ func testBlockPages(t *testing.T, s store.Store) {
 }
 
 func testAPIAssets(t *testing.T, s store.Store) {
+	ca := store.CABundle{ID: "bank-ca", Name: "Bank CA", Subjects: []string{"CN=Bank Root"}, Fingerprint: "cd", PEM: "pem", NotAfter: base.Add(24 * time.Hour), CreatedAt: base}
 	tx(t, s, func(ctx context.Context, tx store.Tx) error {
 		doc := store.OpenAPIDoc{ID: "pay", Name: "Payments", Version: "3.1", SHA256: "ab", Body: `{"openapi":"3.1.0"}`, UpdatedAt: base}
 		require.NoError(t, tx.PutOpenAPIDoc(ctx, doc))
@@ -759,17 +825,22 @@ func testAPIAssets(t *testing.T, s store.Store) {
 		require.NoError(t, tx.DeleteOpenAPIDoc(ctx, "pay"))
 		assert.ErrorIs(t, tx.DeleteOpenAPIDoc(ctx, "pay"), store.ErrNotFound)
 
-		ca := store.CABundle{ID: "bank-ca", Name: "Bank CA", Subjects: []string{"CN=Bank Root"}, Fingerprint: "cd", PEM: "pem", NotAfter: base.Add(24 * time.Hour), CreatedAt: base}
 		require.NoError(t, tx.InsertCABundle(ctx, ca))
-		assert.ErrorIs(t, tx.InsertCABundle(ctx, ca), store.ErrConflict)
 		gotCA, err := tx.GetCABundle(ctx, "bank-ca")
 		require.NoError(t, err)
 		assert.Equal(t, ca, gotCA)
 		cas, err := tx.ListCABundles(ctx)
 		require.NoError(t, err)
 		assert.Len(t, cas, 1)
+		return nil
+	})
+	// A failed statement aborts the whole transaction on PostgreSQL, so the
+	// duplicate runs in its own.
+	err := failsWith(t, s, func(ctx context.Context, tx store.Tx) error { return tx.InsertCABundle(ctx, ca) })
+	assert.ErrorIs(t, err, store.ErrConflict)
+	tx(t, s, func(ctx context.Context, tx store.Tx) error {
 		require.NoError(t, tx.DeleteCABundle(ctx, "bank-ca"))
-		_, err = tx.GetCABundle(ctx, "bank-ca")
+		_, err := tx.GetCABundle(ctx, "bank-ca")
 		assert.ErrorIs(t, err, store.ErrNotFound)
 		return nil
 	})

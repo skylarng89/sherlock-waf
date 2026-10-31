@@ -23,6 +23,9 @@ SELECT count(*) FROM users;
 -- name: UpdateUserPassword :execrows
 UPDATE users SET password_hash = sqlc.arg(password_hash), failed_count = 0, locked_until = 0 WHERE id = sqlc.arg(id);
 
+-- name: UpdateUserPasswordIfCurrent :execrows
+UPDATE users SET password_hash = sqlc.arg(password_hash), failed_count = 0, locked_until = 0 WHERE id = sqlc.arg(id) AND password_hash = sqlc.arg(current_hash);
+
 -- name: UpdateUserRole :execrows
 UPDATE users SET role = sqlc.arg(role) WHERE id = sqlc.arg(id);
 

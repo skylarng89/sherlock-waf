@@ -28,7 +28,7 @@ out=$(cd "$out" && pwd) # absolute: it is bind-mounted into the container
 
 work=$(mktemp -d)
 pids=()
-cleanup() { for p in "${pids[@]:-}"; do kill "$p" 2>/dev/null || true; done; wait 2>/dev/null || true; rm -rf "$work"; }
+cleanup() { for p in "${pids[@]:-}"; do kill "$p" 2>/dev/null || true; done; wait 2>/dev/null || true; [[ -n ${K6_KEEP:-} ]] || rm -rf "$work"; }
 trap cleanup EXIT
 
 # exec makes $! the program's own PID so the cleanup trap really stops it.
@@ -52,7 +52,7 @@ python3 - "$work" "$origin_port" <<'PY'
 import sys
 work, origin = sys.argv[1], sys.argv[2]
 pem = open(f"{work}/jwt/pub.pem").read().strip().splitlines()
-pem_block = "\n".join("            " + line for line in pem)
+pem_block = "\n".join("              " + line for line in pem)
 open(f"{work}/sherlock.yaml", "w").write(f"""schema_version: 1
 global:
   events: {{ sinks: {{ stdout: false, file: false }} }}

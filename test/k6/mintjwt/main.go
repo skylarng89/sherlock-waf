@@ -39,7 +39,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("mintjwt: %v", err)
 	}
-	tok, err := sign(key, map[string]any{"alg": "ES256", "typ": "JWT", "kid": "bench"}, map[string]any{
+	tok, err := sign(key, map[string]any{"alg": "ES256", "typ": "JWT"}, map[string]any{
 		"iss": *issuer, "aud": *audience, "sub": *client, "client_id": *client,
 		"iat": time.Now().Unix(), "exp": time.Now().Add(*ttl).Unix(),
 	})

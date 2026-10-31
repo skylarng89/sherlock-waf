@@ -277,6 +277,14 @@ func (t sqlTx) SetUserPassword(ctx context.Context, id, hash string) error {
 	return affected(t.q.UpdateUserPassword(ctx, db.UpdateUserPasswordParams{ID: id, PasswordHash: hash}))
 }
 
+func (t sqlTx) SetUserPasswordIfCurrent(ctx context.Context, id, currentHash, hash string) (bool, error) {
+	n, err := t.q.UpdateUserPasswordIfCurrent(ctx, db.UpdateUserPasswordIfCurrentParams{ID: id, CurrentHash: currentHash, PasswordHash: hash})
+	if err != nil {
+		return false, mapErr(err)
+	}
+	return n == 1, nil
+}
+
 func (t sqlTx) SetUserRole(ctx context.Context, id, role string) error {
 	return affected(t.q.UpdateUserRole(ctx, db.UpdateUserRoleParams{ID: id, Role: role}))
 }
@@ -344,6 +352,34 @@ func (t sqlTx) DeleteSession(ctx context.Context, id string) error {
 
 func (t sqlTx) DeleteUserSessions(ctx context.Context, userID string) error {
 	return mapErr(t.q.DeleteUserSessions(ctx, userID))
+}
+
+func (t sqlTx) ListUserSessions(ctx context.Context, userID string) ([]Session, error) {
+	rows, err := t.q.ListUserSessions(ctx, userID)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	out := make([]Session, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, sessionFromRow(r))
+	}
+	return out, nil
+}
+
+func (t sqlTx) DeleteUserSessionForUser(ctx context.Context, id, userID string) (bool, error) {
+	n, err := t.q.DeleteUserSessionForUser(ctx, db.DeleteUserSessionForUserParams{ID: id, UserID: userID})
+	if err != nil {
+		return false, mapErr(err)
+	}
+	return n > 0, nil
+}
+
+func (t sqlTx) DeleteUserSessionsExcept(ctx context.Context, userID, keepID string) (int, error) {
+	n, err := t.q.DeleteUserSessionsExcept(ctx, db.DeleteUserSessionsExceptParams{UserID: userID, KeepID: keepID})
+	if err != nil {
+		return 0, mapErr(err)
+	}
+	return int(n), nil
 }
 
 func (t sqlTx) DeleteExpiredSessions(ctx context.Context, now, idleBefore time.Time) (int, error) {
