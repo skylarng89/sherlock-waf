@@ -63,6 +63,18 @@ Rotating the node key needs the server stopped.
 
 `config export` followed by `config import` on a fresh node reproduces the same configuration, and therefore the same compiled proxy configuration.
 
+## Request validation
+
+Every API request is checked against the published OpenAPI document (`api/openapi.yaml`) before it is processed. Clients see the result as a problem document:
+
+| Status | When | Body |
+| --- | --- | --- |
+| 415 | the body's `Content-Type` is not one the endpoint documents (JSON endpoints take `application/json`, `PATCH` takes `application/merge-patch+json`) | problem document |
+| 400 | the JSON is malformed, a required body is missing, or the body is larger than 4 MiB | problem document |
+| 422 | a value breaks the schema: a value outside its allowed set, a bad pattern or length, an out-of-range number, an unknown field on a configuration object | `errors` lists `path` (JSON pointer into the request body, for example `/username`, or `/query/step` for a parameter), `code` and `message` |
+
+Requests to endpoints that need a session or token are refused with 401 or 403 before validation runs, so the schema is not revealed to callers who are not signed in or not authorised.
+
 ## Secrets in API responses
 
 A site's password gate stores an argon2id hash (`policy.acl.password_gate.password_hash`, at the global defaults, site and endpoint level). The API never returns it: `GET /config`, `/defaults`, `/sites`, `/sites/{site}`, `/sites/{site}/endpoints[/{endpoint}]` and `/config/versions/{id}` show the literal string `<redacted>` instead, for every caller including administrators. Writes treat the field like this:
@@ -75,3 +87,30 @@ A site's password gate stores an argon2id hash (`policy.acl.password_gate.passwo
 | `"<redacted>"` or nothing for a gate that has no stored hash (a new site, another site's id) | no hash: validation says the hash is required |
 
 The hash is matched by site and endpoint id, so it can never move to another site, and the stored value is never overwritten with the placeholder. A hash cannot be removed by omitting it: disable the gate (`enabled: false`) or delete the site. Note that JSON encoders in some languages escape `<` and `>` (`"\u003credacted\u003e"`); that decodes to the same string. `sherlock config export` on the node (no `--server`) still writes the real hashes, because it reads the database directly with operator access; over `--server` it receives the placeholder.
+
+## Your account and sessions
+
+Every signed-in user has an **Account** entry in the account menu (top right). It shows two things.
+
+**Change password.** Enter your current password, then a new one of at least 12 characters that differs from it and is not a common password. Common passwords are checked against a list of breached passwords of 12 or more characters, with trailing digits and symbols removed and common letter-for-symbol swaps decoded, so `Summer2024!` is refused if its base word is on the list. If another change to your password commits while yours is being checked, yours is refused with `409 password changed concurrently` and nothing changes; sign in again with the password that won. On success your other browser sessions and devices are signed out, and this one stays signed in. Wrong current passwords are refused with a message on the field and counted: five attempts a minute are allowed, then the page reports that you must wait. A failed attempt never locks the account, and an administrator can still reset the password. Every change is recorded in the audit log as `user.password_changed` (the number of sessions it ended, never a password); failures are recorded as `user.password_change_failed` with a reason.
+
+**Signed-in sessions.** The table lists each full browser session signed in as you, with when it started, when it was last active and when it expires. Sign out any session you do not recognise with its **Sign out** button, which asks for confirmation. Your current session has no button: use **Sign out** in the account menu to end it.
+
+**Session cap.** A user has at most five full sessions at a time. Signing in on a sixth browser or device signs out the oldest session, and the audit log records `auth.session_evicted`. Sessions that are still completing two-step verification are not counted.
+
+Users who have not finished two-step verification do not see the account menu, and the API refuses them the account operations too.
+
+## API tokens
+
+Tokens are for scripts and integrations. Each token has a name, scopes, optional networks and an expiry.
+
+- **Maximum lifetime.** A token may live at most `SHERLOCK_API_TOKEN_MAX_DAYS` days (default 365; `0` removes the limit; see [deployment](../operations/deployment.md)). A token created without an expiry gets that maximum. An expiry beyond the maximum is refused on the expiry field. The create form on the API tokens page states the limit for this node.
+- **Expiring soon.** A token that expires within 14 days carries an **Expires soon** badge in the table. Create a replacement before the old one stops working.
+- **Per-account cap.** An account holds at most 50 tokens. Revoke one before creating another.
+- **Applying updates.** `POST /system/update/apply` (the dashboard's update button, or the API) needs a browser session with the `system:update` permission. An API token is refused with 403 even when its scopes would otherwise allow it.
+- **Failed presentations.** A client address that presents bad tokens more than 10 times a minute is refused with 429 for the rest of the minute, even with a valid token. Failures are audited as `auth.token_failed`, at most one row a minute per address, carrying a count. The presented token is never recorded.
+- The CLI (`sherlock token create`) applies the same maximum and cap as the API.
+
+## Request limits
+
+Every control-plane request counts against a limit. A signed-in user or a token may make 300 requests a minute. An anonymous caller of a public operation (sign-in, setup status and the like) may make 120 a minute from one address. Login and setup have stricter limits of their own. A refused request gets `429` with `Retry-After`, and the `sherlock_api_throttled_total` metric counts it by scope. Requests that fail authentication do not use anyone's budget. The dashboard polls at most every five seconds, far below the limit.

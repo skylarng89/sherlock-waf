@@ -44,7 +44,7 @@ paths:
       x-sherlock-permission: public
       requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/LoginRequest" } } } }
       responses:
-        "200": { description: Signed in, or a second step is required, content: { application/json: { schema: { $ref: "#/components/schemas/LoginResponse" } } } }
+        "200": { description: "Signed in, or a second step is required", content: { application/json: { schema: { $ref: "#/components/schemas/LoginResponse" } } } }
         "400": { $ref: "#/components/responses/Problem" }
         "401": { $ref: "#/components/responses/Problem" }
         "429": { $ref: "#/components/responses/Problem" }
@@ -419,6 +419,42 @@ paths:
         "204": { description: Reset }
         "404": { $ref: "#/components/responses/Problem" }
 
+  /auth/password:
+    post:
+      operationId: changePassword
+      tags: [auth]
+      summary: Change your own password (ends your other sessions; this one stays signed in)
+      x-sherlock-permission: session-full
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/ChangePassword" } } } }
+      responses:
+        "204": { description: Changed }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/Problem" }
+  /auth/sessions:
+    get:
+      operationId: listSessions
+      tags: [auth]
+      summary: Your signed-in browser sessions
+      x-sherlock-permission: session-full
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/SessionList" } } } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+  /auth/sessions/{id}:
+    delete:
+      operationId: revokeSession
+      tags: [auth]
+      summary: Sign out one of your other browser sessions (not the current one; use logout for that)
+      x-sherlock-permission: session-full
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, maxLength: 128 } }]
+      responses:
+        "204": { description: Revoked }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
   /tokens:
     get:
       operationId: listTokens
@@ -436,6 +472,8 @@ paths:
       responses:
         "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/CreatedToken" } } } }
         "400": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
   /tokens/{id}:
     delete:
       operationId: deleteToken
@@ -533,6 +571,7 @@ paths:
       x-sherlock-permission: system:update
       responses:
         "200": { description: Staged or installed, content: { application/json: { schema: { $ref: "#/components/schemas/UpdateApplyResult" } } } }
+        "403": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
         "422": { $ref: "#/components/responses/Problem" }
         "501": { $ref: "#/components/responses/Problem" }
@@ -1136,7 +1175,7 @@ components:
       type: object
       required: [secret, otpauth_uri]
       properties:
-        secret: { type: string, description: Base32 seed, shown once }
+        secret: { type: string, description: "Base32 seed, shown once" }
         otpauth_uri: { type: string }
     Me:
       type: object
@@ -1217,6 +1256,26 @@ components:
           required: [token]
           properties: { token: { type: string, description: "shk_<id>_<secret>, shown once" } }
 
+    ChangePassword:
+      type: object
+      required: [current_password, new_password]
+      properties:
+        current_password: { type: string, minLength: 1, maxLength: 1024, format: password }
+        new_password: { type: string, minLength: 12, maxLength: 1024, format: password }
+    Session:
+      type: object
+      required: [id, created_at, last_seen_at, expires_at, current]
+      properties:
+        id: { type: string, description: "Opaque identifier: the hex SHA-256 of the session cookie. It cannot be used as a credential." }
+        created_at: { type: string, format: date-time }
+        last_seen_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        current: { type: boolean, description: "True for the session making this request" }
+    SessionList:
+      type: object
+      required: [items]
+      properties: { items: { type: array, items: { $ref: "#/components/schemas/Session" } } }
+
     AuditEntry:
       type: object
       required: [seq, id, at, actor_type, actor_id, action, hash]
@@ -1251,6 +1310,7 @@ components:
         ready: { type: boolean }
         config_version: { type: string }
         audit_head: { type: object, properties: { seq: { type: integer, format: int64 }, hash: { type: string } } }
+        token_max_lifetime_days: { type: integer, minimum: 0, description: "Longest API token lifetime in days; 0 means no limit." }
 
     SetupStatus:
       type: object
@@ -1548,7 +1608,7 @@ components:
         match: { type: object, additionalProperties: false, properties: { paths: { type: array, items: { type: string } }, methods: { type: array, items: { type: string } } } }
         key: { type: string, description: "ip or header:<name>" }
         limit: { type: integer }
-        window: { type: string, description: Go duration, e.g. 1m }
+        window: { type: string, description: "Go duration, e.g. 1m" }
         action: { type: string, enum: [block, challenge, log] }
     AutoBan:
       type: object

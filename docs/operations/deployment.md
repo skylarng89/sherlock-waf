@@ -38,6 +38,8 @@
 | `run --http-port` / `run --https-port` (flags) | `80` / `443` |
 | `SHERLOCK_NODE_KEY_FILE` / `SHERLOCK_NODE_KEY` | `<data-dir>/node.key` |
 | `SHERLOCK_BACKUP`, `SHERLOCK_BACKUP_KEEP`, `SHERLOCK_BACKUP_PASSPHRASE_FILE` | daily, keep 7, unencrypted |
+| `SHERLOCK_API_RATE_LIMIT` | `300`: control-plane requests per minute for each signed-in user or API token (anonymous callers have their own 120 per minute per address). Raise it for scripted or automated callers; a value that is not a positive whole number stops the node from starting. Over the limit the API answers 429 with `Retry-After`. |
+| `SHERLOCK_API_TOKEN_MAX_DAYS` | `365`: the longest life an API token may have, in whole days; `0` removes the cap. A value that is not a non-negative whole number stops the node from starting. Tokens created without an expiry get this maximum. |
 | `SHERLOCK_TURNSTILE_SECRET`, `SHERLOCK_HCAPTCHA_SECRET` | unset (bot-defence provider secrets) |
 | `SHERLOCK_CROWDSEC_API_KEY` | unset (optional feeds) |
 | `SHERLOCK_MAXMIND_ACCOUNT_ID`, `SHERLOCK_MAXMIND_LICENSE_KEY` | unset (optional; needed only for the MaxMind GeoIP provider) |

@@ -19,6 +19,12 @@ First-class protection for JSON APIs and open-banking style endpoints, the main 
 - [x] **M9-T6** UI: site API tab (upload spec, see endpoints, per-endpoint violation counts), JWT config forms.
 - [x] **M9-T7** Tests: OWASP crAPI or a sample open-banking mock behind Sherlock; schema violation and BOLA-style probing cases; fuzz the JWT parser.
 
+## Test gaps closed (#103)
+
+- Live mutual TLS through the real listener: required path with a client certificate (200), without one (403 `api.mtls`), open path without one (200), untrusted CA (handshake fails), per-subject `mtls_subject` buckets. `internal/app/api_mtls_live_test.go`.
+- Live JWKS through Caddy: valid token, key rotation picked up by the unknown-`kid` refetch, and an identity-provider outage that keeps the last good keys. The config still refuses loopback and private JWKS addresses. `internal/app/api_jwks_live_test.go`.
+- Overhead measured with k6 against a full node: p95 added 0.077 ms on documented `POST /payments` (see `docs/plan/benchmarks.md`).
+
 ## Acceptance criteria
 
 1. Requests to undocumented endpoints are blocked when configured; documented ones pass with ≤ 1 ms p95 added validation latency for typical payloads.

@@ -72,6 +72,28 @@ Sherlock adapter.
 Not measured yet (needs a sustained-load RSS reading on the runner). Idle RSS
 was not recorded in this run.
 
+## M9 API protection overhead (acceptance 1)
+
+Measured by `test/k6/run-api.sh` (`POST /payments`, JSON body, bearer token,
+constant arrival rate 200 rps for 2 min per site, 24,001 requests each). A
+full control-plane node (`sherlock run`) served both sites; the same origin
+answered both. Same environment as the table above (developer machine, 2026-10-31).
+
+| | plain site (`policy.mode: block`) | `policy.api` site | added |
+| --- | --- | --- | --- |
+| p50 (ms) | 1.001 | 1.048 | 0.047 |
+| p95 (ms) | 1.298 | 1.375 | **0.077** |
+| p99 (ms) | 1.806 | 1.935 | 0.129 |
+| max (ms) | 3.654 | 4.539 | 0.886 |
+
+Failed requests 0 and dropped iterations 0 on both. The API site enforces
+OpenAPI validation (unknown path and schema violation both block), a JWT
+check against a static ES256 key, and the rule set of the plain site.
+
+M9 acceptance 1 asks for at most 1 ms p95 added by validation on documented
+requests: **met on this machine** (0.077 ms). This is one run on a developer
+machine and not the CI runner; re-measure there before treating it as a budget.
+
 ## Decision needed
 
 See [ADR-0014](../architecture/adr/0014-throughput-budget.md) (Proposed).
@@ -81,4 +103,5 @@ See [ADR-0014](../architecture/adr/0014-throughput-budget.md) (Proposed).
 ```sh
 test/k6/run.sh all                        # needs Docker for k6; pins Sherlock to CPUs 0,1
 K6_SHERLOCK_CPUS=0-3 K6_ORIGIN_CPUS=10,11 test/k6/run.sh throughput
+test/k6/run-api.sh                        # M9 API overhead; 2 min per site at K6_API_RATE (default 200)
 ```
