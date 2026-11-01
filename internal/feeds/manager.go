@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/netip"
+	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
@@ -22,6 +23,28 @@ import (
 	"github.com/skylarng89/sherlock-waf/internal/policy/ipset"
 )
 
+// EnvMaxMindURL replaces the MaxMind download location, for example to fetch a
+// paid GeoIP2 edition (Country, City, Enterprise) or an internal mirror. It must
+// be an https URL that serves a tar.gz containing one .mmdb file. Credentials
+// are never read from it.
+const EnvMaxMindURL = "SHERLOCK_MAXMIND_DOWNLOAD_URL"
+
+// MaxMindURLFromEnv returns the configured download URL, or the free
+// GeoLite2-Country permalink when unset. A URL that is not plain https, or that
+// embeds credentials, is an error so a typo cannot silently send the licence
+// key over cleartext or leak it into logs.
+func MaxMindURLFromEnv() (string, error) {
+	v := strings.TrimSpace(os.Getenv(EnvMaxMindURL))
+	if v == "" {
+		return DefaultURLs.MaxMindCountry, nil
+	}
+	u, err := url.Parse(v)
+	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil {
+		return "", fmt.Errorf("%s must be an https URL without embedded credentials", EnvMaxMindURL)
+	}
+	return v, nil
+}
+
 // Environment variables holding feed credentials; they are never part of the configuration.
 const (
 	EnvCrowdSecKey       = "SHERLOCK_CROWDSEC_API_KEY"
@@ -34,7 +57,6 @@ const (
 const (
 	dbipGeoFile      = "dbip-country-lite.csv.gz"
 	maxMindGeoFile   = "GeoLite2-Country.mmdb"
-	maxMindEntryName = "GeoLite2-Country.mmdb"
 	dbipGeoMaxAge    = 21 * 24 * time.Hour
 	maxMindGeoMaxAge = 8 * 24 * time.Hour
 )

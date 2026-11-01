@@ -99,6 +99,8 @@ type Config struct {
 	Now     func() time.Time
 	// TokenMaxLifetime caps an API token's life; zero means no limit.
 	TokenMaxLifetime time.Duration
+	// LoginLimits tunes throttling and locking; the zero value means DefaultLoginPolicy.
+	LoginLimits LoginPolicy
 }
 
 // Service performs authentication.
@@ -129,14 +131,18 @@ func New(c Config) *Service {
 	if c.Hasher == nil {
 		c.Hasher = NewHasher(4)
 	}
+	if c.LoginLimits == (LoginPolicy{}) {
+		c.LoginLimits = DefaultLoginPolicy
+	}
+	c.LoginLimits = c.LoginLimits.withDefaults()
 	return &Service{
 		Config: c,
-		// 5 attempts/min per IP and per (IP, username). The username ceiling is
+		// Per IP and per (IP, username) by default 5 attempts/min. The username ceiling is
 		// larger so a distributed guess cannot lock out a known administrator
 		// with 5 attempts from one place (docs/security/asvs-review-m7.md S-07).
-		ipLimit:       newIPLimiter(5, time.Minute, c.Now),
-		pairLimit:     newIPLimiter(5, time.Minute, c.Now),
-		nameLimit:     newIPLimiter(20, time.Minute, c.Now),
+		ipLimit:       newIPLimiter(c.LoginLimits.IPAttempts, time.Minute, c.Now),
+		pairLimit:     newIPLimiter(c.LoginLimits.IPAttempts, time.Minute, c.Now),
+		nameLimit:     newIPLimiter(c.LoginLimits.UsernameAttempts, time.Minute, c.Now),
 		passwordLimit: newIPLimiter(5, time.Minute, c.Now),
 		tokenFails:    newIPLimiter(tokenFailLimit, tokenFailWindow, c.Now),
 		tokenAudit:    newCoalescer(tokenAuditWindow, maxTokenAuditKey, c.Now),
@@ -225,7 +231,7 @@ func (s *Service) Login(ctx context.Context, ip, userAgent, username, password s
 func (s *Service) recordFailure(ctx context.Context, u store.User, ip, reason string) {
 	failed := u.FailedCount + 1
 	var until time.Time
-	if d := lockoutFor(failed); d > 0 {
+	if d := s.LoginLimits.lockoutFor(failed); d > 0 {
 		until = s.Now().Add(d)
 	}
 	if err := s.Store.Tx(ctx, func(ctx context.Context, tx store.Tx) error {
@@ -236,7 +242,7 @@ func (s *Service) recordFailure(ctx context.Context, u store.User, ip, reason st
 	s.audit(ctx, u.ID, ip, "auth.login_failed", u.ID, map[string]any{"reason": reason, "failed_count": failed})
 	if !until.IsZero() {
 		// This failure started a lock; attempts during the lock do not reach here, so this is once per lock.
-		s.audit(ctx, u.ID, ip, "auth.account_locked", u.ID, map[string]any{"failed_count": failed, "locked_seconds": int(lockoutFor(failed).Seconds())})
+		s.audit(ctx, u.ID, ip, "auth.account_locked", u.ID, map[string]any{"failed_count": failed, "locked_seconds": int(s.LoginLimits.lockoutFor(failed).Seconds())})
 	}
 }
 

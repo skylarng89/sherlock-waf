@@ -145,7 +145,12 @@ func Run(ctx context.Context, o Options) error {
 			return func() { <-done }
 		}))
 
-	fm := feeds.New(feeds.Options{DataDir: dataDir, Logger: log})
+	feedURLs := feeds.DefaultURLs
+	if feedURLs.MaxMindCountry, err = feeds.MaxMindURLFromEnv(); err != nil {
+		_ = dp.Stop(ctx)
+		return err
+	}
+	fm := feeds.New(feeds.Options{DataDir: dataDir, Logger: log, URLs: feedURLs})
 	jobs.Go(func() { fm.Run(bg) })
 	if err := loadBans(ctx, env, log); err != nil {
 		return err
@@ -201,7 +206,12 @@ func Run(ctx context.Context, o Options) error {
 		_ = dp.Stop(ctx)
 		return err
 	}
-	authSvc := auth.New(auth.Config{Store: env.Store, Secrets: env.Secrets, Audit: env.Audit, Hasher: env.Hasher, Logger: log, TokenMaxLifetime: tokenMax})
+	loginPolicy, err := ops.LoginPolicyFromEnv()
+	if err != nil {
+		_ = dp.Stop(ctx)
+		return err
+	}
+	authSvc := auth.New(auth.Config{Store: env.Store, Secrets: env.Secrets, Audit: env.Audit, Hasher: env.Hasher, Logger: log, TokenMaxLifetime: tokenMax, LoginLimits: loginPolicy})
 	info := o.Info
 	info.TokenMaxLifetimeDays = int(tokenMax / (24 * time.Hour))
 	info.Features = append([]string{"control-plane"}, info.Features...)

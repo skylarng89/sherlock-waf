@@ -43,6 +43,9 @@
 | `SHERLOCK_TURNSTILE_SECRET`, `SHERLOCK_HCAPTCHA_SECRET` | unset (bot-defence provider secrets) |
 | `SHERLOCK_CROWDSEC_API_KEY` | unset (optional feeds) |
 | `SHERLOCK_MAXMIND_ACCOUNT_ID`, `SHERLOCK_MAXMIND_LICENSE_KEY` | unset (optional; needed only for the MaxMind GeoIP provider) |
+| `SHERLOCK_MAXMIND_DOWNLOAD_URL` | the free GeoLite2-Country permalink. Set it to a paid GeoIP2 edition (Country, City or Enterprise) or an internal mirror that serves a `tar.gz` holding one `.mmdb`. Must be `https` with no credentials in the URL; otherwise the node does not start. |
+| `SHERLOCK_LOGIN_IP_ATTEMPTS`, `SHERLOCK_LOGIN_USER_ATTEMPTS` | `5` and `20`: sign-in attempts per minute per client address (and per address and username), and per username across all clients. Whole numbers from 1. |
+| `SHERLOCK_LOGIN_LOCK_AFTER`, `SHERLOCK_LOGIN_LOCK_MAX_MINUTES` | `4` and `15`: consecutive failures tolerated before an account locks (1, 2, 4, 8 minutes, doubling), and the longest lock. `SHERLOCK_LOGIN_LOCK_AFTER=0` turns account locking off, so a remote guesser cannot lock out a known administrator; the per-address and per-username rate limits still apply. An invalid value stops the node from starting. |
 | `SHERLOCK_API_URL`, `SHERLOCK_TOKEN`, `SHERLOCK_TLS_PIN` | CLI client settings for `sherlock config … --server` |
 
 There is no `SHERLOCK_DATA_DIR`, `SHERLOCK_DB`, `SHERLOCK_HTTP_LISTEN`, `SHERLOCK_NODE_NAME` or `SHERLOCK_LOG_LEVEL`.

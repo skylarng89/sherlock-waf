@@ -27,6 +27,7 @@ import (
 const (
 	countryFixture = "testdata/GeoLite2-Country-test.mmdb"
 	cityFixture    = "testdata/GeoIP2-City-test.mmdb"
+	asnFixture     = "testdata/GeoLite2-ASN-test.mmdb"
 
 	testAccount = "123456"
 	testKey     = "license-key-sekret-XYZ"
@@ -115,12 +116,38 @@ func TestMaxMindCountryLookups(t *testing.T) {
 	assert.False(t, ok, "an address outside the database is unknown")
 }
 
+func TestParseMaxMindCountryAcceptsPaidEditions(t *testing.T) {
+	db, err := ParseMaxMindCountry(readFixture(t, cityFixture))
+	require.NoError(t, err, "a City edition carries country.iso_code")
+	_, ok := db.Country(netip.MustParseAddr("198.51.100.7"))
+	assert.True(t, ok)
+}
+
+func TestMaxMindURLFromEnv(t *testing.T) {
+	t.Setenv(EnvMaxMindURL, "")
+	got, err := MaxMindURLFromEnv()
+	require.NoError(t, err)
+	assert.Equal(t, DefaultURLs.MaxMindCountry, got)
+
+	t.Setenv(EnvMaxMindURL, "https://download.maxmind.com/geoip/databases/GeoIP2-City/download?suffix=tar.gz")
+	got, err = MaxMindURLFromEnv()
+	require.NoError(t, err)
+	assert.Contains(t, got, "GeoIP2-City")
+
+	for _, bad := range []string{"http://mirror.example/db.tar.gz", "https://user:pw@mirror.example/db", "ftp://x/y", "not a url", "https:///x"} {
+		t.Setenv(EnvMaxMindURL, bad)
+		_, err = MaxMindURLFromEnv()
+		assert.ErrorContains(t, err, EnvMaxMindURL, bad)
+		assert.NotContains(t, err.Error(), "pw", "credentials never echoed")
+	}
+}
+
 func TestParseMaxMindCountryRejectsOtherDatabasesAndGarbage(t *testing.T) {
 	tests := map[string]struct {
 		data    []byte
 		wantErr string
 	}{
-		"city database":  {readFixture(t, cityFixture), "not a country database"},
+		"asn database":   {readFixture(t, asnFixture), "has no country data"},
 		"not an mmdb":    {[]byte("<html>Too many requests</html>"), "opening mmdb"},
 		"empty download": {nil, "opening mmdb"},
 	}
@@ -149,7 +176,7 @@ func TestExtractMMDB(t *testing.T) {
 			maxEntry:   big,
 			wantSameAs: mmdb,
 		},
-		"no entry":        {archive: tarGz(t, map[string][]byte{"LICENSE.txt": []byte("x")}), maxStream: big, maxEntry: big, wantErr: "has no GeoLite2-Country.mmdb"},
+		"no entry":        {archive: tarGz(t, map[string][]byte{"LICENSE.txt": []byte("x")}), maxStream: big, maxEntry: big, wantErr: "has no .mmdb entry"},
 		"not gzip":        {archive: []byte("plain text"), maxStream: big, maxEntry: big, wantErr: "opening archive"},
 		"entry too large": {archive: maxMindArchive(t, mmdb), maxStream: big, maxEntry: 16, wantErr: "larger than 16 bytes"},
 		"stream too large": {
@@ -212,16 +239,16 @@ func TestMaxMindRefreshDownloadsWithBasicAuthAndSwaps(t *testing.T) {
 }
 
 func TestMaxMindBadDownloadsNeverReplaceAGoodDatabase(t *testing.T) {
-	cityArchive := maxMindArchive(t, readFixture(t, cityFixture))
+	asnArchive := maxMindArchive(t, readFixture(t, asnFixture))
 	tests := map[string]struct {
 		status  int
 		body    []byte
 		wantErr string
 	}{
 		"not an archive":           {http.StatusOK, []byte("<html>nope</html>"), "opening archive"},
-		"wrong database_type":      {http.StatusOK, cityArchive, "not a country database"},
+		"wrong database_type":      {http.StatusOK, asnArchive, "has no country data"},
 		"unauthorised":             {http.StatusUnauthorized, []byte("bad credentials"), "status 401"},
-		"archive without the mmdb": {http.StatusOK, tarGz(t, map[string][]byte{"README": []byte("x")}), "has no GeoLite2-Country.mmdb"},
+		"archive without the mmdb": {http.StatusOK, tarGz(t, map[string][]byte{"README": []byte("x")}), "has no .mmdb entry"},
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {

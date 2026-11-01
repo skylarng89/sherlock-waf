@@ -48,6 +48,48 @@ func TokenMaxLifetimeFromEnv() (time.Duration, error) {
 	return time.Duration(days) * 24 * time.Hour, nil
 }
 
+// Environment variables that tune login throttling and account locking.
+const (
+	EnvLoginIPAttempts   = "SHERLOCK_LOGIN_IP_ATTEMPTS"      // per minute, per client address and per (address, username)
+	EnvLoginUserAttempts = "SHERLOCK_LOGIN_USER_ATTEMPTS"    // per minute, per username across all clients
+	EnvLoginLockAfter    = "SHERLOCK_LOGIN_LOCK_AFTER"       // consecutive failures before the account locks; 0 disables locking
+	EnvLoginLockMaxMins  = "SHERLOCK_LOGIN_LOCK_MAX_MINUTES" // longest lock in minutes
+)
+
+// LoginPolicyFromEnv reads the login throttling variables over the defaults.
+// A value that is not a whole number in range is an error: silently keeping
+// the default would leave an operator believing a limit they set was in force.
+func LoginPolicyFromEnv() (auth.LoginPolicy, error) {
+	p := auth.DefaultLoginPolicy
+	for _, f := range []struct {
+		env string
+		min int
+		dst *int
+	}{
+		{EnvLoginIPAttempts, 1, &p.IPAttempts},
+		{EnvLoginUserAttempts, 1, &p.UsernameAttempts},
+		{EnvLoginLockAfter, 0, &p.LockAfter},
+	} {
+		v := strings.TrimSpace(os.Getenv(f.env))
+		if v == "" {
+			continue
+		}
+		n, err := strconv.Atoi(v)
+		if err != nil || n < f.min || n > 1_000_000 {
+			return auth.LoginPolicy{}, fmt.Errorf("%s must be a whole number of at least %d (got %q)", f.env, f.min, v)
+		}
+		*f.dst = n
+	}
+	if v := strings.TrimSpace(os.Getenv(EnvLoginLockMaxMins)); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 || n > 24*60 {
+			return auth.LoginPolicy{}, fmt.Errorf("%s must be a whole number of minutes from 1 to 1440 (got %q)", EnvLoginLockMaxMins, v)
+		}
+		p.LockMax = time.Duration(n) * time.Minute
+	}
+	return p, nil
+}
+
 // Env is an opened node state.
 type Env struct {
 	Store   store.Store

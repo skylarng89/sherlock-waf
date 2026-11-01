@@ -137,16 +137,51 @@ func (l *ipLimiter) evictLocked(cutoff time.Time) {
 	}
 }
 
+// LoginPolicy tunes login throttling and account locking. The defaults suit a
+// node reachable from the internet; operators behind a VPN or an SSO gateway
+// may relax them, and a known administrator who is being locked out by a
+// remote guesser (ASVS S-07) can raise the lock threshold or turn locking off
+// and rely on the rate limits alone.
+type LoginPolicy struct {
+	// IPAttempts is the attempts per minute allowed from one client address,
+	// and from one (address, username) pair.
+	IPAttempts int
+	// UsernameAttempts is the attempts per minute allowed against one
+	// username from all clients together.
+	UsernameAttempts int
+	// LockAfter is the number of consecutive failures tolerated before the
+	// account locks; zero turns account locking off.
+	LockAfter int
+	// LockMax caps the lock duration, which doubles from one minute.
+	LockMax time.Duration
+}
+
+// DefaultLoginPolicy is used when nothing is configured.
+var DefaultLoginPolicy = LoginPolicy{IPAttempts: 5, UsernameAttempts: 20, LockAfter: 4, LockMax: 15 * time.Minute}
+
+// withDefaults fills zero fields, except LockAfter where zero is meaningful.
+func (p LoginPolicy) withDefaults() LoginPolicy {
+	if p.IPAttempts < 1 {
+		p.IPAttempts = DefaultLoginPolicy.IPAttempts
+	}
+	if p.UsernameAttempts < 1 {
+		p.UsernameAttempts = DefaultLoginPolicy.UsernameAttempts
+	}
+	if p.LockMax < time.Minute {
+		p.LockMax = DefaultLoginPolicy.LockMax
+	}
+	return p
+}
+
 // lockoutFor is the lock duration after the nth consecutive failure: nothing
-// for the first four, then 1, 2, 4, 8 minutes, capped at 15.
-func lockoutFor(failures int) time.Duration {
-	const free = 4
-	if failures <= free {
+// up to LockAfter, then 1, 2, 4, 8 minutes, capped at LockMax.
+func (p LoginPolicy) lockoutFor(failures int) time.Duration {
+	if p.LockAfter < 1 || failures <= p.LockAfter {
 		return 0
 	}
-	d := time.Minute << (failures - free - 1)
-	if failures-free-1 > 4 || d > 15*time.Minute {
-		return 15 * time.Minute
+	shift := failures - p.LockAfter - 1
+	if shift > 10 {
+		return p.LockMax
 	}
-	return d
+	return min(time.Minute<<shift, p.LockMax)
 }

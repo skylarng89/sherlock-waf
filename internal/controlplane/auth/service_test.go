@@ -203,8 +203,25 @@ func TestAccountLocksWithBackoffAfterRepeatedFailures(t *testing.T) {
 func TestLockoutSchedule(t *testing.T) {
 	want := map[int]time.Duration{1: 0, 4: 0, 5: time.Minute, 6: 2 * time.Minute, 7: 4 * time.Minute, 8: 8 * time.Minute, 9: 15 * time.Minute, 50: 15 * time.Minute}
 	for n, d := range want {
-		assert.Equal(t, d, lockoutFor(n), "failures=%d", n)
+		assert.Equal(t, d, DefaultLoginPolicy.lockoutFor(n), "failures=%d", n)
 	}
+}
+
+func TestLoginPolicyOverrides(t *testing.T) {
+	p := LoginPolicy{LockAfter: 2, LockMax: 3 * time.Minute}
+	assert.Equal(t, time.Duration(0), p.lockoutFor(2))
+	assert.Equal(t, time.Minute, p.lockoutFor(3))
+	assert.Equal(t, 2*time.Minute, p.lockoutFor(4))
+	assert.Equal(t, 3*time.Minute, p.lockoutFor(5), "capped at LockMax")
+	assert.Equal(t, 3*time.Minute, p.lockoutFor(500))
+
+	off := LoginPolicy{LockAfter: 0}
+	assert.Equal(t, time.Duration(0), off.lockoutFor(1000), "zero turns account locking off")
+
+	d := LoginPolicy{}.withDefaults()
+	assert.Equal(t, DefaultLoginPolicy.IPAttempts, d.IPAttempts)
+	assert.Equal(t, DefaultLoginPolicy.UsernameAttempts, d.UsernameAttempts)
+	assert.Equal(t, DefaultLoginPolicy.LockMax, d.LockMax)
 }
 
 func TestPerIPThrottle(t *testing.T) {

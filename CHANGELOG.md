@@ -7,6 +7,8 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 ### Added
 
 - Project plan and design documentation.
+- Configurable sign-in throttling and account lock (`SHERLOCK_LOGIN_IP_ATTEMPTS`, `SHERLOCK_LOGIN_USER_ATTEMPTS`, `SHERLOCK_LOGIN_LOCK_AFTER`, `SHERLOCK_LOGIN_LOCK_MAX_MINUTES`; defaults unchanged; `LOCK_AFTER=0` disables locking) to answer the ASVS S-07 lock-out trade-off.
+- MaxMind download source is configurable (`SHERLOCK_MAXMIND_DOWNLOAD_URL`) and accepts Country, City and Enterprise editions, free or paid.
 - Control-plane hardening (ASVS S-04 to S-09, B2): setup token verified before the argon2 run (no hashing for a wrong token); login limiter keyed on (IP, username) with a 20/min username ceiling and `auth.account_locked` once per lock; failed API-token presentations limited per IP (429 before lookup) and audited as coalesced `auth.token_failed` rows; API tokens capped at `SHERLOCK_API_TOKEN_MAX_DAYS` (default 365, `0` for no limit), 50 per account, an expires-soon badge and a create-form limit notice; `POST /system/update/apply` refused for API tokens; per-principal and per-IP request limiter with 429 and `Retry-After` and a `sherlock_api_throttled_total` metric; breached-password corpus (SecLists, 12+ characters, MIT, see NOTICE) with trailing-noise and leetspeak normalisation and a fuzz target; password changes compare-and-set on the verified hash (409 on a lost race).
 
 ### Fixed

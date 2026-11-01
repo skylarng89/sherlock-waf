@@ -27,19 +27,29 @@ type countryRecord struct {
 	} `maxminddb:"country"`
 }
 
-// ParseMaxMindCountry opens an in-memory .mmdb and rejects any database whose
-// database_type is not a country database, so a City or ASN file placed in the
-// geoip directory can never be loaded as country data.
+// ParseMaxMindCountry opens an in-memory .mmdb and rejects any database that
+// does not carry country.iso_code: Country, City and Enterprise editions (free
+// GeoLite2 or paid GeoIP2) qualify, so an ASN or ISP file placed in the geoip
+// directory can never be loaded as country data.
 func ParseMaxMindCountry(data []byte) (*MaxMindCountry, error) {
 	r, err := maxminddb.OpenBytes(data)
 	if err != nil {
 		return nil, fmt.Errorf("opening mmdb: %w", err)
 	}
-	if !strings.Contains(r.Metadata.DatabaseType, "Country") {
+	if !hasCountryData(r.Metadata.DatabaseType) {
 		_ = r.Close()
-		return nil, fmt.Errorf("mmdb database_type %q is not a country database", r.Metadata.DatabaseType)
+		return nil, fmt.Errorf("mmdb database_type %q has no country data (need a Country, City or Enterprise edition)", r.Metadata.DatabaseType)
 	}
 	return &MaxMindCountry{r: r, nodes: r.Metadata.NodeCount}, nil
+}
+
+func hasCountryData(databaseType string) bool {
+	for _, edition := range []string{"Country", "City", "Enterprise"} {
+		if strings.Contains(databaseType, edition) {
+			return true
+		}
+	}
+	return false
 }
 
 // Country implements acl.CountryLookup.
@@ -59,8 +69,8 @@ func (d *MaxMindCountry) Country(ip netip.Addr) (string, bool) {
 // Len reports the search-tree node count, the closest analogue of the DB-IP range count.
 func (d *MaxMindCountry) Len() int { return int(d.nodes) }
 
-// extractMMDB returns the GeoLite2-Country .mmdb from a MaxMind tar.gz. Entries
-// are matched by base name only and their names never become file paths. The
+// extractMMDB returns the .mmdb from a MaxMind tar.gz (the edition depends on
+// the configured download URL). Entries are matched by base name only and their names never become file paths. The
 // decompressed stream and the entry are each capped, so a gzip bomb ends with
 // an error instead of exhausting memory.
 func extractMMDB(archive []byte, maxStream, maxEntry int64) ([]byte, error) {
@@ -78,20 +88,20 @@ func extractMMDB(archive []byte, maxStream, maxEntry int64) ([]byte, error) {
 		if err != nil {
 			return nil, fmt.Errorf("reading archive: %w", err)
 		}
-		if hdr.Typeflag != tar.TypeReg || path.Base(hdr.Name) != maxMindEntryName {
+		if hdr.Typeflag != tar.TypeReg || !strings.HasSuffix(path.Base(hdr.Name), ".mmdb") {
 			continue
 		}
 		if hdr.Size > maxEntry {
-			return nil, fmt.Errorf("%s in archive is larger than %d bytes", maxMindEntryName, maxEntry)
+			return nil, fmt.Errorf("mmdb in archive is larger than %d bytes", maxEntry)
 		}
 		body, err := io.ReadAll(io.LimitReader(tr, maxEntry+1))
 		if err != nil {
-			return nil, fmt.Errorf("reading %s from archive: %w", maxMindEntryName, err)
+			return nil, fmt.Errorf("reading mmdb from archive: %w", err)
 		}
 		if int64(len(body)) > maxEntry {
-			return nil, fmt.Errorf("%s in archive is larger than %d bytes", maxMindEntryName, maxEntry)
+			return nil, fmt.Errorf("mmdb in archive is larger than %d bytes", maxEntry)
 		}
 		return body, nil
 	}
-	return nil, fmt.Errorf("archive has no %s entry", maxMindEntryName)
+	return nil, fmt.Errorf("archive has no .mmdb entry")
 }
