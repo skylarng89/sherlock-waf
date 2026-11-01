@@ -14,7 +14,7 @@ sherlock-waf/
 ├── renovate.json
 ├── .goreleaser.yaml
 ├── .github/
-│   ├── workflows/                # ci.yml, nightly.yml, release.yml, codeql.yml, cla.yml
+│   ├── workflows/                # ci.yml, nightly.yml, release.yml, cla.yml
 │   ├── ISSUE_TEMPLATE/
 │   ├── pull_request_template.md
 │   └── CODEOWNERS

@@ -46,7 +46,7 @@ A WAF sits in front of financial applications and sees every request, including 
 
 ## Security testing gates
 
-- Every milestone: `govulncheck`, `gosec` (via golangci-lint), CodeQL, dependency review, unit tests for any mitigation listed above.
+- Every milestone: `govulncheck`, `gosec` (via golangci-lint), dependency review, unit tests for any mitigation listed above.
 - M2 onward: nuclei and ZAP baseline against Juice Shop behind Sherlock, nightly.
 - M7: internal review of the admin surface against OWASP ASVS 5.0 L2 checklist.
 - Before v1.0 (M11): external penetration test of admin surface and bypass testing of the data plane. Fix all critical and high findings before release.
