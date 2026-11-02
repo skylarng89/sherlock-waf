@@ -22,6 +22,7 @@ type host struct {
 	providers  []extension.AuthProvider
 	auditSinks []extension.AuditSink
 	eventStore extension.EventStore
+	exporters  []extension.ExporterType
 }
 
 func newHost(o Options, env *ops.Env, log *slog.Logger) *host {
@@ -46,6 +47,8 @@ func (h *host) SetAuthorizer(a extension.Authorizer) { h.authorizer = a }
 func (h *host) AddAuthProvider(p extension.AuthProvider) { h.providers = append(h.providers, p) }
 
 func (h *host) AddAuditSink(s extension.AuditSink) { h.auditSinks = append(h.auditSinks, s) }
+
+func (h *host) AddExporterType(t extension.ExporterType) { h.exporters = append(h.exporters, t) }
 
 func (h *host) SetEventStore(s extension.EventStore) {
 	h.eventStore = s

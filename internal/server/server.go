@@ -34,6 +34,7 @@ import (
 	"github.com/skylarng89/sherlock-waf/internal/dataplane/blockpage"
 	"github.com/skylarng89/sherlock-waf/internal/events"
 	"github.com/skylarng89/sherlock-waf/internal/eventwriter"
+	"github.com/skylarng89/sherlock-waf/internal/exporters"
 	"github.com/skylarng89/sherlock-waf/internal/feeds"
 	"github.com/skylarng89/sherlock-waf/internal/metrics"
 	"github.com/skylarng89/sherlock-waf/internal/ops"
@@ -115,6 +116,10 @@ func Run(ctx context.Context, o Options) error {
 	var jobs sync.WaitGroup
 	defer func() { stopBG(); jobs.Wait() }()
 
+	exportMgr := exporters.NewManager(nil, filepath.Join(dataDir, "exporters"), exporters.RunnerOptions{}, log)
+	exporters.RegisterMetrics(metrics.Registry, exportMgr)
+	defer exportMgr.Stop()
+
 	retention := func() int { return 30 }
 	writerOpts := eventwriter.Options{}
 
@@ -140,6 +145,9 @@ func Run(ctx context.Context, o Options) error {
 	dp := app.New("", o.Compiler, log, app.WithEventsOutput(outputOr(o.EventsOutput)),
 		app.WithSecurityBusHook(func(pctx context.Context, bus *events.Bus) func() {
 			w := eventwriter.New(bus, env.Store, log, writerOpts)
+			if err := exportMgr.SetBus(bus); err != nil {
+				log.Error("starting exporters", "error", err)
+			}
 			done := make(chan struct{})
 			go func() { defer close(done); w.Run(pctx) }()
 			return func() { <-done }
@@ -191,6 +199,12 @@ func Run(ctx context.Context, o Options) error {
 			return fmt.Errorf("initialising extension %s: %w", ext.Name(), err)
 		}
 		log.Info("extension loaded", "name", ext.Name())
+	}
+	for _, t := range host.exporters {
+		if err := exportMgr.RegisterType(t); err != nil {
+			_ = dp.Stop(ctx)
+			return fmt.Errorf("registering exporter type from extension: %w", err)
+		}
 	}
 	for _, s := range host.auditSinks {
 		env.Audit.AddSink(s)

@@ -11,7 +11,7 @@ Get Sherlock's events into the customer's SOC and alert people when something ne
 
 ## Tasks
 
-- [ ] **M10-T1** Exporter framework: per-exporter subscriber with own buffer and cursor, retries with backoff, disk-backed spool (bounded) for outages, metrics per exporter, `ExporterType` extension point.
+- [x] **M10-T1** Exporter framework: per-exporter subscriber with own buffer and cursor, retries with backoff, disk-backed spool (bounded) for outages, metrics per exporter, `ExporterType` extension point.
 - [ ] **M10-T2** Exporters: syslog (RFC 5424 over UDP/TCP/TLS) with CEF and JSON payload options; HTTPS webhook (JSON batch, HMAC signature header); OpenTelemetry logs (OTLP/HTTP and gRPC).
 - [ ] **M10-T3** Audit log export through the same exporters (separate stream flag).
 - [ ] **M10-T4** Alert rules: conditions (blocks per site > N in window, new country in top attackers, certificate expiring < N days, feed failure, events dropped > 0, upstream unhealthy), evaluation job every 30 s, deduplication and cool-down.

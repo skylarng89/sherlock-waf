@@ -26,6 +26,7 @@ type Host struct {
 	AuthProviders []extension.AuthProvider
 	AuditSinks    []extension.AuditSink
 	EventStore    extension.EventStore
+	ExporterTypes []extension.ExporterType
 }
 
 var _ extension.Host = (*Host)(nil)
@@ -73,6 +74,13 @@ func (h *Host) SetEventStore(s extension.EventStore) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.EventStore = s
+}
+
+// AddExporterType implements extension.Host.
+func (h *Host) AddExporterType(t extension.ExporterType) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.ExporterTypes = append(h.ExporterTypes, t)
 }
 
 type noSessions struct{}

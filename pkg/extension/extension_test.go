@@ -2,6 +2,7 @@ package extension_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"testing"
@@ -23,6 +24,7 @@ func (d denyAll) Init(_ context.Context, h extension.Host) error {
 	h.AddAuthProvider(provider{})
 	h.AddAuditSink(sink{})
 	h.SetEventStore(store{})
+	h.AddExporterType(exporterType{})
 	return nil
 }
 
@@ -36,6 +38,14 @@ type provider struct{}
 
 func (provider) Name() string         { return "fake" }
 func (provider) Routes() http.Handler { return http.NotFoundHandler() }
+
+type exporterType struct{}
+
+func (exporterType) Name() string                   { return "fake" }
+func (exporterType) Validate(json.RawMessage) error { return nil }
+func (exporterType) New(json.RawMessage) (extension.Exporter, error) {
+	return nil, extension.ErrNotFound
+}
 
 type sink struct{}
 
@@ -73,6 +83,8 @@ func TestExtensionRegistersEverything(t *testing.T) {
 	require.Len(t, h.AuthProviders, 1)
 	assert.Equal(t, "fake", h.AuthProviders[0].Name())
 	require.Len(t, h.AuditSinks, 1)
+	require.Len(t, h.ExporterTypes, 1)
+	assert.Equal(t, "fake", h.ExporterTypes[0].Name())
 	_, err = h.EventStore.Get(t.Context(), "nope")
 	assert.ErrorIs(t, err, extension.ErrNotFound)
 }

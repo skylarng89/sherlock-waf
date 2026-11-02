@@ -18,6 +18,10 @@ var (
 	ErrNotFound = errors.New("extension: not found")
 	// ErrDenied means the caller is not allowed to do what it asked.
 	ErrDenied = errors.New("extension: denied")
+	// ErrPermanent wraps an Exporter.Send failure that retrying cannot fix, such
+	// as a 4xx from the receiver. The core discards the batch instead of
+	// retrying it, so one bad batch cannot block the exporter forever.
+	ErrPermanent = errors.New("extension: permanent failure")
 )
 
 // Extension is one unit of added behaviour.
@@ -53,6 +57,10 @@ type Host interface {
 	AddAuthProvider(AuthProvider)
 	AddAuditSink(AuditSink)
 	SetEventStore(EventStore)
+	// AddExporterType makes a new kind of exporter available next to the
+	// built-in syslog, webhook and OTLP types. Registering a name twice fails
+	// startup.
+	AddExporterType(ExporterType)
 }
 
 // Permission names an operation, such as "config:write". The core defines the
@@ -172,6 +180,51 @@ type EventStore interface {
 	Write(ctx context.Context, events []EventRecord) error
 	Get(ctx context.Context, id string) (EventRecord, error)
 	Query(ctx context.Context, q EventQuery) (EventPage, error)
+}
+
+// Export streams an exporter can ship.
+const (
+	StreamEvents = "events"
+	StreamAudit  = "audit"
+)
+
+// ExportRecord is one item handed to an Exporter.
+type ExportRecord struct {
+	// ID is the event ULID or the audit record id; receivers can use it to
+	// deduplicate, since delivery is at-least-once.
+	ID string
+	// Stream is StreamEvents or StreamAudit.
+	Stream string
+	At     time.Time
+	// Body is the JSON document: sherlock.event.v1 for events, the audit
+	// record for audit.
+	Body json.RawMessage
+}
+
+// Exporter ships batches of records to one destination. The core calls Send from
+// a single goroutine, retries a failed batch with backoff, and may deliver a
+// record more than once. A Send that returns an error wrapping ErrPermanent
+// discards the batch. Implementations must honour ctx and never log secrets.
+type Exporter interface {
+	Send(ctx context.Context, batch []ExportRecord) error
+	Close() error
+}
+
+// ExporterTester is an optional interface: exporters that can check their
+// destination without real data implement it, and the dashboard's test button
+// uses it.
+type ExporterTester interface {
+	Test(ctx context.Context) error
+}
+
+// ExporterType builds exporters of one kind from their JSON configuration.
+type ExporterType interface {
+	// Name is the type identifier used in configuration, such as "syslog".
+	Name() string
+	// Validate checks cfg without side effects such as connecting.
+	Validate(cfg json.RawMessage) error
+	// New creates an exporter from a validated configuration.
+	New(cfg json.RawMessage) (Exporter, error)
 }
 
 type none struct{}

@@ -54,6 +54,18 @@ Applied before an event leaves the request path:
 4. **Exporters** (M10) subscribe with their own cursor and buffer; a slow SIEM cannot slow the writer.
 5. The **live tail** (`/events/stream`) subscribes with a small buffer and drops for slow clients.
 
+## Exporter framework (M10)
+
+Each configured exporter owns three things, so one failing destination cannot affect another or the data plane:
+
+1. a bus subscription with its own cursor (live only; an exporter ships what happens after it starts);
+2. a bounded, segmented disk spool (`<data dir>/exporters/<id>/`, default 256 MiB, 4 MiB segments, CRC-32C per record) that absorbs outages. When it is full the oldest segment is deleted and the lost records are counted in `sherlock_exporter_dropped_total{reason="spool_full"}`;
+3. a sender that delivers batches (up to 500 records or 1 MiB) with a 10 s timeout and retries failures with exponential backoff and jitter (1 s to 60 s). The spool cursor advances only after the destination accepts a batch, so delivery is **at-least-once**; receivers deduplicate on the event `id`. A destination answer that retrying cannot fix (`extension.ErrPermanent`, e.g. HTTP 4xx) discards that batch (`reason="rejected"`) so it cannot block the queue.
+
+A bus overrun before the subscriber reads (only possible if the exporter's own goroutine stalls) is counted as `reason="lagged"`. Per-exporter series: `sherlock_exporter_sent_total`, `_send_failures_total`, `_dropped_total`, `_pending`, `_spool_bytes`, `_last_success_timestamp_seconds`.
+
+Exporter types plug in through `extension.ExporterType` / `Host.AddExporterType`. The audit stream (M10-T3) enters a runner through `Offer`, not the bus.
+
 ## CEF mapping (M10)
 
 `CEF:0|Sherlock|Sherlock WAF|<version>|<primary rule_id>|<primary message>|<severity 0-10>|src=<client.ip> requestMethod=<method> request=<host+path> act=<action> cs1Label=site cs1=<site_id> cs2Label=event_id cs2=<id> cn1Label=anomaly_score cn1=<inbound>`
