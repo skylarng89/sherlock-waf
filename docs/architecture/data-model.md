@@ -26,7 +26,7 @@ SQLite driver: `modernc.org/sqlite` (pure Go, keeps NFR-10 no-CGO). Postgres dri
 | `bans` | `ip`, `site_id`, `reason`, `created_at`, `expires_at`, `source` (auto, manual, crowdsec) | Loaded into memory at start, changes pushed to the data plane |
 | `events` | see [events.md](events.md) | Partitioned by day in Postgres; in SQLite, indexed on `(ts)`, `(site_id, ts)`, `(client_ip, ts)` |
 | `event_rollups_1m` | `bucket`, `site_id`, `action`, `count` | Written by the batch writer for fast charts |
-| `exporters`, `alert_rules`, `alert_state` | | M10 |
+| `integrations` | `kind` (`exporter`, `channel`, `alert_rule`), `id`, `name`, `type`, `stream` (exporters only: `events`, `audit`, `both`), `enabled`, `secret_id`, `created_at`, `updated_at`; primary key `(kind, id)`, unique `(kind, name)` | M10 (migration 00006). Exporters, notification channels and alert rules share one table because they share a lifecycle. The whole settings document (webhook URL, HMAC key, SMTP password, rule parameters and channel ids) is one JSON document encrypted as a row in `secrets` (purpose `integration`), referenced by `secret_id`; replacing the settings seals a new secret and deletes the old one in the same transaction. Alert evaluation state is not stored: it lives in memory ([alerts](../integrations/alerts.md)). Exporter spools are files under `<data dir>/exporters/<id>/`, not database rows |
 | `openapi_docs` | `id`, `site_id`, `content` (compressed), `sha256`, `uploaded_at` | M9 |
 | `kv` | `key`, `value` | Small node state: install ID, last update check, feature flags |
 

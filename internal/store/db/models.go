@@ -118,6 +118,18 @@ type EventRollups1m struct {
 	Count  int64
 }
 
+type Integration struct {
+	Kind      string
+	ID        string
+	Name      string
+	Type      string
+	Stream    string
+	Enabled   int64
+	SecretID  string
+	CreatedAt int64
+	UpdatedAt int64
+}
+
 type Kv struct {
 	Key   string
 	Value string

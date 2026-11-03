@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/skylarng89/sherlock-waf/internal/alerts"
 	"github.com/skylarng89/sherlock-waf/internal/app"
 	"github.com/skylarng89/sherlock-waf/internal/audit"
 	"github.com/skylarng89/sherlock-waf/internal/certstore"
@@ -35,7 +36,9 @@ import (
 	"github.com/skylarng89/sherlock-waf/internal/events"
 	"github.com/skylarng89/sherlock-waf/internal/eventwriter"
 	"github.com/skylarng89/sherlock-waf/internal/exporters"
+	"github.com/skylarng89/sherlock-waf/internal/exporters/builtin"
 	"github.com/skylarng89/sherlock-waf/internal/feeds"
+	"github.com/skylarng89/sherlock-waf/internal/integrations"
 	"github.com/skylarng89/sherlock-waf/internal/metrics"
 	"github.com/skylarng89/sherlock-waf/internal/ops"
 	"github.com/skylarng89/sherlock-waf/internal/policy"
@@ -116,7 +119,7 @@ func Run(ctx context.Context, o Options) error {
 	var jobs sync.WaitGroup
 	defer func() { stopBG(); jobs.Wait() }()
 
-	exportMgr := exporters.NewManager(nil, filepath.Join(dataDir, "exporters"), exporters.RunnerOptions{}, log)
+	exportMgr := exporters.NewManager(bg, nil, filepath.Join(dataDir, "exporters"), exporters.RunnerOptions{}, log)
 	exporters.RegisterMetrics(metrics.Registry, exportMgr)
 	defer exportMgr.Stop()
 
@@ -200,7 +203,7 @@ func Run(ctx context.Context, o Options) error {
 		}
 		log.Info("extension loaded", "name", ext.Name())
 	}
-	for _, t := range host.exporters {
+	for _, t := range append(builtin.Types(o.Info.Version), host.exporters...) {
 		if err := exportMgr.RegisterType(t); err != nil {
 			_ = dp.Stop(ctx)
 			return fmt.Errorf("registering exporter type from extension: %w", err)
@@ -209,6 +212,29 @@ func Run(ctx context.Context, o Options) error {
 	for _, s := range host.auditSinks {
 		env.Audit.AddSink(s)
 	}
+	env.Audit.AddSink(auditExporter{mgr: exportMgr})
+
+	integ := &integrations.Service{Store: env.Store, Secrets: env.Secrets}
+	rt := newIntegrationRuntime(integ, exportMgr, alerts.StoreSource{
+		TopValues: func(ctx context.Context, dim string, f store.EventFilter, limit int) (vc []store.ValueCount, err error) {
+			err = env.Store.Tx(ctx, func(ctx context.Context, tx store.Tx) (err error) {
+				vc, err = tx.TopEventValues(ctx, dim, f, limit)
+				return err
+			})
+			return vc, err
+		},
+		Certs: expiry.Snapshot, Upstream: prober.Snapshot,
+		Feeds: func() []alerts.FeedStatus {
+			var out []alerts.FeedStatus
+			for _, s := range fm.Statuses() {
+				out = append(out, alerts.FeedStatus{Name: s.Name, Failed: s.State == "failed"})
+			}
+			return out
+		},
+		Dropped: func() uint64 { _, dropped := dp.EventStats(); return dropped },
+	}, log)
+	rt.Reload(ctx)
+	jobs.Go(func() { rt.engine.Run(bg) })
 
 	tokenMax, err := ops.TokenMaxLifetimeFromEnv()
 	if err != nil {
@@ -244,6 +270,8 @@ func Run(ctx context.Context, o Options) error {
 		Info: info, Authorizer: host.authorizer, Logger: log,
 		Secrets: env.Secrets, Certs: certFiles, Setup: gate, DataDir: dataDir, PrincipalRequestsPerMinute: rateLimit,
 		Feeds: func() []api.FeedStatus { return feedStatuses(fm) }, EventStats: dp.EventStats,
+		Integrations: integ, IntegrationsChanged: rt.Reload,
+		ExporterStatuses: rt.exporterStates, AlertStatuses: rt.alertStates,
 	})
 	if err != nil {
 		_ = dp.Stop(ctx)

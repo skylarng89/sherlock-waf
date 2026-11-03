@@ -33,6 +33,7 @@ tags:
   - { name: bans }
   - { name: tuning }
   - { name: rules }
+  - { name: integrations }
 
 paths:
   /auth/login:
@@ -995,6 +996,130 @@ paths:
         "412": { $ref: "#/components/responses/Problem" }
         "422": { $ref: "#/components/responses/Problem" }
         "428": { $ref: "#/components/responses/Problem" }
+
+  /integrations/types:
+    get:
+      operationId: listIntegrationTypes
+      tags: [integrations]
+      summary: Exporter types, notification channel types and alert kinds this node supports
+      x-sherlock-permission: config:read
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/IntegrationTypes" } } } }
+  /exporters:
+    get:
+      operationId: listExporters
+      tags: [integrations]
+      summary: Event and audit exporters (secret settings are masked)
+      x-sherlock-permission: config:read
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ExporterList" } } } }
+  /exporters/test:
+    post:
+      operationId: testExporter
+      tags: [integrations]
+      summary: Send a connectivity check to an exporter configuration without saving it
+      x-sherlock-permission: config:write
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/TestIntegration" } } } }
+      responses:
+        "200": { description: Test finished (see ok), content: { application/json: { schema: { $ref: "#/components/schemas/TestResult" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+  /exporters/{id}:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,62}$" } }]
+    put:
+      operationId: putExporter
+      tags: [integrations]
+      summary: Create or replace event and audit exporters; a masked secret value keeps the stored one
+      x-sherlock-permission: config:write
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/PutExporter" } } } }
+      responses:
+        "200": { description: Stored, content: { application/json: { schema: { $ref: "#/components/schemas/Exporter" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+    delete:
+      operationId: deleteExporter
+      tags: [integrations]
+      summary: Delete event and audit exporters
+      x-sherlock-permission: config:write
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Problem" }
+  /notification-channels:
+    get:
+      operationId: listNotificationChannels
+      tags: [integrations]
+      summary: Notification channels (secret settings are masked)
+      x-sherlock-permission: config:read
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/NotificationChannelList" } } } }
+  /notification-channels/test:
+    post:
+      operationId: testNotificationChannel
+      tags: [integrations]
+      summary: Send a labelled test message through a channel configuration without saving it
+      x-sherlock-permission: config:write
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/TestIntegration" } } } }
+      responses:
+        "200": { description: Test finished (see ok), content: { application/json: { schema: { $ref: "#/components/schemas/TestResult" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+  /notification-channels/{id}:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,62}$" } }]
+    put:
+      operationId: putNotificationChannel
+      tags: [integrations]
+      summary: Create or replace notification channels; a masked secret value keeps the stored one
+      x-sherlock-permission: config:write
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/PutNotificationChannel" } } } }
+      responses:
+        "200": { description: Stored, content: { application/json: { schema: { $ref: "#/components/schemas/NotificationChannel" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+    delete:
+      operationId: deleteNotificationChannel
+      tags: [integrations]
+      summary: Delete notification channels
+      x-sherlock-permission: config:write
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Problem" }
+  /alert-rules:
+    get:
+      operationId: listAlertRules
+      tags: [integrations]
+      summary: Alert rules
+      x-sherlock-permission: config:read
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/AlertRuleList" } } } }
+  /alert-rules/{id}:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,62}$" } }]
+    put:
+      operationId: putAlertRule
+      tags: [integrations]
+      summary: Create or replace an alert rule
+      x-sherlock-permission: config:write
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/PutAlertRule" } } } }
+      responses:
+        "200": { description: Stored, content: { application/json: { schema: { $ref: "#/components/schemas/AlertRule" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+    delete:
+      operationId: deleteAlertRule
+      tags: [integrations]
+      summary: Delete an alert rule
+      x-sherlock-permission: config:write
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Problem" }
+  /alerts/status:
+    get:
+      operationId: getAlertStatus
+      tags: [integrations]
+      summary: Current state of every alert rule (firing, last evaluation, last notification)
+      x-sherlock-permission: config:read
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/AlertStatusList" } } } }
 
 components:
   securitySchemes:
@@ -1963,3 +2088,129 @@ components:
         covered: { type: array, items: { $ref: "#/components/schemas/CoveredCve" } }
         summary: { $ref: "#/components/schemas/VirtualPatchSummary" }
         truncated: { type: boolean, description: "Hit counts come from a capped scan of recent events" }
+    IntegrationTypes:
+      type: object
+      required: [exporters, channels, alert_kinds]
+      properties:
+        exporters: { type: array, items: { type: string } }
+        channels: { type: array, items: { type: string } }
+        alert_kinds: { type: array, items: { type: string } }
+    ExporterStatus:
+      type: object
+      required: [running, sent, send_failures, dropped, pending, spool_bytes]
+      properties:
+        running: { type: boolean }
+        sent: { type: integer, format: int64 }
+        send_failures: { type: integer, format: int64 }
+        dropped: { type: integer, format: int64, description: "Records that will never be delivered (spool full, bus overrun, rejected)" }
+        pending: { type: integer }
+        spool_bytes: { type: integer, format: int64 }
+        last_success: { type: string, format: date-time, nullable: true }
+        last_error: { type: string }
+        last_error_at: { type: string, format: date-time, nullable: true }
+    Exporter:
+      type: object
+      required: [id, name, type, stream, enabled, settings, created_at, updated_at]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        type: { type: string }
+        stream: { type: string, enum: [events, audit, both] }
+        enabled: { type: boolean }
+        settings: { type: object, additionalProperties: true, description: "Type-specific settings; secret values are masked" }
+        status: { $ref: "#/components/schemas/ExporterStatus" }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    ExporterList:
+      type: object
+      required: [items]
+      properties: { items: { type: array, items: { $ref: "#/components/schemas/Exporter" } } }
+    PutExporter:
+      type: object
+      required: [name, type, stream, enabled, settings]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 64 }
+        type: { type: string, maxLength: 64 }
+        stream: { type: string, enum: [events, audit, both] }
+        enabled: { type: boolean }
+        settings: { type: object, additionalProperties: true }
+    NotificationChannel:
+      type: object
+      required: [id, name, type, enabled, settings, created_at, updated_at]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        type: { type: string, enum: [smtp, webhook, slack, teams] }
+        enabled: { type: boolean }
+        settings: { type: object, additionalProperties: true, description: "Type-specific settings; secret values are masked" }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    NotificationChannelList:
+      type: object
+      required: [items]
+      properties: { items: { type: array, items: { $ref: "#/components/schemas/NotificationChannel" } } }
+    PutNotificationChannel:
+      type: object
+      required: [name, type, enabled, settings]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 64 }
+        type: { type: string, enum: [smtp, webhook, slack, teams] }
+        enabled: { type: boolean }
+        settings: { type: object, additionalProperties: true }
+    TestIntegration:
+      type: object
+      required: [type, settings]
+      properties:
+        id: { type: string, description: "Existing object whose stored secrets fill masked values in settings" }
+        type: { type: string, maxLength: 64 }
+        stream: { type: string, enum: [events, audit, both] }
+        settings: { type: object, additionalProperties: true }
+    TestResult:
+      type: object
+      required: [ok]
+      properties:
+        ok: { type: boolean }
+        error: { type: string, description: "Why the check failed; never contains credentials" }
+    AlertRule:
+      type: object
+      required: [id, name, kind, enabled, severity, cooldown_seconds, channel_ids, params, created_at, updated_at]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        kind: { type: string, enum: [blocks_threshold, new_country, cert_expiring, feed_failure, events_dropped, upstream_unhealthy] }
+        enabled: { type: boolean }
+        severity: { type: string, enum: [info, warning, critical] }
+        cooldown_seconds: { type: integer }
+        channel_ids: { type: array, items: { type: string } }
+        params: { type: object, additionalProperties: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    AlertRuleList:
+      type: object
+      required: [items]
+      properties: { items: { type: array, items: { $ref: "#/components/schemas/AlertRule" } } }
+    PutAlertRule:
+      type: object
+      required: [name, kind, enabled, severity, cooldown_seconds, channel_ids, params]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 64 }
+        kind: { type: string, enum: [blocks_threshold, new_country, cert_expiring, feed_failure, events_dropped, upstream_unhealthy] }
+        enabled: { type: boolean }
+        severity: { type: string, enum: [info, warning, critical] }
+        cooldown_seconds: { type: integer }
+        channel_ids: { type: array, maxItems: 10, items: { type: string } }
+        params: { type: object, additionalProperties: true }
+    AlertStatus:
+      type: object
+      required: [rule_id, firing, suppressed]
+      properties:
+        rule_id: { type: string }
+        firing: { type: boolean }
+        suppressed: { type: integer, format: int64, description: "Repeat notifications held back by the cool-down" }
+        last_evaluated: { type: string, format: date-time, nullable: true }
+        last_fired: { type: string, format: date-time, nullable: true }
+        last_error: { type: string }
+    AlertStatusList:
+      type: object
+      required: [items]
+      properties: { items: { type: array, items: { $ref: "#/components/schemas/AlertStatus" } } }

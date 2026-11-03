@@ -72,18 +72,19 @@ type Manager struct {
 	types   map[string]extension.ExporterType
 	running map[string]*running
 	desired map[string]Config // last Apply; kept so SetBus can start what was waiting for the bus
-	ctx     context.Context   //nolint:containedctx // parent of every runner; set by Apply
+	ctx     context.Context   //nolint:containedctx // parent of every runner: exporters outlive any one API request
 }
 
-// NewManager returns a Manager that keeps spools under dir/<exporter id>. bus may
+// NewManager returns a Manager that keeps spools under dir/<exporter id>. ctx is
+// the parent of every runner, so pass one that lives as long as the process. bus may
 // be nil and supplied later with SetBus, because the data plane creates the bus
 // when it starts.
-func NewManager(bus *events.Bus, dir string, opts RunnerOptions, logger *slog.Logger) *Manager {
+func NewManager(ctx context.Context, bus *events.Bus, dir string, opts RunnerOptions, logger *slog.Logger) *Manager {
 	if logger == nil {
 		logger = slog.Default()
 	}
 	return &Manager{
-		bus: bus, dir: dir, opts: opts, logger: logger,
+		ctx: ctx, bus: bus, dir: dir, opts: opts, logger: logger,
 		types: map[string]extension.ExporterType{}, running: map[string]*running{},
 	}
 }
@@ -142,9 +143,7 @@ func (m *Manager) Validate(c Config) error {
 // changed ones are restarted (their spool survives); exporters no longer listed
 // are stopped and their spool deleted; disabled ones are stopped but keep their
 // spool. One bad configuration does not stop the others: errors are joined.
-// ctx is the parent of every runner, so pass a context that lives as long as
-// the process.
-func (m *Manager) Apply(ctx context.Context, cfgs []Config) error {
+func (m *Manager) Apply(cfgs []Config) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var errs []error
@@ -156,7 +155,7 @@ func (m *Manager) Apply(ctx context.Context, cfgs []Config) error {
 		}
 		want[c.ID] = c
 	}
-	m.ctx, m.desired = ctx, want
+	m.desired = want
 	return errors.Join(append(errs, m.reconcileLocked())...)
 }
 
@@ -174,9 +173,6 @@ func (m *Manager) SetBus(bus *events.Bus) error {
 }
 
 func (m *Manager) reconcileLocked() error {
-	if m.ctx == nil {
-		return nil
-	}
 	var errs []error
 	for id, r := range m.running {
 		if c, ok := m.desired[id]; ok && c.Enabled && c.fingerprint() == r.print {

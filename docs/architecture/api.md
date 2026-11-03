@@ -69,8 +69,10 @@ Operational conventions: errors are RFC 9457 `application/problem+json` with a `
 | `GET /events/stream` | Server-sent events, live tail | viewer | M7 |
 | `GET /analytics/summary`, `/analytics/timeseries`, `/analytics/top` | Dashboard charts (top IPs, rules, paths, countries) | viewer | M7 |
 | `GET /reports/would-block` | Detect-mode rollout report (FR-FIN-3) | viewer | M7 |
-| `GET/POST /exporters`, `…/{id}`, `POST …/{id}/test` | Event exporters | viewer / admin | M10 |
-| `GET/POST /alerts`, `…/{id}` | Alert rules | viewer / admin | M10 |
+| `GET /exporters`, `PUT/DELETE /exporters/{id}`, `POST /exporters/test` | Event and audit exporters (`syslog`, `webhook`, `otlp`, plus extension types). `PUT` creates or replaces; the list carries live delivery status (running, sent, failures, dropped, pending, spool bytes, last success and error) | `config:read` / `config:write` | M10 |
+| `GET /notification-channels`, `PUT/DELETE /notification-channels/{id}`, `POST /notification-channels/test` | Alert destinations (`smtp`, `webhook`, `slack`, `teams`); delete refused with 409 while an alert rule uses the channel | `config:read` / `config:write` | M10 |
+| `GET /alert-rules`, `PUT/DELETE /alert-rules/{id}`, `GET /alerts/status` | Alert rules (kinds in [alerts.md](../integrations/alerts.md)); `PUT` checks that every channel id exists; status shows firing, last evaluation, last fired, suppressed count, last error | `config:read` / `config:write` | M10 |
+| `GET /integrations/types` | Exporter types, channel types and alert kinds this node supports | `config:read` | M10 |
 | `GET/POST /users`, `PATCH/DELETE /users/{id}`, `POST /users/{id}/reset-mfa` | Users | admin | M3 |
 | `GET/POST /tokens`, `DELETE /tokens/{id}` | API tokens (own; admin sees all) | any / admin | M3 |
 | `GET /audit` | Audit log | admin | M3 |
@@ -85,6 +87,15 @@ Operational conventions: errors are RFC 9457 `application/problem+json` with a `
 | `GET /block-pages`, `PUT/DELETE /block-pages/{id}` | Custom block page templates (`html/template`; fields `.Status .Title .Detail .EventID`; validated by rendering once; delete refused while in use) | viewer / admin | M4 |
 | `GET /healthz`, `/readyz` (no `/api/v1` prefix) | Probes | public | M2 |
 | `GET /metrics` (no prefix, can be bound to separate address) | Prometheus | token or CIDR | M2 |
+
+## Exporters, channels and alerts (M10)
+
+- **Masking.** Settings of exporters and channels are returned with every credential-looking string replaced by `********`: values under keys containing `secret`, `passw`, `token`, `key`, `hmac`, `authorization`, `url`, `credential` or `dsn`, and everything under `headers`. Sending `********` back on `PUT` keeps the stored value; a mask with nothing stored behind it is a 422. The mask never becomes a credential. Alert rule documents hold no secrets and are returned as stored.
+- **Test endpoints** (`POST …/test`) take `{type, stream?, settings, id?}`. With `id`, masked values are filled from that stored object; without it, a masked value is a 422. They always answer `200 {ok, error?}` for a connection or send failure (the error is short and never contains credentials), `422` for an invalid configuration and `404` for an unknown `id`. They write nothing to the spool, the database or the audit log.
+- **Validation** is the same code that runs at start-up: unknown types, bad streams, unknown channel ids and out-of-range parameters are 422 `unprocessable` with the reason in `detail`. Ids match `^[a-z0-9][a-z0-9-]{0,62}$` (a violation is rejected by the schema validator, also 422).
+- **Audit.** Each change writes `exporter.put`, `exporter.delete`, `notification_channel.put`, `notification_channel.delete`, `alert_rule.put` or `alert_rule.delete` in the same transaction, with the type, stream and enabled flag only; settings never enter the audit log.
+- **Effect.** After the transaction commits, the running exporters are reconciled (changed ones restart, their spool survives; deleted ones lose their spool; disabled ones stop and keep it). Alert rules are re-read at the next 30 s tick.
+- **503.** If the node was started without the integrations service (embedded or test builds), these endpoints answer `503 unavailable`.
 
 ## Extension
 

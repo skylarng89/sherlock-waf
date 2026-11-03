@@ -95,8 +95,8 @@ Each requirement has an ID that milestone tasks and tests reference. "M" is the 
 | FR-EVT-1 | Every security decision (block, challenge, log-only match, rate limit, ban) MUST produce a structured event as defined in [../architecture/events.md](../architecture/events.md). | M2 |
 | FR-EVT-2 | Events MUST be stored locally with configurable retention (default 30 days). | M3 |
 | FR-EVT-3 | Access logs (all requests) MUST be optional and sampled, separate from security events. | M2 |
-| FR-EVT-4 | Export to syslog (RFC 5424, CEF format), JSON over HTTPS webhook, and OpenTelemetry logs. | M10 |
-| FR-EVT-5 | Alert rules (e.g. more than N blocks in 5 minutes on a site) sending to email, webhook, Slack-compatible webhook. | M10 |
+| FR-EVT-4 | Export to syslog (RFC 5424, CEF format), JSON over HTTPS webhook, and OpenTelemetry logs. Delivered in M10: syslog over UDP/TCP/TLS with CEF or JSON, HMAC-signed webhook, OTLP over HTTP and gRPC; the audit log can be exported through the same exporters (`stream`); disk-backed spool for outages. | M10 |
+| FR-EVT-5 | Alert rules (e.g. more than N blocks in 5 minutes on a site) sending to email, webhook, Slack-compatible webhook. Delivered in M10, plus Microsoft Teams (added in scope): six rule kinds, 30-second evaluation, de-duplication and cool-down. | M10 |
 | FR-EVT-6 | Prometheus metrics endpoint for requests, decisions, latency, upstream health. | M2 |
 
 ### Control plane and dashboard (FR-CP)

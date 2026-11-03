@@ -58,6 +58,7 @@ type Tx interface {
 	BlockPages
 	APIAssets
 	Bans
+	Integrations
 }
 
 // KV is small node state (install id, key check value, feature flags).
@@ -406,6 +407,39 @@ type APIAssets interface {
 	GetCABundle(ctx context.Context, id string) (CABundle, error)
 	ListCABundles(ctx context.Context) ([]CABundle, error)
 	DeleteCABundle(ctx context.Context, id string) error
+}
+
+// Integration kinds.
+const (
+	IntegrationExporter  = "exporter"
+	IntegrationChannel   = "channel"
+	IntegrationAlertRule = "alert_rule"
+)
+
+// Integration is a named, typed, switchable object (SIEM exporter, notification
+// channel or alert rule). Its settings are one encrypted secret (SecretID).
+type Integration struct {
+	Kind      string
+	ID        string
+	Name      string
+	Type      string
+	Stream    string // exporters only: events, audit or both
+	Enabled   bool
+	SecretID  string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+// Integrations stores exporters, notification channels and alert rules.
+type Integrations interface {
+	// InsertIntegration returns ErrConflict if the id or the name is taken within the kind.
+	InsertIntegration(ctx context.Context, i Integration) error
+	// UpdateIntegration replaces everything but kind, id and CreatedAt; ErrNotFound if absent.
+	UpdateIntegration(ctx context.Context, i Integration) error
+	GetIntegration(ctx context.Context, kind, id string) (Integration, error)
+	// ListIntegrations returns the kind's objects ordered by name.
+	ListIntegrations(ctx context.Context, kind string) ([]Integration, error)
+	DeleteIntegration(ctx context.Context, kind, id string) error
 }
 
 // Ban sources.

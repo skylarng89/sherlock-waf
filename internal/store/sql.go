@@ -861,3 +861,50 @@ func (t sqlTx) TopEventValues(ctx context.Context, dim string, f EventFilter, li
 	}
 	return nil, fmt.Errorf("store: unknown dimension %q", dim)
 }
+
+// ---- Integrations
+
+func integrationFromRow(r db.Integration) Integration {
+	return Integration{
+		Kind: r.Kind, ID: r.ID, Name: r.Name, Type: r.Type, Stream: r.Stream, Enabled: r.Enabled == 1,
+		SecretID: r.SecretID, CreatedAt: fromMicros(r.CreatedAt), UpdatedAt: fromMicros(r.UpdatedAt),
+	}
+}
+
+func (t sqlTx) InsertIntegration(ctx context.Context, i Integration) error {
+	return mapErr(t.q.InsertIntegration(ctx, db.InsertIntegrationParams{
+		Kind: i.Kind, ID: i.ID, Name: i.Name, Type: i.Type, Stream: i.Stream, Enabled: boolInt(i.Enabled),
+		SecretID: i.SecretID, CreatedAt: micros(i.CreatedAt), UpdatedAt: micros(i.UpdatedAt),
+	}))
+}
+
+func (t sqlTx) UpdateIntegration(ctx context.Context, i Integration) error {
+	return affected(t.q.UpdateIntegration(ctx, db.UpdateIntegrationParams{
+		Kind: i.Kind, ID: i.ID, Name: i.Name, Type: i.Type, Stream: i.Stream, Enabled: boolInt(i.Enabled),
+		SecretID: i.SecretID, UpdatedAt: micros(i.UpdatedAt),
+	}))
+}
+
+func (t sqlTx) GetIntegration(ctx context.Context, kind, id string) (Integration, error) {
+	r, err := t.q.GetIntegration(ctx, db.GetIntegrationParams{Kind: kind, ID: id})
+	if err != nil {
+		return Integration{}, mapErr(err)
+	}
+	return integrationFromRow(r), nil
+}
+
+func (t sqlTx) ListIntegrations(ctx context.Context, kind string) ([]Integration, error) {
+	rows, err := t.q.ListIntegrations(ctx, kind)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	out := make([]Integration, len(rows))
+	for i, r := range rows {
+		out[i] = integrationFromRow(r)
+	}
+	return out, nil
+}
+
+func (t sqlTx) DeleteIntegration(ctx context.Context, kind, id string) error {
+	return affected(t.q.DeleteIntegration(ctx, db.DeleteIntegrationParams{Kind: kind, ID: id}))
+}

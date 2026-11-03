@@ -13,6 +13,7 @@ import common from './en/common'
 import defaults from './en/defaults'
 import events from './en/events'
 import history from './en/history'
+import integrations from './en/integrations'
 import nav from './en/nav'
 import overview from './en/overview'
 import reports from './en/reports'
@@ -37,6 +38,7 @@ export const en = {
   defaults,
   events,
   history,
+  integrations,
   nav,
   overview,
   reports,

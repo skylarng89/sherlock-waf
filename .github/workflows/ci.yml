@@ -50,6 +50,45 @@ jobs:
           go-version-file: go.mod
       - run: make test-go
 
+  otlp-collector:
+    # Acceptance criterion M10-3: a real OpenTelemetry Collector accepts our OTLP.
+    runs-on: ubuntu-latest
+    env:
+      OTELCOL_IMAGE: otel/opentelemetry-collector-contrib:0.163.2@sha256:7f22d2a6748110ffb6a59bc0df448bccbf501cdb667d610ede4c61d3863d5849
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Start the collector
+        run: |
+          mkdir -p "$RUNNER_TEMP/otel-out" && chmod 777 "$RUNNER_TEMP/otel-out"
+          docker run -d --name otelcol -p 4317:4317 -p 4318:4318 \
+            -v "$PWD/.github/otelcol/config.yaml:/etc/otelcol-contrib/config.yaml:ro" \
+            -v "$RUNNER_TEMP/otel-out:/out" "$OTELCOL_IMAGE" --config /etc/otelcol-contrib/config.yaml
+          for _ in $(seq 30); do
+            curl -s -o /dev/null http://127.0.0.1:4318/v1/logs && exit 0
+            sleep 1
+          done
+          docker logs otelcol
+          exit 1
+      - name: Export through every protocol
+        env:
+          OTEL_COLLECTOR_ENDPOINT: 127.0.0.1:4318
+          OTEL_COLLECTOR_GRPC_ENDPOINT: 127.0.0.1:4317
+        run: go test -tags otelcol -count=1 -run TestRealCollector -v ./internal/exporters/otlp
+      - name: Check the records reached the collector
+        run: |
+          for id in 01OTELCOLLECTORHTTP 01OTELCOLLECTORGZIP 01OTELCOLLECTORGRPC; do
+            for _ in $(seq 20); do
+              grep -q "$id" "$RUNNER_TEMP/otel-out/logs.json" 2>/dev/null && continue 2
+              sleep 1
+            done
+            echo "record $id never reached the collector"
+            docker logs otelcol
+            exit 1
+          done
+
   test-web:
     runs-on: ubuntu-latest
     steps:

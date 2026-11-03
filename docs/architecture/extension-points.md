@@ -42,12 +42,49 @@ type Host interface {              // implemented by the core; adding methods is
     AddAuthProvider(AuthProvider)
     AddAuditSink(AuditSink)
     SetEventStore(EventStore)
+    AddExporterType(ExporterType)  // M10: a new kind of exporter next to syslog, webhook and OTLP
 }
 ```
 
+### Exporters (M10, delivered)
+
+```go
+const (
+    StreamEvents = "events"
+    StreamAudit  = "audit"
+)
+
+// ErrPermanent wraps a Send failure that retrying cannot fix; the core discards that batch.
+var ErrPermanent = errors.New("extension: permanent failure")
+
+type ExportRecord struct {
+    ID     string          // event ULID or audit id; receivers deduplicate on it
+    Stream string          // StreamEvents or StreamAudit
+    At     time.Time
+    Body   json.RawMessage // sherlock.event.v1 or sherlock.audit.v1 document
+}
+
+type Exporter interface {
+    Send(ctx context.Context, batch []ExportRecord) error // single goroutine; retried with backoff; at-least-once
+    Close() error
+}
+
+type ExporterTester interface { // optional, found by type assertion; backs the dashboard Test button
+    Test(ctx context.Context) error
+}
+
+type ExporterType interface {
+    Name() string                              // identifier in configuration, e.g. "syslog"
+    Validate(cfg json.RawMessage) error        // no side effects such as connecting
+    New(cfg json.RawMessage) (Exporter, error) // cfg already validated
+}
+```
+
+The core owns everything around an exporter: the bus subscription, the bounded disk spool, batching, retry with backoff and jitter, metrics, the API and the dashboard. An implementation only turns a batch into a delivery. Registering a type name twice fails startup. Settings are stored encrypted and masked in the API; implementations must not put credentials, URLs or headers into returned errors and should reject unknown settings fields. Connections must go through a client that refuses link-local and metadata addresses (the core's `internal/netx` is not importable from outside, so Enterprise types need an equivalent check).
+
 Design rules that keep the surface stable: implemented interfaces have one to three methods and exchange **structs** (`AuthzRequest`, `AuditRecord`, `EventQuery`, ...) so fields can be added; new optional behaviour arrives as a separate interface found by type assertion; every type in a signature lives in `pkg/extension` so Enterprise never imports `internal/`; failures use the sentinel errors `ErrNotFound` and `ErrDenied`. `extension/extensiontest` provides a fake `Host`.
 
-Added by later milestones (see the table): `RegisterAPIRoutes`, `RegisterJob`, `Events()` subscription, `AddExporterType` (M10), `SetRateLimitBackend` (M5), `AddCompilerHook`, `SetConfigSource`, `AddReport`, `AddFeatures`. `RegisterCommand` is deliberately not planned: it would put cobra into the public API.
+Added by later milestones (see the table): `RegisterAPIRoutes`, `RegisterJob`, `Events()` subscription, `AddExporterType` (M10, delivered), `SetRateLimitBackend` (M5), `AddCompilerHook`, `SetConfigSource`, `AddReport`, `AddFeatures`. `RegisterCommand` is deliberately not planned: it would put cobra into the public API.
 
 | Interface | Core default | Enterprise implementation |
 | --- | --- | --- |
@@ -55,7 +92,7 @@ Added by later milestones (see the table): `RegisterAPIRoutes`, `RegisterJob`, `
 | `AuthProvider` | Local username/password + TOTP | OIDC, SAML; SCIM via EE API routes |
 | `AuditSink` | The core writes the hash-chained `audit_log` inside the audited transaction; sinks are **post-commit observers** that receive the chained record | Signs chain checkpoints, ships to WORM/S3 Object Lock, verifies |
 | `EventStore` | SQL event tables | ClickHouse |
-| `ExporterType` (M10) | syslog/CEF, webhook, OTLP | Splunk HEC, Sentinel, Elastic, QRadar |
+| `ExporterType` (M10, delivered) | syslog (CEF/JSON), signed webhook, OTLP (HTTP and gRPC) | Splunk HEC, Sentinel, Elastic, QRadar |
 | `RateLimitBackend` (M5) | In-memory sharded sliding window | Valkey (cluster-wide) |
 | `CompilerHook` | none | Adds cluster headers, EE Caddy modules into routes |
 | `ConfigSource` | Local store | Cluster control plane pushes signed config to nodes |

@@ -153,7 +153,8 @@ func TestBacklogIsBoundedWhileTheStoreIsDown(t *testing.T) {
 
 	st.failing.Store(false)
 	require.Eventually(t, func() bool { return count(t, inner) > 0 }, 5*time.Second, 10*time.Millisecond, "and recovers once the store is back")
-	assert.Equal(t, uint64(total), w.Stored()+w.Dropped(), "every event is either stored or counted as dropped")
+	require.Eventually(t, func() bool { return w.Stored()+w.Dropped() == uint64(total) }, 5*time.Second, 10*time.Millisecond,
+		"every event is either stored or counted as dropped") // the writer may still be draining when the first row lands
 }
 
 func TestFinalDrainOnShutdown(t *testing.T) {

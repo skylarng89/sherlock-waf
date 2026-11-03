@@ -28,6 +28,8 @@ import (
 	"github.com/skylarng89/sherlock-waf/internal/configsvc"
 	"github.com/skylarng89/sherlock-waf/internal/controlplane/api/apigen"
 	"github.com/skylarng89/sherlock-waf/internal/controlplane/auth"
+	"github.com/skylarng89/sherlock-waf/internal/exporters"
+	"github.com/skylarng89/sherlock-waf/internal/integrations"
 	"github.com/skylarng89/sherlock-waf/internal/metrics"
 	"github.com/skylarng89/sherlock-waf/internal/oapi"
 	"github.com/skylarng89/sherlock-waf/internal/policy"
@@ -84,6 +86,16 @@ type Deps struct {
 	// Certs materialises uploaded certificates for the data plane; the API
 	// removes a certificate's files when it is deleted.
 	Certs *certstore.Files
+	// Integrations stores exporters, notification channels and alert rules (nil
+	// disables those endpoints with 503).
+	Integrations *integrations.Service
+	// IntegrationsChanged runs after any integration is created, changed or
+	// deleted, so exporters and alert rules take effect without a restart.
+	IntegrationsChanged func(ctx context.Context)
+	// ExporterStatuses and AlertStatuses feed the live state shown beside the
+	// stored objects.
+	ExporterStatuses func() map[string]exporters.Status
+	AlertStatuses    func() []integrations.AlertState
 	// Setup guards first-run administrator creation; nil once users exist.
 	Setup *SetupGate
 	// EventStats reports the event pipeline counters for GET /system/status.

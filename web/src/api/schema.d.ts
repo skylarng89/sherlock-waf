@@ -1157,6 +1157,185 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/integrations/types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Exporter types, notification channel types and alert kinds this node supports */
+        get: operations["listIntegrationTypes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/exporters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Event and audit exporters (secret settings are masked) */
+        get: operations["listExporters"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/exporters/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send a connectivity check to an exporter configuration without saving it */
+        post: operations["testExporter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/exporters/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Create or replace event and audit exporters; a masked secret value keeps the stored one */
+        put: operations["putExporter"];
+        post?: never;
+        /** Delete event and audit exporters */
+        delete: operations["deleteExporter"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notification-channels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Notification channels (secret settings are masked) */
+        get: operations["listNotificationChannels"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notification-channels/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send a labelled test message through a channel configuration without saving it */
+        post: operations["testNotificationChannel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notification-channels/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Create or replace notification channels; a masked secret value keeps the stored one */
+        put: operations["putNotificationChannel"];
+        post?: never;
+        /** Delete notification channels */
+        delete: operations["deleteNotificationChannel"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/alert-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Alert rules */
+        get: operations["listAlertRules"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/alert-rules/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Create or replace an alert rule */
+        put: operations["putAlertRule"];
+        post?: never;
+        /** Delete an alert rule */
+        delete: operations["deleteAlertRule"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/alerts/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Current state of every alert rule (firing, last evaluation, last notification) */
+        get: operations["getAlertStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2125,6 +2304,154 @@ export interface components {
             summary: components["schemas"]["VirtualPatchSummary"];
             /** @description Hit counts come from a capped scan of recent events */
             truncated: boolean;
+        };
+        IntegrationTypes: {
+            exporters: string[];
+            channels: string[];
+            alert_kinds: string[];
+        };
+        ExporterStatus: {
+            running: boolean;
+            /** Format: int64 */
+            sent: number;
+            /** Format: int64 */
+            send_failures: number;
+            /**
+             * Format: int64
+             * @description Records that will never be delivered (spool full, bus overrun, rejected)
+             */
+            dropped: number;
+            pending: number;
+            /** Format: int64 */
+            spool_bytes: number;
+            /** Format: date-time */
+            last_success?: string | null;
+            last_error?: string;
+            /** Format: date-time */
+            last_error_at?: string | null;
+        };
+        Exporter: {
+            id: string;
+            name: string;
+            type: string;
+            /** @enum {string} */
+            stream: "events" | "audit" | "both";
+            enabled: boolean;
+            /** @description Type-specific settings; secret values are masked */
+            settings: {
+                [key: string]: unknown;
+            };
+            status?: components["schemas"]["ExporterStatus"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ExporterList: {
+            items: components["schemas"]["Exporter"][];
+        };
+        PutExporter: {
+            name: string;
+            type: string;
+            /** @enum {string} */
+            stream: "events" | "audit" | "both";
+            enabled: boolean;
+            settings: {
+                [key: string]: unknown;
+            };
+        };
+        NotificationChannel: {
+            id: string;
+            name: string;
+            /** @enum {string} */
+            type: "smtp" | "webhook" | "slack" | "teams";
+            enabled: boolean;
+            /** @description Type-specific settings; secret values are masked */
+            settings: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        NotificationChannelList: {
+            items: components["schemas"]["NotificationChannel"][];
+        };
+        PutNotificationChannel: {
+            name: string;
+            /** @enum {string} */
+            type: "smtp" | "webhook" | "slack" | "teams";
+            enabled: boolean;
+            settings: {
+                [key: string]: unknown;
+            };
+        };
+        TestIntegration: {
+            /** @description Existing object whose stored secrets fill masked values in settings */
+            id?: string;
+            type: string;
+            /** @enum {string} */
+            stream?: "events" | "audit" | "both";
+            settings: {
+                [key: string]: unknown;
+            };
+        };
+        TestResult: {
+            ok: boolean;
+            /** @description Why the check failed; never contains credentials */
+            error?: string;
+        };
+        AlertRule: {
+            id: string;
+            name: string;
+            /** @enum {string} */
+            kind: "blocks_threshold" | "new_country" | "cert_expiring" | "feed_failure" | "events_dropped" | "upstream_unhealthy";
+            enabled: boolean;
+            /** @enum {string} */
+            severity: "info" | "warning" | "critical";
+            cooldown_seconds: number;
+            channel_ids: string[];
+            params: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        AlertRuleList: {
+            items: components["schemas"]["AlertRule"][];
+        };
+        PutAlertRule: {
+            name: string;
+            /** @enum {string} */
+            kind: "blocks_threshold" | "new_country" | "cert_expiring" | "feed_failure" | "events_dropped" | "upstream_unhealthy";
+            enabled: boolean;
+            /** @enum {string} */
+            severity: "info" | "warning" | "critical";
+            cooldown_seconds: number;
+            channel_ids: string[];
+            params: {
+                [key: string]: unknown;
+            };
+        };
+        AlertStatus: {
+            rule_id: string;
+            firing: boolean;
+            /**
+             * Format: int64
+             * @description Repeat notifications held back by the cool-down
+             */
+            suppressed: number;
+            /** Format: date-time */
+            last_evaluated?: string | null;
+            /** Format: date-time */
+            last_fired?: string | null;
+            last_error?: string;
+        };
+        AlertStatusList: {
+            items: components["schemas"]["AlertStatus"][];
         };
     };
     responses: {
@@ -4095,6 +4422,306 @@ export interface operations {
             412: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
             428: components["responses"]["Problem"];
+        };
+    };
+    listIntegrationTypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntegrationTypes"];
+                };
+            };
+        };
+    };
+    listExporters: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExporterList"];
+                };
+            };
+        };
+    };
+    testExporter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestIntegration"];
+            };
+        };
+        responses: {
+            /** @description Test finished (see ok) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestResult"];
+                };
+            };
+            400: components["responses"]["Problem"];
+        };
+    };
+    putExporter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PutExporter"];
+            };
+        };
+        responses: {
+            /** @description Stored */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Exporter"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    deleteExporter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+        };
+    };
+    listNotificationChannels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationChannelList"];
+                };
+            };
+        };
+    };
+    testNotificationChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestIntegration"];
+            };
+        };
+        responses: {
+            /** @description Test finished (see ok) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestResult"];
+                };
+            };
+            400: components["responses"]["Problem"];
+        };
+    };
+    putNotificationChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PutNotificationChannel"];
+            };
+        };
+        responses: {
+            /** @description Stored */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationChannel"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    deleteNotificationChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+        };
+    };
+    listAlertRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertRuleList"];
+                };
+            };
+        };
+    };
+    putAlertRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PutAlertRule"];
+            };
+        };
+        responses: {
+            /** @description Stored */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertRule"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    deleteAlertRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+        };
+    };
+    getAlertStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertStatusList"];
+                };
+            };
         };
     };
 }

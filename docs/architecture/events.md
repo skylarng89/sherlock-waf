@@ -60,7 +60,7 @@ Each configured exporter owns three things, so one failing destination cannot af
 
 1. a bus subscription with its own cursor (live only; an exporter ships what happens after it starts);
 2. a bounded, segmented disk spool (`<data dir>/exporters/<id>/`, default 256 MiB, 4 MiB segments, CRC-32C per record) that absorbs outages. When it is full the oldest segment is deleted and the lost records are counted in `sherlock_exporter_dropped_total{reason="spool_full"}`;
-3. a sender that delivers batches (up to 500 records or 1 MiB) with a 10 s timeout and retries failures with exponential backoff and jitter (1 s to 60 s). The spool cursor advances only after the destination accepts a batch, so delivery is **at-least-once**; receivers deduplicate on the event `id`. A destination answer that retrying cannot fix (`extension.ErrPermanent`, e.g. HTTP 4xx) discards that batch (`reason="rejected"`) so it cannot block the queue.
+3. a sender that delivers batches (up to 500 records or 1 MiB) with a 10 s timeout and retries failures with exponential backoff and jitter (1 s to 60 s). The spool cursor advances only after the destination accepts a batch, so delivery is **at-least-once**; receivers deduplicate on the event `id`. A destination answer that retrying cannot fix (`extension.ErrPermanent`, e.g. HTTP 4xx) discards that batch (`reason="rejected"`) so it cannot block the queue. HTTP 408, 429 and 5xx, network errors and gRPC `UNAVAILABLE`-class codes are transient and retried.
 
 A bus overrun before the subscriber reads (only possible if the exporter's own goroutine stalls) is counted as `reason="lagged"`. Per-exporter series: `sherlock_exporter_sent_total`, `_send_failures_total`, `_dropped_total`, `_pending`, `_spool_bytes`, `_last_success_timestamp_seconds`.
 
@@ -68,4 +68,20 @@ Exporter types plug in through `extension.ExporterType` / `Host.AddExporterType`
 
 ## CEF mapping (M10)
 
-`CEF:0|Sherlock|Sherlock WAF|<version>|<primary rule_id>|<primary message>|<severity 0-10>|src=<client.ip> requestMethod=<method> request=<host+path> act=<action> cs1Label=site cs1=<site_id> cs2Label=event_id cs2=<id> cn1Label=anomaly_score cn1=<inbound>`
+Events: `CEF:0|Sherlock|Sherlock WAF|<version>|<signature id>|<name>|<severity 0-10>|<extension>`.
+
+- *Signature id* and *name*: the highest-severity finding (the first on a tie): `rule_id` (or `module` if the rule has no id) and `message` (or `<module> finding`). An event without findings uses `0` and `request <action>`, severity 1.
+- *Severity*: `info` 1, `notice` 3, `warning` 5, `error` 7, `critical` 10.
+- *Extension*, in this order, omitting empty values: `rt=<ts, ms since epoch> dvchost=<node> src=<client.ip> requestMethod=<method> request=<host+path> act=<action> cs1Label=site cs1=<site_id> cs2Label=event_id cs2=<id> cn1Label=anomaly_score cn1=<inbound>`.
+
+Audit records (stream `audit`): `CEF:0|Sherlock|Sherlock WAF|<version>|audit.<action>|<action> <object_type>|3|rt=<at ms> suser=<actor_id> src=<ip> cs1Label=object cs1=<object_type>/<object_id> cs2Label=audit_id cs2=<id>`.
+
+Escaping: in the header, `\` and `|` are backslash-escaped and line breaks become spaces; in the extension, `\`, `=` and line breaks (`\n`, `\r`) are escaped. A test parses the output with a reference parser, including tricky values.
+
+## Syslog framing (M10)
+
+RFC 5424: `<PRI>1 <UTC time, microseconds> <hostname> <app_name> - <MSGID> - <payload>` with PRI = facility × 8 + severity (default facility 16, `local0`), MSGID `event` or `audit`, no structured data. Syslog severity from the primary finding: critical 2, error 3, warning 4, notice 5, info 6; audit records are 6, or 4 if the action contains `failed` or `denied`. Payload is the CEF line or the compact JSON document, with line breaks replaced by spaces. TCP and TLS use octet counting (RFC 6587) by default or newline framing; UDP datagrams are cut at 8,192 bytes on a rune boundary.
+
+## Audit export schema (`sherlock.audit.v1`)
+
+Exported audit records are JSON with the fields `schema`, `id`, `seq`, `at`, `actor_type`, `actor_id`, `ip`, `action`, `object_type`, `object_id`, `details`, `prev_hash` and `hash`. They come from the same post-commit observer as the extension `AuditSink`, so a receiver can verify the hash chain end to end. Changing the field set needs `sherlock.audit.v2` and the same dual-write period as events. The webhook envelope is `{"schema": "sherlock.export.v1", "records": [{"id", "stream", "at", "body"}]}` ([webhook-signature.md](../integrations/webhook-signature.md)); OTLP maps each record to one log record whose body is the JSON document.

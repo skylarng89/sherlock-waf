@@ -35,6 +35,14 @@ export class ApiClient {
     return this.ctx.post(`/api/v1${path}`, { data, headers: await this.headers() })
   }
 
+  async put(path: string, data?: unknown): Promise<APIResponse> {
+    return this.ctx.put(`/api/v1${path}`, { data, headers: await this.headers() })
+  }
+
+  async delete(path: string): Promise<APIResponse> {
+    return this.ctx.delete(`/api/v1${path}`, { headers: await this.headers() })
+  }
+
   /** POST with extra headers (If-Match for config writes). */
   async postWith(
     path: string,

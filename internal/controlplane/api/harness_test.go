@@ -24,6 +24,7 @@ import (
 	"github.com/skylarng89/sherlock-waf/internal/config"
 	"github.com/skylarng89/sherlock-waf/internal/configsvc"
 	"github.com/skylarng89/sherlock-waf/internal/controlplane/auth"
+	"github.com/skylarng89/sherlock-waf/internal/integrations"
 	"github.com/skylarng89/sherlock-waf/internal/ops"
 	"github.com/skylarng89/sherlock-waf/internal/policy/ratelimit"
 	"github.com/skylarng89/sherlock-waf/internal/secrets"
@@ -61,6 +62,7 @@ type harness struct {
 	gate    *SetupGate
 	hasher  *auth.Hasher
 	tokens  map[string]string
+	changed int // IntegrationsChanged calls
 }
 
 func sha(s string) string { h := sha256.Sum256([]byte(s)); return hex.EncodeToString(h[:]) }
@@ -73,6 +75,8 @@ type harnessOpts struct {
 	limits  ratelimit.Backend
 	// principalLimit overrides the per-principal request budget.
 	principalLimit int
+	// integrations enables the exporter, channel and alert endpoints.
+	integrations integrations.Backend
 }
 
 func newHarness(t *testing.T) *harness { return newHarnessWith(t, harnessOpts{}) }
@@ -119,7 +123,12 @@ func newHarnessWith(t *testing.T, o harnessOpts) *harness {
 	certs := &certstore.Files{Store: st, Secrets: h.secrets, Dir: filepath.Join(h.dataDir, "certs")}
 	h.certs = certs
 	cfg.SetReferenceChecker(testRefs(st))
+	var integ *integrations.Service
+	if o.integrations != nil {
+		integ = &integrations.Service{Store: st, Secrets: h.secrets, Backend: o.integrations}
+	}
 	s, err := New(Deps{
+		Integrations: integ, IntegrationsChanged: func(context.Context) { h.changed++ },
 		Store: st, Config: cfg, Auth: as, Audit: au, Hasher: hasher, Info: Info{Version: "test", CRSVersion: "4.25.0"},
 		Secrets: h.secrets, Certs: certs, Setup: h.gate, DataDir: h.dataDir, Update: o.update, Limits: o.limits, PrincipalRequestsPerMinute: o.principalLimit,
 	})

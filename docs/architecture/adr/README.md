@@ -22,5 +22,6 @@ We record significant decisions as ADRs (Michael Nygard format). An ADR is immut
 | [0016](0016-first-run-setup-and-uploaded-assets.md) | First-run setup token and uploaded assets | Accepted |
 | [0017](0017-update-verification.md) | Update verification (Ed25519 manifest), atomic swap, restart | Accepted |
 | [0018](0018-api-protection.md) | API protection: OpenAPI engine, JWT verifier, JWKS, mTLS | Accepted |
+| [0019](0019-exporters-and-alerting.md) | Exporters, notification channels and alert rules | Proposed |
 
 New ADRs: copy [template.md](template.md), take the next number, open a PR titled `docs(adr): NNNN <title>`.

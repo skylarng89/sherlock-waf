@@ -6,6 +6,7 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 
 ### Added
 
+- SIEM export and alerting (M10, planned `v0.8.0`): exporter framework with a per-exporter bus subscription, bounded disk spool, retry with backoff and jitter and `sherlock_exporter_*` metrics; syslog (RFC 5424 over UDP, TCP, TLS; CEF or JSON), HMAC-signed HTTPS webhook and OpenTelemetry logs (OTLP/HTTP and OTLP/gRPC) exporters; audit log export (`sherlock.audit.v1`); alert rules (blocks threshold, new country, certificate expiring, feed failure, events dropped, upstream unhealthy; 30 s evaluation, de-duplication, cool-down); notification channels (SMTP, webhook, Slack-compatible, Microsoft Teams); `/exporters`, `/notification-channels`, `/alert-rules`, `/alerts/status` and `/integrations/types` endpoints with masked secrets and test endpoints; dashboard pages; integration guides for Splunk, Elastic, Microsoft Sentinel, Graylog and Wazuh. Extension API: `Host.AddExporterType`, `ExporterType`, `Exporter`, `ExporterTester`, `ExportRecord`, `ErrPermanent`, `StreamEvents`, `StreamAudit`.
 - Project plan and design documentation.
 - Configurable sign-in throttling and account lock (`SHERLOCK_LOGIN_IP_ATTEMPTS`, `SHERLOCK_LOGIN_USER_ATTEMPTS`, `SHERLOCK_LOGIN_LOCK_AFTER`, `SHERLOCK_LOGIN_LOCK_MAX_MINUTES`; defaults unchanged; `LOCK_AFTER=0` disables locking) to answer the ASVS S-07 lock-out trade-off.
 - MaxMind download source is configurable (`SHERLOCK_MAXMIND_DOWNLOAD_URL`) and accepts Country, City and Enterprise editions, free or paid.

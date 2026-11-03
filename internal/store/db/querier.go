@@ -29,6 +29,7 @@ type Querier interface {
 	DeleteEventsBefore(ctx context.Context, arg DeleteEventsBeforeParams) (int64, error)
 	DeleteExpiredBans(ctx context.Context, nowTs int64) (int64, error)
 	DeleteExpiredSessions(ctx context.Context, arg DeleteExpiredSessionsParams) (int64, error)
+	DeleteIntegration(ctx context.Context, arg DeleteIntegrationParams) (int64, error)
 	DeleteKV(ctx context.Context, key string) error
 	DeleteOpenAPIDoc(ctx context.Context, id string) (int64, error)
 	DeleteRollupsBefore(ctx context.Context, cutoff int64) (int64, error)
@@ -47,6 +48,7 @@ type Querier interface {
 	GetConfigHeadID(ctx context.Context) (string, error)
 	GetConfigVersion(ctx context.Context, id string) (ConfigVersion, error)
 	GetEvent(ctx context.Context, id string) (Event, error)
+	GetIntegration(ctx context.Context, arg GetIntegrationParams) (Integration, error)
 	GetKV(ctx context.Context, key string) (string, error)
 	GetOpenAPIDoc(ctx context.Context, id string) (OpenapiDoc, error)
 	GetSecret(ctx context.Context, id string) (Secret, error)
@@ -59,6 +61,7 @@ type Querier interface {
 	InsertCertificate(ctx context.Context, arg InsertCertificateParams) error
 	InsertConfigVersion(ctx context.Context, arg InsertConfigVersionParams) error
 	InsertEvent(ctx context.Context, arg InsertEventParams) error
+	InsertIntegration(ctx context.Context, arg InsertIntegrationParams) error
 	InsertSecret(ctx context.Context, arg InsertSecretParams) error
 	InsertSession(ctx context.Context, arg InsertSessionParams) error
 	InsertSite(ctx context.Context, arg InsertSiteParams) error
@@ -73,6 +76,7 @@ type Querier interface {
 	ListConfigVersions(ctx context.Context, arg ListConfigVersionsParams) ([]ConfigVersion, error)
 	// Optional filters are NULL when unused. CAST keeps the NULL checks valid on both dialects.
 	ListEvents(ctx context.Context, arg ListEventsParams) ([]Event, error)
+	ListIntegrations(ctx context.Context, kind string) ([]Integration, error)
 	ListOpenAPIDocs(ctx context.Context) ([]OpenapiDoc, error)
 	ListRollups(ctx context.Context, arg ListRollupsParams) ([]EventRollups1m, error)
 	ListSecrets(ctx context.Context) ([]Secret, error)
@@ -95,6 +99,7 @@ type Querier interface {
 	TouchSession(ctx context.Context, arg TouchSessionParams) error
 	TouchToken(ctx context.Context, arg TouchTokenParams) error
 	UnlockUser(ctx context.Context, id string) error
+	UpdateIntegration(ctx context.Context, arg UpdateIntegrationParams) (int64, error)
 	UpdateSecret(ctx context.Context, arg UpdateSecretParams) (int64, error)
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) (int64, error)
 	UpdateUserPasswordIfCurrent(ctx context.Context, arg UpdateUserPasswordIfCurrentParams) (int64, error)

@@ -126,9 +126,11 @@ func TestOutageLosesNothingAndRecovers(t *testing.T) {
 
 	for i := 0; i < 2000; i += 50 {
 		publish(bus, i, i+50)
-		time.Sleep(2 * time.Millisecond) // let the ingest goroutine keep pace, as it does in production
+		// Production ingest keeps pace with the request rate; wait for it here so
+		// a loaded CI machine cannot turn this into a ring-overrun test.
+		require.Eventually(t, func() bool { return r.Status().Pending >= i+50 }, 10*time.Second, time.Millisecond)
 	}
-	require.Eventually(t, func() bool { return r.Status().Pending == 2000 }, 5*time.Second, 5*time.Millisecond)
+	require.Eventually(t, func() bool { return r.Status().Pending == 2000 }, 10*time.Second, 5*time.Millisecond)
 	assert.Zero(t, r.Status().Lagged)
 	assert.NotEmpty(t, r.Status().LastError)
 	assert.Positive(t, r.Status().SendFailures)
@@ -194,7 +196,7 @@ func TestSpoolOverflowIsCountedAsDropped(t *testing.T) {
 	defer r.Stop()
 	for i := 0; i < 1000; i += 50 {
 		publish(bus, i, i+50)
-		time.Sleep(2 * time.Millisecond)
+		require.Eventually(t, func() bool { return int(accounted(r.Status())) >= i+50 }, 10*time.Second, time.Millisecond) //nolint:gosec // small test counter
 	}
 	require.Eventually(t, func() bool { st := r.Status(); return accounted(st) == 1000 }, 5*time.Second, 5*time.Millisecond)
 	st := r.Status()
@@ -231,28 +233,28 @@ func TestManagerApplyReconciles(t *testing.T) {
 	dir := t.TempDir()
 	bus := events.NewBus(256)
 	f := &fake{}
-	m := NewManager(bus, dir, fastOpts, quiet)
+	m := NewManager(t.Context(), bus, dir, fastOpts, quiet)
 	require.NoError(t, m.RegisterType(fakeType{exp: f}))
 	assert.Error(t, m.RegisterType(fakeType{}), "duplicate type names are refused")
 	defer m.Stop()
 
 	c := Config{ID: "siem", Name: "SIEM", Type: "fake", Stream: StreamEvents, Enabled: true, Settings: json.RawMessage(`{}`)}
-	require.NoError(t, m.Apply(t.Context(), []Config{c}))
+	require.NoError(t, m.Apply([]Config{c}))
 	require.Len(t, m.Status(), 1)
 	publish(bus, 0, 3)
 	require.Eventually(t, func() bool { return len(f.ids()) == 3 }, 5*time.Second, 5*time.Millisecond)
 
 	c.Enabled = false
-	require.NoError(t, m.Apply(t.Context(), []Config{c}))
+	require.NoError(t, m.Apply([]Config{c}))
 	assert.Empty(t, m.Status(), "disabled exporters stop")
 	assert.DirExists(t, dir+"/siem", "but keep their spool")
 
-	require.NoError(t, m.Apply(t.Context(), nil))
+	require.NoError(t, m.Apply(nil))
 	assert.NoDirExists(t, dir+"/siem", "removed exporters lose their spool")
 }
 
 func TestManagerRejectsBadConfigsWithoutStoppingOthers(t *testing.T) {
-	m := NewManager(events.NewBus(8), t.TempDir(), fastOpts, quiet)
+	m := NewManager(t.Context(), events.NewBus(8), t.TempDir(), fastOpts, quiet)
 	require.NoError(t, m.RegisterType(fakeType{exp: &fake{}}))
 	defer m.Stop()
 
@@ -266,7 +268,7 @@ func TestManagerRejectsBadConfigsWithoutStoppingOthers(t *testing.T) {
 	for name, bad := range cases {
 		t.Run(name, func(t *testing.T) {
 			assert.Error(t, m.Validate(bad))
-			err := m.Apply(t.Context(), []Config{good, bad})
+			err := m.Apply([]Config{good, bad})
 			require.Error(t, err)
 			assert.Len(t, m.Status(), 1, "the valid exporter still runs")
 		})
@@ -274,7 +276,7 @@ func TestManagerRejectsBadConfigsWithoutStoppingOthers(t *testing.T) {
 }
 
 func TestManagerTest(t *testing.T) {
-	m := NewManager(events.NewBus(8), t.TempDir(), fastOpts, quiet)
+	m := NewManager(t.Context(), events.NewBus(8), t.TempDir(), fastOpts, quiet)
 	require.NoError(t, m.RegisterType(fakeType{exp: &fake{}}))
 	c := Config{ID: "t", Type: "fake", Stream: StreamEvents}
 	assert.ErrorIs(t, m.Test(t.Context(), c), ErrNoTester)
@@ -284,27 +286,27 @@ func TestManagerTest(t *testing.T) {
 
 func TestApplyRestartsOnChangeAndKeepsOnNoChange(t *testing.T) {
 	bus := events.NewBus(8)
-	m := NewManager(bus, t.TempDir(), fastOpts, quiet)
+	m := NewManager(t.Context(), bus, t.TempDir(), fastOpts, quiet)
 	f := &fake{}
 	require.NoError(t, m.RegisterType(fakeType{exp: f}))
 	defer m.Stop()
 	c := Config{ID: "a", Type: "fake", Stream: StreamEvents, Enabled: true, Settings: json.RawMessage(`{"x":1}`)}
-	require.NoError(t, m.Apply(t.Context(), []Config{c}))
+	require.NoError(t, m.Apply([]Config{c}))
 	first := m.running["a"].runner
-	require.NoError(t, m.Apply(t.Context(), []Config{c}))
+	require.NoError(t, m.Apply([]Config{c}))
 	assert.Same(t, first, m.running["a"].runner, "an unchanged config keeps its runner")
 	c.Settings = json.RawMessage(`{"x":2}`)
-	require.NoError(t, m.Apply(t.Context(), []Config{c}))
+	require.NoError(t, m.Apply([]Config{c}))
 	assert.NotSame(t, first, m.running["a"].runner, "a changed config restarts it")
 }
 
 func TestEventExporterWaitsForBus(t *testing.T) {
-	m := NewManager(nil, t.TempDir(), fastOpts, quiet)
+	m := NewManager(t.Context(), nil, t.TempDir(), fastOpts, quiet)
 	f := &fake{}
 	require.NoError(t, m.RegisterType(fakeType{exp: f}))
 	defer m.Stop()
 	c := Config{ID: "a", Type: "fake", Stream: StreamEvents, Enabled: true}
-	require.NoError(t, m.Apply(t.Context(), []Config{c}))
+	require.NoError(t, m.Apply([]Config{c}))
 	assert.Empty(t, m.Status(), "no bus yet, so nothing starts and nothing silently ships nothing")
 
 	bus := events.NewBus(64)
@@ -316,11 +318,11 @@ func TestEventExporterWaitsForBus(t *testing.T) {
 
 func TestMetricsReflectDelivery(t *testing.T) {
 	bus := events.NewBus(64)
-	m := NewManager(bus, t.TempDir(), fastOpts, quiet)
+	m := NewManager(t.Context(), bus, t.TempDir(), fastOpts, quiet)
 	f := &fake{}
 	require.NoError(t, m.RegisterType(fakeType{exp: f}))
 	defer m.Stop()
-	require.NoError(t, m.Apply(t.Context(), []Config{{ID: "a", Type: "fake", Stream: StreamEvents, Enabled: true}}))
+	require.NoError(t, m.Apply([]Config{{ID: "a", Type: "fake", Stream: StreamEvents, Enabled: true}}))
 	publish(bus, 0, 5)
 	require.Eventually(t, func() bool { return len(f.ids()) == 5 }, 5*time.Second, 5*time.Millisecond)
 

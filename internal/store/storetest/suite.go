@@ -54,6 +54,7 @@ func Run(t *testing.T, newStore Factory) {
 		"api assets":                   testAPIAssets,
 		"endpoint counts":              testEndpointCounts,
 		"bans":                         testBans,
+		"integrations":                 testIntegrations,
 		"event filters":                testEventFilters,
 		"top events":                   testTopEvents,
 	} {
@@ -969,4 +970,54 @@ func testTopEvents(t *testing.T, s store.Store) {
 		assert.Error(t, err, "an unbounded scan is refused")
 		return nil
 	})
+}
+
+func testIntegrations(t *testing.T, s store.Store) {
+	mk := func(kind, id, name string) store.Integration {
+		return store.Integration{Kind: kind, ID: id, Name: name, Type: "syslog", Stream: "events", Enabled: true, SecretID: "sec-" + id, CreatedAt: base, UpdatedAt: base}
+	}
+	tx(t, s, func(ctx context.Context, tx store.Tx) error {
+		require.NoError(t, tx.InsertIntegration(ctx, mk(store.IntegrationExporter, "splunk", "Splunk")))
+		require.NoError(t, tx.InsertIntegration(ctx, mk(store.IntegrationChannel, "splunk", "Splunk")), "kinds are separate namespaces")
+		got, err := tx.GetIntegration(ctx, store.IntegrationExporter, "splunk")
+		require.NoError(t, err)
+		assert.Equal(t, mk(store.IntegrationExporter, "splunk", "Splunk"), got, "round-trips with microsecond timestamps")
+		return nil
+	})
+	assert.ErrorIs(t, failsWith(t, s, func(ctx context.Context, tx store.Tx) error {
+		return tx.InsertIntegration(ctx, mk(store.IntegrationExporter, "splunk", "Other"))
+	}), store.ErrConflict, "duplicate id")
+	assert.ErrorIs(t, failsWith(t, s, func(ctx context.Context, tx store.Tx) error {
+		return tx.InsertIntegration(ctx, mk(store.IntegrationExporter, "other", "Splunk"))
+	}), store.ErrConflict, "duplicate name")
+	assert.Error(t, failsWith(t, s, func(ctx context.Context, tx store.Tx) error {
+		return tx.InsertIntegration(ctx, mk("bogus", "x", "X"))
+	}), "an unknown kind violates the CHECK constraint")
+
+	tx(t, s, func(ctx context.Context, tx store.Tx) error {
+		require.NoError(t, tx.InsertIntegration(ctx, mk(store.IntegrationExporter, "a", "Alpha")))
+		up := mk(store.IntegrationExporter, "a", "Alpha 2")
+		up.Enabled, up.SecretID, up.UpdatedAt = false, "sec-new", base.Add(time.Hour)
+		require.NoError(t, tx.UpdateIntegration(ctx, up))
+		got, err := tx.GetIntegration(ctx, store.IntegrationExporter, "a")
+		require.NoError(t, err)
+		assert.False(t, got.Enabled)
+		assert.Equal(t, "sec-new", got.SecretID)
+		assert.Equal(t, base, got.CreatedAt, "update keeps the creation time")
+
+		list, err := tx.ListIntegrations(ctx, store.IntegrationExporter)
+		require.NoError(t, err)
+		require.Len(t, list, 2)
+		assert.Equal(t, []string{"Alpha 2", "Splunk"}, []string{list[0].Name, list[1].Name}, "ordered by name")
+		require.NoError(t, tx.DeleteIntegration(ctx, store.IntegrationExporter, "a"))
+		_, err = tx.GetIntegration(ctx, store.IntegrationExporter, "a")
+		assert.ErrorIs(t, err, store.ErrNotFound)
+		return nil
+	})
+	assert.ErrorIs(t, failsWith(t, s, func(ctx context.Context, tx store.Tx) error {
+		return tx.UpdateIntegration(ctx, mk(store.IntegrationExporter, "ghost", "G"))
+	}), store.ErrNotFound)
+	assert.ErrorIs(t, failsWith(t, s, func(ctx context.Context, tx store.Tx) error {
+		return tx.DeleteIntegration(ctx, store.IntegrationExporter, "ghost")
+	}), store.ErrNotFound)
 }

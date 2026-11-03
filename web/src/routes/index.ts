@@ -11,6 +11,7 @@ import certificates from './certificates'
 import defaults from './defaults'
 import events from './events'
 import history from './history'
+import integrations from './integrations'
 import overview from './overview'
 import reports from './reports'
 import setup from './setup'
@@ -29,6 +30,7 @@ const areas: AreaModule[] = [
   defaults,
   certificates,
   history,
+  integrations,
   audit,
   users,
   tokens,
