@@ -119,18 +119,25 @@ func BenchmarkContains100k(b *testing.B) {
 }
 
 // TestLookupCostIsFlat guards the acceptance bar (100k entries add far less than
-// 0.1 ms per request) without depending on machine speed: it checks the work per
-// lookup is bounded by the address width, not the list size.
+// 0.1 ms per request) without depending on machine speed: a lookup must not
+// allocate and must cost about the same in a 100k-entry set as in a 1k-entry one,
+// because the work is bounded by the address width, not the list size. The
+// absolute per-lookup budget is enforced by the bench gate on a fixed runner.
 func TestLookupCostIsFlat(t *testing.T) {
-	s, probes := buildBig(t, 100_000)
-	res := testing.Benchmark(func(b *testing.B) {
-		b.ReportAllocs()
-		for i := range b.N {
-			_ = s.Contains(probes[i%len(probes)])
-		}
-	})
-	assert.Zero(t, res.AllocsPerOp(), "lookups must not allocate")
-	assert.Less(t, res.NsPerOp(), int64(1000), fmt.Sprintf("a lookup in a 100k-entry set took %d ns; the budget is 1 µs", res.NsPerOp()))
+	const maxGrowth = 5 // cache misses in the larger trie allow some growth; a size-dependent scan would be ~100x
+	bench := func(n int) testing.BenchmarkResult {
+		s, probes := buildBig(t, n)
+		return testing.Benchmark(func(b *testing.B) {
+			b.ReportAllocs()
+			for i := range b.N {
+				_ = s.Contains(probes[i%len(probes)])
+			}
+		})
+	}
+	small, big := bench(1_000), bench(100_000)
+	assert.Zero(t, big.AllocsPerOp(), "lookups must not allocate")
+	growth := float64(big.NsPerOp()) / float64(max(small.NsPerOp(), 1))
+	assert.Less(t, growth, float64(maxGrowth), fmt.Sprintf("lookup cost grew %.1fx from 1k to 100k entries (%d ns -> %d ns)", growth, small.NsPerOp(), big.NsPerOp()))
 }
 
 func randV4(rng *rand.Rand) netip.Addr {

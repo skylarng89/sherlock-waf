@@ -9,11 +9,11 @@ permissions:
 
 jobs:
   goreleaser:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
-      contents: write   # create the GitHub Release and upload assets
-      packages: write   # push the container image to GHCR
-      id-token: write   # keyless cosign signing with the workflow's OIDC identity
+      contents: write # create the GitHub Release and upload assets
+      packages: write # push the container image to GHCR
+      id-token: write # keyless cosign signing with the workflow's OIDC identity
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

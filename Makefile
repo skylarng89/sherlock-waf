@@ -145,7 +145,7 @@ vuln: ## Known vulnerabilities in dependencies
 
 .PHONY: licenses
 licenses: ## Dependency licence check
-	$(GOTOOL) go-licenses check ./... --ignore github.com/skylarng89/sherlock-waf --allowed_licenses=MIT,BSD-2-Clause,BSD-3-Clause,Apache-2.0,ISC,MPL-2.0
+	$(GOTOOL) go-licenses check ./... --ignore github.com/skylarng89/sherlock-waf --allowed_licenses=MIT,BSD-2-Clause,BSD-3-Clause,Apache-2.0,ISC,MPL-2.0,CC0-1.0
 
 .PHONY: check
 check: lint test build ## What CI runs on every PR

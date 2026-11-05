@@ -328,9 +328,22 @@ func TestInstallIntoReadOnlyDirStages(t *testing.T) {
 	assert.True(t, staged)
 }
 
-func TestNoReleaseKeyFailsClosed(t *testing.T) {
+func TestParseKeyFailsClosedWithoutKey(t *testing.T) {
+	for _, in := range []string{"", "  \n", "UNSET", " UNSET\n"} {
+		_, err := updater.ParseKey(in)
+		assert.ErrorIs(t, err, updater.ErrNoReleaseKey, "input %q", in)
+	}
+}
+
+func TestNewWithoutKeyUsesEmbeddedKey(t *testing.T) {
 	_, err := updater.New(updater.Options{CurrentVersion: "0.4.0", ExePath: "/x"})
-	assert.ErrorIs(t, err, updater.ErrNoReleaseKey, "a source build carries the UNSET placeholder")
+	assert.NoError(t, err, "a release build must embed a usable key; UNSET disables updates")
+}
+
+func TestEmbeddedReleaseKeyIsValid(t *testing.T) {
+	key, err := updater.ReleaseKey()
+	require.NoError(t, err, "internal/updater/release_key.pub must hold a base64 Ed25519 public key")
+	assert.Len(t, key, ed25519.PublicKeySize)
 }
 
 func TestVersionOrdering(t *testing.T) {

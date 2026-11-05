@@ -99,11 +99,6 @@ func TestUpdateBundleOffline(t *testing.T) {
 	assert.Contains(t, string(got), "echo old")
 }
 
-func TestUpdateFailsClosedWithoutKey(t *testing.T) {
-	r := run(t, t.TempDir(), "", "update", "--check")
-	require.ErrorIs(t, r.err, updater.ErrNoReleaseKey)
-}
-
 func TestBackupRestoreCommands(t *testing.T) {
 	state := t.TempDir()
 	require.NoError(t, run(t, state, pw+"\n", "user", "create", "ada", "--admin", "--password-stdin").err)
