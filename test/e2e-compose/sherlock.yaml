@@ -1,0 +1,27 @@
+schema_version: 1
+global:
+  admin: { listen: "0.0.0.0:9443" }   # reachable only inside the compose network
+  events:
+    node_name: e2e
+sites:
+  - id: juice
+    name: OWASP Juice Shop (block mode)
+    hosts: [juice.localhost]
+    tls: { mode: none }
+    policy: { mode: block }
+    upstreams:
+      targets: ["juice-shop:3000"]
+  - id: site
+    name: httpbin (block mode)
+    hosts: [site.localhost]
+    tls: { mode: none }
+    policy: { mode: block }
+    upstreams:
+      targets: ["httpbin:8080"]
+  - id: detect
+    name: httpbin (detect mode)
+    hosts: [detect.localhost]
+    tls: { mode: none }
+    policy: { mode: detect }
+    upstreams:
+      targets: ["httpbin:8080"]

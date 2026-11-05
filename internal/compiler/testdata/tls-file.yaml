@@ -1,0 +1,12 @@
+schema_version: 1
+sites:
+  - id: bank
+    hosts: [bank.example.com]
+    tls:
+      mode: file
+      cert_file: /etc/sherlock/certs/bank.pem
+      key_file: /etc/sherlock/certs/bank.key
+      min_version: "1.3"
+      hsts: { enabled: true, max_age: 63072000, include_subdomains: true }
+    policy: { mode: block }
+    upstreams: { targets: ["10.0.1.10:8443"], tls: { enabled: true } }

@@ -1,0 +1,17 @@
+schema_version: 1
+global:
+  trusted_proxies: ["10.0.0.0/8"]
+  client_ip_headers: ["X-Forwarded-For"]
+sites:
+  - id: blog
+    hosts: ["*.blog.example.com"]
+    tls: { mode: none }
+    policy: { mode: detect }
+    upstreams: { targets: ["10.0.2.10:8080"], health_check: { path: /healthz } }
+  - id: shop
+    hosts: [shop.example.com, www.shop.example.com]
+    tls: { mode: none }
+    policy: { mode: block }
+    upstreams:
+      targets: ["10.0.1.10:8080", "10.0.1.11:8080"]
+      lb_policy: least_conn

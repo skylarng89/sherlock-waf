@@ -1,0 +1,37 @@
+export default {
+  login: {
+    title: 'Sign in',
+    description: 'Sign in to the Sherlock WAF dashboard.',
+    username: 'Username',
+    password: 'Password',
+    submit: 'Sign in',
+    submitting: 'Signing in',
+    badCredentials: 'Incorrect username or password.',
+    throttled: 'Too many sign-in attempts. Try again in {seconds} seconds.',
+    throttledReady: 'You can try signing in again now.',
+    expired: 'Your session has expired. Sign in again to continue.',
+  },
+  mfa: {
+    title: 'Two-step verification',
+    description: 'Enter the 6-digit code from your authenticator app.',
+    code: 'Authentication code',
+    help: 'The code changes every 30 seconds.',
+    submit: 'Verify',
+    wrongCode: 'That code is not valid. Check the code and try again.',
+    enrolInstead: 'Set up an authenticator app instead',
+    backToLogin: 'Back to sign in',
+  },
+  enrol: {
+    title: 'Set up two-step verification',
+    description:
+      'Scan the QR code with an authenticator app, or enter the key manually, then confirm with a code.',
+    qrLabel: 'QR code for your authenticator app',
+    secretLabel: 'Setup key (manual entry)',
+    secretHelp: 'Shown only once. Keep it private.',
+    code: 'Confirmation code',
+    submit: 'Confirm and sign in',
+    wrongCode: 'That code is not valid. Check the code and try again.',
+    loading: 'Preparing your setup key',
+    failed: 'Could not start two-step setup.',
+  },
+}

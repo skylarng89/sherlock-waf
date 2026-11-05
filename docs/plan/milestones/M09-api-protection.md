@@ -1,0 +1,33 @@
+# M9 · API protection
+
+- Phase: 3 · Competitive and finance-ready
+- Depends on: M7
+- Ships: `v0.7.0`
+- Read first: `docs/architecture/config-model.md` (api, rate_limits keys), `docs/architecture/request-pipeline.md`, `docs/security/threat-model.md` T13
+
+## Goal
+
+First-class protection for JSON APIs and open-banking style endpoints, the main traffic type for fintechs.
+
+## Tasks
+
+- [x] **M9-T1** OpenAPI upload and storage (3.0 and 3.1), validated on upload; compiled into a fast router + JSON Schema validators at provision time (evaluate `kin-openapi` or `libopenapi` + `santhosh-tekuri/jsonschema`; record choice in an ADR).
+- [x] **M9-T2** `sherlock_api` module: unknown path/method action; parameter and body schema validation action; findings with JSON pointer of the violation; respects site mode.
+- [x] **M9-T3** JWT validation: JWKS fetched by background job with caching and key rotation, RS/ES/EdDSA algorithms only (no `none`, no HS unless a static secret is configured), `exp/nbf/iss/aud` checks, clock skew setting.
+- [x] **M9-T4** Rate-limit keys `jwt:<claim>`, `api_key:<header>`, `header:<name>` (FR-API-3).
+- [x] **M9-T5** mTLS requirement per site/path with uploaded CA; client cert subject available as a rate-limit key.
+- [x] **M9-T6** UI: site API tab (upload spec, see endpoints, per-endpoint violation counts), JWT config forms.
+- [x] **M9-T7** Tests: OWASP crAPI or a sample open-banking mock behind Sherlock; schema violation and BOLA-style probing cases; fuzz the JWT parser.
+
+## Test gaps closed (#103)
+
+- Live mutual TLS through the real listener: required path with a client certificate (200), without one (403 `api.mtls`), open path without one (200), untrusted CA (handshake fails), per-subject `mtls_subject` buckets. `internal/app/api_mtls_live_test.go`.
+- Live JWKS through Caddy: valid token, key rotation picked up by the unknown-`kid` refetch, and an identity-provider outage that keeps the last good keys. The config still refuses loopback and private JWKS addresses. `internal/app/api_jwks_live_test.go`.
+- Overhead measured with k6 against a full node: p95 added 0.077 ms on documented `POST /payments` (see `docs/plan/benchmarks.md`).
+
+## Acceptance criteria
+
+1. Requests to undocumented endpoints are blocked when configured; documented ones pass with ≤ 1 ms p95 added validation latency for typical payloads.
+2. Expired, wrong-audience, `alg:none` and wrongly signed JWTs are rejected.
+3. Per-client-ID rate limiting works using a JWT claim.
+4. JWKS URL pointing to an internal metadata address is refused.

@@ -1,0 +1,11 @@
+# Security-sensitive paths require review by the maintainer.
+*                                   @skylarng89
+/internal/controlplane/auth/        @skylarng89
+/internal/controlplane/api/         @skylarng89
+/internal/dataplane/core/           @skylarng89
+/internal/dataplane/waf/            @skylarng89
+/internal/updater/                  @skylarng89
+/internal/store/migrations/         @skylarng89
+/internal/secrets/                  @skylarng89
+/pkg/extension/                     @skylarng89
+/.github/workflows/                 @skylarng89

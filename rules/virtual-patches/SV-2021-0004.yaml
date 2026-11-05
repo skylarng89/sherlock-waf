@@ -1,0 +1,30 @@
+# Metadata for SV-2021-0004. verification=synthetic: the exploit request was rebuilt from public
+# write-ups and tested against Sherlock only; it was not replayed against a vulnerable product.
+# kev=true must be re-checked against the CISA KEV catalog before each release (see docs/security/virtual-patching-process.md).
+{
+  "id": "SV-2021-0004",
+  "title": "Microsoft Exchange Server SSRF via back-end cookies (ProxyLogon)",
+  "cves": [
+    "CVE-2021-26855"
+  ],
+  "vendor": "Microsoft",
+  "product": "Exchange Server",
+  "versions": "2013, 2016 and 2019 before the March 2021 security updates",
+  "severity": "critical",
+  "cvss": 9.1,
+  "kev": true,
+  "kev_added": "2021-11-03",
+  "stacks": [
+    "exchange"
+  ],
+  "references": [
+    "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2021-26855",
+    "https://nvd.nist.gov/vuln/detail/CVE-2021-26855"
+  ],
+  "false_positive_notes": "The X-AnonResource and X-BEResource cookies are internal routing hints between Exchange front end and back end; browsers and Outlook never send them.",
+  "verification": "synthetic",
+  "added_in": "2026.10.1",
+  "rule_ids": [
+    9500080
+  ]
+}

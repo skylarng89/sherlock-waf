@@ -1,0 +1,30 @@
+{
+  "positive": [
+    {
+      "name": "uploadova POST",
+      "method": "POST",
+      "path": "/ui/vropspluginui/rest/services/uploadova",
+      "content_type": "multipart/form-data; boundary=x",
+      "body": "--x\r\nContent-Disposition: form-data; name=\"uploadFile\"; filename=\"a.tar\"\r\n\r\ndata\r\n--x--\r\n"
+    },
+    {
+      "name": "dot segment and encoding",
+      "method": "POST",
+      "path": "/ui/./vropspluginui/rest/services/%75ploadova",
+      "body": "x",
+      "content_type": "text/plain"
+    }
+  ],
+  "negative": [
+    {
+      "name": "vCenter UI landing",
+      "method": "GET",
+      "path": "/ui/"
+    },
+    {
+      "name": "other plugin rest call",
+      "method": "GET",
+      "path": "/ui/vropspluginui/rest/services/getstatus"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+# One set of queries, generated from the PostgreSQL dialect and run on both
+# PostgreSQL and SQLite (see docs/architecture/adr/0015-single-codegen-store.md).
+# Queries must stay inside the SQL both engines accept; the store conformance
+# suite runs on both and fails if one diverges.
+version: "2"
+sql:
+  - engine: postgresql
+    schema: internal/store/postgres/migrations
+    queries: internal/store/queries
+    gen:
+      go:
+        package: db
+        out: internal/store/db
+        sql_package: database/sql
+        emit_interface: true
+        emit_empty_slices: true
+        emit_json_tags: false

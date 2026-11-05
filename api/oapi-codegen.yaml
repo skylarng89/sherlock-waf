@@ -1,0 +1,9 @@
+package: apigen
+output: internal/controlplane/api/apigen/api.gen.go
+generate:
+  models: true
+  embedded-spec: true
+  std-http-server: true
+  strict-server: true
+output-options:
+  skip-prune: false

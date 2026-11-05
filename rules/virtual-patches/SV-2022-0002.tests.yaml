@@ -1,0 +1,43 @@
+{
+  "positive": [
+    {
+      "name": "public exploit request",
+      "method": "POST",
+      "path": "/mgmt/tm/util/bash",
+      "content_type": "application/json",
+      "body": "{\"command\":\"run\",\"utilCmdArgs\":\"-c id\"}",
+      "headers": {
+        "Connection": "keep-alive, X-F5-Auth-Token",
+        "X-F5-Auth-Token": "a",
+        "Authorization": "Basic YWRtaW46"
+      }
+    },
+    {
+      "name": "token name in Connection",
+      "method": "GET",
+      "path": "/mgmt/tm/sys/version",
+      "headers": {
+        "Connection": "X-F5-Auth-Token"
+      }
+    }
+  ],
+  "negative": [
+    {
+      "name": "normal REST client with token",
+      "method": "GET",
+      "path": "/mgmt/tm/ltm/pool",
+      "headers": {
+        "X-F5-Auth-Token": "ABCDEF",
+        "Connection": "keep-alive"
+      }
+    },
+    {
+      "name": "Connection header elsewhere",
+      "method": "GET",
+      "path": "/index.html",
+      "headers": {
+        "Connection": "keep-alive"
+      }
+    }
+  ]
+}

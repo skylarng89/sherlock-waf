@@ -1,0 +1,9 @@
+schema_version: 1
+sites:
+  - id: shop
+    hosts: [shop.example.com]
+    tls: { mode: none }
+    policy:
+      mode: block
+      waf: { paranoia_level: 4, inbound_threshold: 5 }
+    upstreams: { targets: ["10.0.1.10:8080"] }

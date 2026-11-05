@@ -1,0 +1,20 @@
+name: False positive
+description: A legitimate request was blocked
+labels: [false-positive]
+body:
+  - type: input
+    id: version
+    attributes: { label: Sherlock version and CRS version }
+    validations: { required: true }
+  - type: input
+    id: rules
+    attributes: { label: Rule IDs that fired }
+  - type: input
+    id: pl
+    attributes: { label: Paranoia level }
+  - type: textarea
+    id: request
+    attributes: { label: Redacted request (method, path, relevant parameter) }
+  - type: textarea
+    id: app
+    attributes: { label: Application (e.g. WordPress 6.x, custom JSON API) }

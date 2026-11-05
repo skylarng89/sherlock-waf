@@ -1,0 +1,35 @@
+{
+  "positive": [
+    {
+      "name": "setup-restore",
+      "method": "POST",
+      "path": "/json/setup-restore.action",
+      "content_type": "application/x-www-form-urlencoded",
+      "body": "synchronous=true"
+    },
+    {
+      "name": "setup-restore-local",
+      "method": "POST",
+      "path": "/json/setup-restore-local.action",
+      "content_type": "application/x-www-form-urlencoded",
+      "body": "synchronous=true"
+    },
+    {
+      "name": "setup-restore-progress",
+      "method": "GET",
+      "path": "/json/setup-restore-progress.action"
+    }
+  ],
+  "negative": [
+    {
+      "name": "other json action",
+      "method": "GET",
+      "path": "/json/startheartbeatactivity.action"
+    },
+    {
+      "name": "blog post about restore",
+      "method": "GET",
+      "path": "/display/DOCS/setup-restore-howto"
+    }
+  ]
+}

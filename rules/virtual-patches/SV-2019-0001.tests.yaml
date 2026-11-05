@@ -1,0 +1,30 @@
+{
+  "positive": [
+    {
+      "name": "AsyncResponseService",
+      "method": "POST",
+      "path": "/_async/AsyncResponseService",
+      "content_type": "text/xml",
+      "body": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"><soapenv:Body/></soapenv:Envelope>"
+    },
+    {
+      "name": "AsyncResponseServiceJms",
+      "method": "POST",
+      "path": "/_async/AsyncResponseServiceJms",
+      "content_type": "text/xml",
+      "body": "<a/>"
+    }
+  ],
+  "negative": [
+    {
+      "name": "console login page",
+      "method": "GET",
+      "path": "/console/login/LoginForm.jsp"
+    },
+    {
+      "name": "GET on _async",
+      "method": "GET",
+      "path": "/_async/"
+    }
+  ]
+}

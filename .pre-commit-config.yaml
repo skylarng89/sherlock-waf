@@ -1,0 +1,14 @@
+# Optional for contributors: `pre-commit install`. CI runs the same checks regardless.
+repos:
+  - repo: local
+    hooks:
+      - id: gofumpt
+        name: gofumpt
+        entry: go tool -modfile=tools/go.mod gofumpt -l -w
+        language: system
+        types: [go]
+      - id: gitleaks
+        name: gitleaks
+        entry: go tool -modfile=tools/go.mod gitleaks git --pre-commit --staged --config .gitleaks.toml --redact --no-banner
+        language: system
+        pass_filenames: false

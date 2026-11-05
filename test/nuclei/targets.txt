@@ -1,0 +1,12 @@
+# Parameterised Juice Shop endpoints for nuclei's DAST fuzzing templates.
+# @BASE@ is replaced with the origin (direct) or Sherlock (protected) base URL.
+@BASE@/rest/products/search?q=apple
+@BASE@/rest/products/search?q=juice&limit=10
+@BASE@/redirect?to=https://github.com/juice-shop/juice-shop
+@BASE@/api/Challenges?name=Score%20Board
+@BASE@/api/Quantitys?productId=1
+@BASE@/rest/admin/application-version?format=json
+@BASE@/rest/captcha?refresh=1
+@BASE@/rest/languages?lang=en
+@BASE@/assets/i18n/en.json?v=1
+@BASE@/rest/memories?user=1

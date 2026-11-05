@@ -1,0 +1,30 @@
+# Metadata for SV-2023-0003. verification=synthetic: the exploit request was rebuilt from public
+# write-ups and tested against Sherlock only; it was not replayed against a vulnerable product.
+# kev=true must be re-checked against the CISA KEV catalog before each release (see docs/security/virtual-patching-process.md).
+{
+  "id": "SV-2023-0003",
+  "title": "PaperCut NG/MF authentication bypass in SetupCompleted",
+  "cves": [
+    "CVE-2023-27350"
+  ],
+  "vendor": "PaperCut",
+  "product": "PaperCut NG / PaperCut MF",
+  "versions": "8.0.0-19.2.7, 20.0.0-20.1.6, 21.0.0-21.2.10, 22.0.0-22.0.8",
+  "severity": "critical",
+  "cvss": 9.8,
+  "kev": true,
+  "kev_added": "2023-04-21",
+  "stacks": [
+    "papercut"
+  ],
+  "references": [
+    "https://www.papercut.com/kb/Main/PO-1216-and-PO-1219",
+    "https://nvd.nist.gov/vuln/detail/CVE-2023-27350"
+  ],
+  "false_positive_notes": "page/SetupCompleted is reached only at the end of the installer. Disable the patch during first-time installation.",
+  "verification": "synthetic",
+  "added_in": "2026.10.1",
+  "rule_ids": [
+    9500150
+  ]
+}

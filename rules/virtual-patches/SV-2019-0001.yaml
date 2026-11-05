@@ -1,0 +1,31 @@
+# Metadata for SV-2019-0001. verification=synthetic: the exploit request was rebuilt from public
+# write-ups and tested against Sherlock only; it was not replayed against a vulnerable product.
+# kev=true must be re-checked against the CISA KEV catalog before each release (see docs/security/virtual-patching-process.md).
+{
+  "id": "SV-2019-0001",
+  "title": "Oracle WebLogic Server _async component deserialization remote code execution",
+  "cves": [
+    "CVE-2019-2725"
+  ],
+  "vendor": "Oracle",
+  "product": "WebLogic Server",
+  "versions": "10.3.6.0.0 and 12.1.3.0.0; see Oracle Security Alert CVE-2019-2725",
+  "severity": "critical",
+  "cvss": 9.8,
+  "kev": true,
+  "kev_added": "2022-01-10",
+  "stacks": [
+    "weblogic",
+    "oracle"
+  ],
+  "references": [
+    "https://www.oracle.com/security-alerts/alert-cve-2019-2725.html",
+    "https://nvd.nist.gov/vuln/detail/CVE-2019-2725"
+  ],
+  "false_positive_notes": "The /_async/ web services are internal WebLogic callbacks and are not meant to be reachable from the internet. Disable the patch if you intentionally publish asynchronous WS-* services.",
+  "verification": "synthetic",
+  "added_in": "2026.10.1",
+  "rule_ids": [
+    9500100
+  ]
+}

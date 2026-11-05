@@ -1,0 +1,98 @@
+// Owned by the setup-wizard author. Add keys here only; never edit locales/index.ts.
+export default {
+  title: 'First-run setup',
+  description: 'Create the first administrator, then protect your first site.',
+  continueDescription: 'Your administrator exists. Two optional steps remain.',
+  steps: {
+    label: 'Setup progress',
+    admin: 'Administrator',
+    hostname: 'Admin hostname',
+    site: 'First site',
+    done: 'Done',
+    completed: '(completed)',
+    currentState: '(current step)',
+    upcoming: '(not started)',
+    announce: 'Step {current} of {total}: {name}',
+  },
+  admin: {
+    heading: 'Create the administrator',
+    token: 'Setup token',
+    tokenHelp:
+      'Read it from the file setup-token inside the server data directory (and the start-up log). It proves you control this machine and works once.',
+    username: 'Username',
+    usernameHelp: '3 to 64 letters, digits, dots, underscores or hyphens.',
+    password: 'Password',
+    passwordHelp: 'At least 12 characters.',
+    confirm: 'Confirm password',
+    submit: 'Create administrator',
+    submitting: 'Creating...',
+    throttled: 'Too many attempts. You can try again in {seconds} seconds.',
+    closed: 'Setup is already complete on this node. Sign in instead.',
+    signInFailed:
+      'The administrator was created, but signing in automatically failed. Sign in manually to continue with multi-factor setup.',
+    toLogin: 'Go to sign in',
+    errors: {
+      tokenRequired: 'Enter the setup token.',
+      wrongToken: 'That setup token is not correct. Check the setup-token file and try again.',
+      username: 'Use 3 to 64 letters, digits, dots, underscores or hyphens.',
+      passwordShort: 'The password must be at least 12 characters.',
+      mismatch: 'The passwords do not match.',
+    },
+  },
+  hostname: {
+    heading: 'Admin hostname (optional)',
+    intro:
+      'Serve this dashboard on its own hostname with an automatic certificate. Sherlock creates a site named sherlock-admin that forwards to the control plane.',
+    reqDns: 'The hostname must already point (DNS) to this server.',
+    reqPorts:
+      'Ports 80 and 443 must be reachable from the internet for the certificate to be issued.',
+    hostname: 'Admin hostname',
+    hostnameHelp: 'For example waf-admin.example.com.',
+    address: 'Control plane address',
+    addressHelp: 'Where the dashboard listens locally. The default is right unless you changed it.',
+    submit: 'Create admin site',
+    skip: 'Skip this step',
+    siteName: 'Sherlock admin',
+    created: 'Admin site created.',
+    exists: 'The admin site already exists; continuing.',
+    errors: {
+      required: 'Enter the hostname, or skip this step.',
+      addressRequired: 'Enter the control plane address.',
+    },
+  },
+  site: {
+    heading: 'Add your first site',
+    intro:
+      'The site starts in detect mode: Sherlock records what it would block but never blocks, so nothing breaks while you learn what normal traffic looks like.',
+    host: 'Public hostname',
+    hostHelp: 'The hostname visitors use, for example www.example.com.',
+    target: 'Upstream address',
+    targetHelp: 'Where your application listens, as host:port.',
+    tlsHelp: 'Automatic needs DNS pointing here and ports 80 and 443 open.',
+    submit: 'Add site',
+    skip: 'Skip this step',
+  },
+  test: {
+    run: 'Test connection',
+    needTarget: 'Enter the upstream address first.',
+    reachable: 'Reachable ({ms} ms).',
+    reachableStatus: 'Reachable: answered HTTP {status} in {ms} ms.',
+    error: {
+      dns: 'The hostname could not be resolved. Check the spelling and DNS.',
+      refused: 'The connection was refused. Nothing is listening on that address and port.',
+      timeout: 'The connection timed out. A firewall may be blocking it.',
+      tls: 'The TLS handshake failed. Check the TLS setting and the certificate.',
+      protocol: 'The server answered, but not with valid HTTP. Check the port and TLS setting.',
+      other: 'The upstream could not be reached.',
+    },
+  },
+  done: {
+    heading: 'Setup complete',
+    adminSite: 'The admin hostname site was created.',
+    firstSite: 'Your first site was created in detect mode.',
+    detect:
+      'Detect mode logs suspicious requests without blocking them. Review what it finds, add exclusions for false positives, then switch the site to block mode.',
+    next: 'You can change any of this later from the Sites page.',
+    toSites: 'Go to sites',
+  },
+}

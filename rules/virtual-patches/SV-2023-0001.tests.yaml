@@ -1,0 +1,33 @@
+{
+  "positive": [
+    {
+      "name": "GET setupadministrator",
+      "method": "GET",
+      "path": "/setup/setupadministrator.action"
+    },
+    {
+      "name": "POST with bypass param",
+      "method": "POST",
+      "path": "/setup/setupadministrator.action",
+      "content_type": "application/x-www-form-urlencoded",
+      "body": "username=x&fullName=x&email=x%40x.test&password=Passw0rd&confirm=Passw0rd&setup-next-button=Next"
+    },
+    {
+      "name": "case and dot segments",
+      "method": "GET",
+      "path": "/setup/./SetupAdministrator.action"
+    }
+  ],
+  "negative": [
+    {
+      "name": "dashboard",
+      "method": "GET",
+      "path": "/dashboard.action"
+    },
+    {
+      "name": "setup lookalike page",
+      "method": "GET",
+      "path": "/display/DOCS/setupadministrator-guide"
+    }
+  ]
+}

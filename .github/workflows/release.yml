@@ -1,0 +1,59 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # create the GitHub Release and upload assets
+      packages: write   # push the container image to GHCR
+      id-token: write   # keyless cosign signing with the workflow's OIDC identity
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          package_json_file: web/package.json
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm --dir web install --frozen-lockfile
+      # arm64 image layers are assembled with buildx; install emulation for them.
+      - run: docker run --privileged --rm tonistiigi/binfmt --install arm64
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - run: go tool -modfile=tools/go.mod goreleaser release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # The manifest needs the final checksums, so it is built after GoReleaser,
+      # signed with cosign (extra, for humans) and with the Ed25519 release key that
+      # `sherlock update` verifies offline (ADR-0017), and attached to the release.
+      # RELEASE_SIGNING_KEY is the base64 Ed25519 seed; its public half is committed
+      # in internal/updater/release_key.pub, which the build embeds.
+      - name: Release manifest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+        run: |
+          umask 077
+          keyfile="$(mktemp)"
+          trap 'rm -f "$keyfile"' EXIT
+          printf '%s' "$RELEASE_SIGNING_KEY" > "$keyfile"
+          version="${GITHUB_REF_NAME#v}"
+          scripts/release-manifest.sh dist "$version"
+          go tool -modfile=tools/go.mod cosign sign-blob --yes \
+            --bundle dist/release-manifest.json.sigstore.json dist/release-manifest.json
+          go run ./internal/updater/cmd/sign-manifest "$keyfile" dist/release-manifest.json dist/release-manifest.json.sig
+          gh release upload "$GITHUB_REF_NAME" dist/release-manifest.json dist/release-manifest.json.sig dist/release-manifest.json.sigstore.json

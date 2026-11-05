@@ -1,0 +1,137 @@
+@import 'tailwindcss';
+@import '@tabler/icons-webfont/dist/tabler-icons.min.css';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Design tokens. Text tokens must reach 4.5:1 on the surfaces they are used on;
+ * *-border-strong and *-focus must reach 3:1 against them. src/styles/tokens.test.ts
+ * enforces both from the values below, so edit a value and the test tells you.
+ */
+:root {
+  --sk-bg: #f8fafc;
+  --sk-surface: #ffffff;
+  --sk-surface-muted: #f1f5f9;
+  --sk-text: #0f172a;
+  --sk-muted: #475569;
+  --sk-accent: #1d4ed8;
+  --sk-accent-hover: #1e40af;
+  --sk-accent-contrast: #ffffff;
+  --sk-danger: #b91c1c;
+  --sk-danger-bg: #fef2f2;
+  --sk-warning: #92400e;
+  --sk-warning-bg: #fffbeb;
+  --sk-success: #166534;
+  --sk-success-bg: #f0fdf4;
+  --sk-info: #1e40af;
+  --sk-info-bg: #eff6ff;
+  --sk-border: #e2e8f0;
+  --sk-border-strong: #64748b;
+  --sk-focus: #1d4ed8;
+
+  --sk-radius-sm: 0.25rem;
+  --sk-radius: 0.5rem;
+  --sk-radius-lg: 0.75rem;
+  --sk-space-page: 1.5rem;
+  --sk-sidebar-width: 15rem;
+}
+
+.dark {
+  color-scheme: dark;
+  --sk-bg: #0b1220;
+  --sk-surface: #111a2e;
+  --sk-surface-muted: #18233b;
+  --sk-text: #e2e8f0;
+  --sk-muted: #a3b2c7;
+  --sk-accent: #60a5fa;
+  --sk-accent-hover: #93c5fd;
+  --sk-accent-contrast: #0b1220;
+  --sk-danger: #fca5a5;
+  --sk-danger-bg: #3a1218;
+  --sk-warning: #fcd34d;
+  --sk-warning-bg: #3a2a0a;
+  --sk-success: #86efac;
+  --sk-success-bg: #0f2e1a;
+  --sk-info: #93c5fd;
+  --sk-info-bg: #12264a;
+  --sk-border: #26324b;
+  --sk-border-strong: #7b8ba3;
+  --sk-focus: #93c5fd;
+}
+
+/* Tailwind utilities: bg-sk-surface, text-sk-muted, border-sk-border-strong, ... */
+@theme inline {
+  --color-sk-bg: var(--sk-bg);
+  --color-sk-surface: var(--sk-surface);
+  --color-sk-surface-muted: var(--sk-surface-muted);
+  --color-sk-text: var(--sk-text);
+  --color-sk-muted: var(--sk-muted);
+  --color-sk-accent: var(--sk-accent);
+  --color-sk-accent-hover: var(--sk-accent-hover);
+  --color-sk-accent-contrast: var(--sk-accent-contrast);
+  --color-sk-danger: var(--sk-danger);
+  --color-sk-danger-bg: var(--sk-danger-bg);
+  --color-sk-warning: var(--sk-warning);
+  --color-sk-warning-bg: var(--sk-warning-bg);
+  --color-sk-success: var(--sk-success);
+  --color-sk-success-bg: var(--sk-success-bg);
+  --color-sk-info: var(--sk-info);
+  --color-sk-info-bg: var(--sk-info-bg);
+  --color-sk-border: var(--sk-border);
+  --color-sk-border-strong: var(--sk-border-strong);
+  --color-sk-focus: var(--sk-focus);
+  --radius-sk-sm: var(--sk-radius-sm);
+  --radius-sk: var(--sk-radius);
+  --radius-sk-lg: var(--sk-radius-lg);
+}
+
+body {
+  background: var(--sk-bg);
+  color: var(--sk-text);
+}
+
+/* One visible focus style for every interactive element, including OpenVue's. */
+:focus-visible {
+  outline: 2px solid var(--sk-focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Current sidebar item: tint plus a bar, so it is not signalled by colour alone. */
+.sk-nav-active {
+  background: var(--sk-surface-muted);
+  box-shadow: inset 3px 0 0 var(--sk-accent);
+  font-weight: 600;
+}
+
+/* OpenVue's default danger button is a lighter red than white text can use at
+   4.5:1 in the light theme; bind it to the design token instead. */
+.p-button-danger:not(.p-button-outlined):not(.p-button-text) {
+  background: var(--sk-danger);
+  border-color: var(--sk-danger);
+  color: #fff;
+}
+.dark .p-button-danger:not(.p-button-outlined):not(.p-button-text) {
+  background: #b91c1c;
+  border-color: #b91c1c;
+  color: #fff;
+}
+button.p-button.p-button-danger.p-button-outlined,
+button.p-button.p-button-danger.p-button-text {
+  color: var(--sk-danger);
+}
+button.p-button.p-button-danger.p-button-outlined {
+  border-color: var(--sk-danger);
+}
+button.p-button.p-button-danger .p-button-label {
+  color: inherit;
+}
