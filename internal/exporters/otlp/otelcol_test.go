@@ -21,11 +21,10 @@ func TestRealCollector(t *testing.T) {
 	if httpEP == "" {
 		t.Skip("OTEL_COLLECTOR_ENDPOINT is not set")
 	}
-	rec := eventRec("01OTELCOLLECTORHTTP")
-	rec.At = time.Now()
 	send := func(t *testing.T, m map[string]any, id string) {
-		r := rec
-		r.ID = id
+		// The id must be in the body: that is what the collector writes out.
+		r := eventRec(id)
+		r.At = time.Now()
 		e := newExp(t, m)
 		require.NoError(t, e.(extension.ExporterTester).Test(t.Context()))
 		require.NoError(t, e.Send(t.Context(), []extension.ExportRecord{r}))
