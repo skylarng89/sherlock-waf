@@ -107,7 +107,11 @@ include=$(go run ./test/ftw/plfilter "${crs_dir}/rules/@owasp_crs" "$pl")
 # file on disk is complete and correctly ordered. So failed tests are re-run
 # (up to FTW_ATTEMPTS times in total) and only tests that fail on EVERY attempt
 # count as failures. Tests that recovered are listed, never hidden.
-attempts=${FTW_ATTEMPTS:-3}
+# PL3 and PL4 flake more often (4 to 6 tests per level on a full run), so they get
+# more attempts by default; FTW_ATTEMPTS overrides both.
+default_attempts=3
+if [ "$pl" -ge 3 ]; then default_attempts=5; fi
+attempts=${FTW_ATTEMPTS:-$default_attempts}
 strip() { sed 's/\x1b\[[0-9;]*m//g'; }
 failed_ids() { strip < "$1" | sed -n 's/^💥 \([0-9]*-[0-9]*\) failed.*/\1/p' | sort -u; }
 

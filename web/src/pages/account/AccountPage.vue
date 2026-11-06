@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import Button from 'openvue/button'
 import InputText from 'openvue/inputtext'
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { isApiError } from '@/api/errors'
 import { useFormErrors } from '@/api/fieldErrors'
@@ -10,22 +10,28 @@ import { useApi } from '@/api/useApi'
 import SkConfirmDialog from '@/components/SkConfirmDialog.vue'
 import SkFormField from '@/components/SkFormField.vue'
 import SkPageHeader from '@/components/SkPageHeader.vue'
+import { useSessionStore } from '@/stores/session'
 import { useToastStore } from '@/stores/toasts'
 
 type Session = components['schemas']['Session']
 
 const MIN_PASSWORD = 12
+const TOTP_CODE = /^[0-9]{6}$/
 
 const { t } = useI18n()
 const { client, call } = useApi()
 const toasts = useToastStore()
+const sessionStore = useSessionStore()
+/** Two-step verification is enrolled, so changing the password needs a current code. */
+const mfaEnabled = computed(() => sessionStore.me?.mfa_enabled === true)
 
 const currentPassword = ref('')
 const newPassword = ref('')
 const confirmPassword = ref('')
+const totpCode = ref('')
 const saving = ref(false)
 const formError = ref('')
-const form = useFormErrors({ known: ['current_password', 'new_password', 'confirm'] })
+const form = useFormErrors({ known: ['current_password', 'new_password', 'confirm', 'totp_code'] })
 
 const sessions = ref<Session[]>([])
 const sessionsLoading = ref(true)
@@ -63,17 +69,27 @@ async function changePassword() {
     form.errors.value = { confirm: t('account.password.mismatch') }
     return
   }
+  const code = totpCode.value.trim()
+  if (mfaEnabled.value && !TOTP_CODE.test(code)) {
+    form.errors.value = { totp_code: t('account.password.codeInvalid') }
+    return
+  }
   saving.value = true
   try {
     await call(
       client.POST('/auth/password', {
-        body: { current_password: currentPassword.value, new_password: newPassword.value },
+        body: {
+          current_password: currentPassword.value,
+          new_password: newPassword.value,
+          ...(mfaEnabled.value ? { totp_code: code } : {}),
+        },
       }),
       { toast: false },
     )
     currentPassword.value = ''
     newPassword.value = ''
     confirmPassword.value = ''
+    totpCode.value = ''
     toasts.success(t('account.password.done'))
     await loadSessions()
   } catch (e) {
@@ -174,6 +190,25 @@ async function confirmRevoke() {
               type="password"
               name="confirm"
               autocomplete="new-password"
+              :invalid="invalid"
+            />
+          </template>
+        </SkFormField>
+        <SkFormField
+          v-if="mfaEnabled"
+          :label="t('account.password.code')"
+          :help="t('account.password.codeHelp')"
+          :error="form.errorFor('totp_code')"
+          required
+        >
+          <template #default="{ attrs, invalid }">
+            <InputText
+              v-bind="attrs"
+              v-model="totpCode"
+              name="totp_code"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              maxlength="6"
               :invalid="invalid"
             />
           </template>

@@ -1,11 +1,25 @@
 # Changelog
 
-All notable changes are documented here. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions: [Semantic Versioning](https://semver.org/). Maintained by release-please from Conventional Commits.
+All notable changes are documented here. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions: [Semantic Versioning](https://semver.org/). Edited by hand under `[Unreleased]` and renamed to the version at release time.
 
 ## [Unreleased]
 
+### Breaking (before 1.0)
+
+- API: `POST /system/test-upstream` is now `POST /system/upstream/test` (verbs only as the last path segment, like `/exporters/test` and `/config/validate`). The operation id `testUpstream` and the request and response are unchanged. Update any script that calls the old path.
+- Extension API (`pkg/extension`): `EventRecord.TS` is now `EventRecord.At`, matching `AuditRecord.At` and `ExportRecord.At`.
+
 ### Added
 
+- v1 freeze (M11-T5): `api/openapi.yaml` is version 1.0.0; `TestAPIGuard` in `pkg/extension` and `pkg/cli` compares the exported Go API with a committed golden file; deprecated API operations answer with `Deprecation`, `Sunset` and an optional `Link` header (none is deprecated); `sherlock version` prints the dependency versions, config schema and API version. Extension API: no additions.
+- Finance protections (M11, planned `v0.9.0`):
+  - **Login protection** (`policy.login_protection`, module `sherlock_login`): declared login endpoints, failed-login velocity per client address, per account (keyed HMAC of the username, never stored) and per device, answered with a challenge (served by the bot module) or a block; detect mode records only. Metrics `sherlock_login_failures_total` and `sherlock_login_actions_total`.
+  - **Data protection** (`policy.dlp`, module `sherlock_dlp`): scans responses for card numbers (Luhn), IBANs (mod-97) and custom RE2 patterns; masks in place (length preserved), blocks or logs; gzip aware, content-type allow-list and size limit; matched values never reach events, logs or exports. Metrics `sherlock_dlp_matches_total` and `sherlock_dlp_skipped_total`.
+  - Dashboard tabs **Login protection** and **Data protection** and a reviewable **Fintech baseline** preset.
+  - Generated documentation: `docs/reference/config.schema.json`, `config-reference.md` (every key documented, enforced by the generator) and `api-reference.md`; user guides for login protection, data protection, TLS and certificates, users, tokens and audit, and virtual patching; a PCI DSS mapping guide; a failure-modes page; threat-model rows T24 to T32.
+  - Hardening: fuzz targets for exclusion globs, login username extraction and the DLP scanner in the nightly run; a race-detector soak harness and a manual 24 h workflow; nightly chaos tests; an N-2 store upgrade test.
+- Changing your password now requires a current two-step verification code when the account has two-step verification enabled (`totp_code` on `POST /auth/password`, with a field on the Account page). Codes are single-use, a refused new password does not consume one, and failures are audited as `mfa_required` or `bad_mfa_code`. `POST /auth/password` also documents its `409` (a concurrent change won).
+- Configurable exporter spool size: the `spool_max_mb` exporter setting (16 to 102400 MiB, default 256) with a dashboard field and the `sherlock_exporter_spool_max_bytes` gauge.
 - SIEM export and alerting (M10, planned `v0.8.0`): exporter framework with a per-exporter bus subscription, bounded disk spool, retry with backoff and jitter and `sherlock_exporter_*` metrics; syslog (RFC 5424 over UDP, TCP, TLS; CEF or JSON), HMAC-signed HTTPS webhook and OpenTelemetry logs (OTLP/HTTP and OTLP/gRPC) exporters; audit log export (`sherlock.audit.v1`); alert rules (blocks threshold, new country, certificate expiring, feed failure, events dropped, upstream unhealthy; 30 s evaluation, de-duplication, cool-down); notification channels (SMTP, webhook, Slack-compatible, Microsoft Teams); `/exporters`, `/notification-channels`, `/alert-rules`, `/alerts/status` and `/integrations/types` endpoints with masked secrets and test endpoints; dashboard pages; integration guides for Splunk, Elastic, Microsoft Sentinel, Graylog and Wazuh. Extension API: `Host.AddExporterType`, `ExporterType`, `Exporter`, `ExporterTester`, `ExportRecord`, `ErrPermanent`, `StreamEvents`, `StreamAudit`.
 - Project plan and design documentation.
 - Configurable sign-in throttling and account lock (`SHERLOCK_LOGIN_IP_ATTEMPTS`, `SHERLOCK_LOGIN_USER_ATTEMPTS`, `SHERLOCK_LOGIN_LOCK_AFTER`, `SHERLOCK_LOGIN_LOCK_MAX_MINUTES`; defaults unchanged; `LOCK_AFTER=0` disables locking) to answer the ASVS S-07 lock-out trade-off.
@@ -13,6 +27,8 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 - Control-plane hardening (ASVS S-04 to S-09, B2): setup token verified before the argon2 run (no hashing for a wrong token); login limiter keyed on (IP, username) with a 20/min username ceiling and `auth.account_locked` once per lock; failed API-token presentations limited per IP (429 before lookup) and audited as coalesced `auth.token_failed` rows; API tokens capped at `SHERLOCK_API_TOKEN_MAX_DAYS` (default 365, `0` for no limit), 50 per account, an expires-soon badge and a create-form limit notice; `POST /system/update/apply` refused for API tokens; per-principal and per-IP request limiter with 429 and `Retry-After` and a `sherlock_api_throttled_total` metric; breached-password corpus (SecLists, 12+ characters, MIT, see NOTICE) with trailing-noise and leetspeak normalisation and a fuzz target; password changes compare-and-set on the verified hash (409 on a lost race).
 
 ### Fixed
+
+- The five-session and 50-token caps are now enforced under a per-user database row lock, so concurrent sign-ins or token creations on PostgreSQL can no longer briefly exceed them (and the in-process token mutex is gone). The login and token-failure throttles remain per process: with several nodes the effective limit is the configured value times the node count until shared counters arrive with multi-node support (M12).
 
 - Audit rows written for unauthenticated callers (`auth.login_failed` for unknown users, `auth.login_throttled`) were refused by the audit table's actor check, so they were never stored (only an error log line was written); they are now recorded as the `system` actor `anonymous`.
 - The CLI `token create` now applies the same token lifetime maximum as the API.

@@ -68,8 +68,9 @@ against Sherlock's real behaviour:
 
 ## A known harness flake
 
-Roughly 0.1–0.3% of tests (a different handful each run, never in isolation)
-fail with go-ftw's *"start marker not found while collecting marked lines"*,
+At PL1 and PL2 roughly 0.1–0.3% of tests fail (a different handful each run,
+never in isolation); at PL3 and PL4 the rate is higher, about 4 to 6 tests per
+level on a full run. They fail with go-ftw's *"start marker not found while collecting marked lines"*,
 while the event file on disk is complete and correctly ordered. Causes found and
 fixed along the way: half-written lines (the file sink now only ever writes whole
 lines), event ordering under load (requests wait for the previous one to finish
@@ -77,7 +78,7 @@ publishing in the test build), and the PAN masker corrupting marker UUIDs. What
 remains looks like go-ftw reading a line while the kernel is still making a
 write visible.
 
-So failed tests are re-run, up to `FTW_ATTEMPTS` (default 3) attempts in total,
+So failed tests are re-run, up to `FTW_ATTEMPTS` attempts in total (default 3, and 5 at PL3 and PL4),
 and **only tests that fail on every attempt count**. Tests that recovered are
 printed ("recovered on retry"), never hidden. A real failure fails every attempt.
 Run with `FTW_ATTEMPTS=1` to see the raw flake rate.

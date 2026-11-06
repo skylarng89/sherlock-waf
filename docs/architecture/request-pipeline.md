@@ -76,8 +76,10 @@ Use Caddy's `trusted_proxies` and `client_ip_headers` server options so Caddy's 
 
 If a module panics or Coraza returns an internal error:
 
-- `sherlock_core` recovers the panic, records a `Finding{Module:"core", Severity: error}` and increments `sherlock_internal_errors_total`.
-- Site `fail_mode: closed` (default for `block`) returns 503 with the block page. `fail_mode: open` (default for `detect`) proxies the request.
+- A panic or error **inside WAF inspection** is handled by `sherlock_waf` itself: it records a `Finding{Module:"core", Severity: error}` ("waf internal error: ...") and increments `sherlock_internal_errors_total`, then follows the site's fail mode. `fail_mode: closed` (default for `block`) returns 503 with the block page. `fail_mode: open` (default for `detect`) proxies the request uninspected.
+- A panic **anywhere else in the chain** (another module, the proxy) is recovered by `sherlock_core`, which records a `core` finding ("recovered panic: ...") and the same counter and answers 503 with the block page if nothing has been sent yet, **whatever the fail mode**: by then the request body may already be consumed, so the request cannot be proxied safely. If the response has already started it is not rewritten.
+- A failure while `sherlock_core` sets the request up (client address, event id) happens before any downstream work, so fail mode is honoured: closed returns 503 without an event, open proxies the request.
+- See [failure modes](../operations/failure-modes.md) for the other dependencies.
 
 ## Block and challenge responses
 

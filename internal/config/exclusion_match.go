@@ -47,9 +47,19 @@ func PathsRegexp(globs []string) (string, error) {
 		parts[i] = re.String()
 	}
 	out := "^(?:" + strings.Join(parts, "|") + ")$"
-	if strings.ContainsAny(out, "\"\x00\r\n") {
-		// QuoteMeta never emits a quote, but a hand-built Settings might carry one.
-		out = strings.ReplaceAll(out, `"`, `\x22`)
+	// The expression is written inside a quoted SecRule operand. Validation
+	// already refuses control characters; this guards a hand-built Settings, and a
+	// line break or NUL would start a new directive, so it is refused, not escaped.
+	if strings.ContainsAny(out, "\x00\r\n") {
+		return "", fmt.Errorf("invalid path glob %q: control characters are not allowed", globs)
+	}
+	if strings.Contains(out, `"`) {
+		out = strings.ReplaceAll(out, `"`, `\x22`) // QuoteMeta never emits a quote, a character class can
+	}
+	// path.Match checks a character class lazily, so "[1-0]" passes validation
+	// and would only fail when the rule is loaded; surface it here.
+	if _, err := regexp.Compile(out); err != nil {
+		return "", fmt.Errorf("invalid path glob %q: %w", globs, err)
 	}
 	return out, nil
 }

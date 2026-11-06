@@ -84,14 +84,14 @@ sites:
     hosts: [a.example.com]
     upstreams: { targets: ["h:1"], typo: 1 }
 `, "/sites/0/upstreams/typo", CodeUnknownField},
-		{"unsupported later-milestone field", `
+		{"unsupported future field", `
 schema_version: 1
 sites:
   - id: a
     hosts: [a.example.com]
     upstreams: { targets: ["h:1"] }
-    policy: { dlp: { enabled: true } }
-`, "/sites/0/policy/dlp", CodeUnknownField},
+    policy: { geo_fencing: { enabled: true } }
+`, "/sites/0/policy/geo_fencing", CodeUnknownField},
 		{"wrong version", "schema_version: 2\nsites: []\n", "/schema_version", CodeInvalid},
 		{"no sites", "schema_version: 1\n", "/sites", CodeRequired},
 		{"alias", "schema_version: 1\nx: &a 1\nsites: *a\n", "/sites", CodeSyntax},

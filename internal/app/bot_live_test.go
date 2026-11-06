@@ -100,7 +100,7 @@ func TestBotDefenceEndToEnd(t *testing.T) {
 	defer upstream.Close()
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "sherlock.yaml")
-	require.NoError(t, os.WriteFile(cfgPath, fmt.Appendf(nil, botConfig, strings.TrimPrefix(upstream.URL, "http://")), 0o600))
+	require.NoError(t, os.WriteFile(cfgPath, fmt.Appendf(nil, strings.ReplaceAll(botConfig, "id: shop-bot", "id: "+uniqueSite("shop-bot")), strings.TrimPrefix(upstream.URL, "http://")), 0o600))
 
 	port := freePort(t)
 	a := New(cfgPath, compiler.Options{HTTPPort: port, HTTPSPort: freePort(t), DataDir: filepath.Join(dir, "data")}, slog.New(slog.DiscardHandler), WithEventsOutput(io.Discard))

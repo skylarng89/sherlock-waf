@@ -147,7 +147,7 @@ type AuditSink interface {
 // EventRecord is a security event as stored.
 type EventRecord struct {
 	ID       string
-	TS       time.Time
+	At       time.Time
 	SiteID   string
 	Action   string
 	ClientIP string

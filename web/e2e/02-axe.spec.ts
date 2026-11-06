@@ -26,6 +26,8 @@ const ADMIN_PAGES: { name: string; path: string; title: RegExp }[] = [
   { name: 'history', path: '/history', title: /history/i },
   { name: 'history-detail', path: '/history/:version', title: /./ },
   { name: 'site-bot', path: '/sites/demo/bot', title: /Demo shop/ },
+  { name: 'site-login-protection', path: '/sites/demo/login-protection', title: /Demo shop/ },
+  { name: 'site-data-protection', path: '/sites/demo/data-protection', title: /Demo shop/ },
   { name: 'site-tuning', path: '/sites/demo/tuning', title: /Demo shop/ },
   { name: 'site-custom-rules', path: '/sites/demo/custom-rules', title: /Custom rules/ },
   { name: 'crs-rules', path: '/crs-rules', title: /^CRS rule catalogue$/ },

@@ -73,8 +73,10 @@ func TestAccessControlEndToEnd(t *testing.T) {
 
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "sherlock.yaml")
+	site := uniqueSite("shop-acl")
 	write := func(deny string) {
-		require.NoError(t, os.WriteFile(cfgPath, fmt.Appendf(nil, accessConfig, addr, deny), 0o600))
+		cfg := strings.ReplaceAll(accessConfig, "id: shop-acl", "id: "+site)
+		require.NoError(t, os.WriteFile(cfgPath, fmt.Appendf(nil, cfg, addr, deny), 0o600))
 	}
 	write("[bad]")
 
@@ -147,7 +149,7 @@ func TestAccessControlEndToEnd(t *testing.T) {
 			require.Equal(t, 403, status)
 		}
 		require.Eventually(t, func() bool {
-			_, banned := acl.Bans.Active(netipAddr(t, "192.0.2.70"), "shop-acl", time.Now())
+			_, banned := acl.Bans.Active(netipAddr(t, "192.0.2.70"), site, time.Now())
 			return banned
 		}, 3*time.Second, 20*time.Millisecond, "the fourth block bans the client")
 		status, _ := as(t, port, "192.0.2.70", "/")

@@ -11,6 +11,8 @@ const tabs = [
   { route: 'site-rate-limits', label: 'access.tabs.rateLimits' },
   { route: 'site-bot', label: 'bot.tab' },
   { route: 'site-api', label: 'api.tab' },
+  { route: 'site-login', label: 'login.tab' },
+  { route: 'site-dlp', label: 'dlp.tab' },
   { route: 'site-tuning', label: 'tuning.tabs.tuning' },
   { route: 'site-custom-rules', label: 'tuning.tabs.customRules' },
 ]

@@ -160,11 +160,11 @@ func TestTestUpstream(t *testing.T) {
 	}))
 	defer redirecting.Close()
 
-	res := a.do("POST", "/system/test-upstream", map[string]any{"target": strings.TrimPrefix(ok.URL, "http://")}).JSON(t)
+	res := a.do("POST", "/system/upstream/test", map[string]any{"target": strings.TrimPrefix(ok.URL, "http://")}).JSON(t)
 	assert.Equal(t, true, res["reachable"])
 	assert.EqualValues(t, http.StatusTeapot, res["status"])
 
-	res = a.do("POST", "/system/test-upstream", map[string]any{"target": strings.TrimPrefix(redirecting.URL, "http://")}).JSON(t)
+	res = a.do("POST", "/system/upstream/test", map[string]any{"target": strings.TrimPrefix(redirecting.URL, "http://")}).JSON(t)
 	assert.Equal(t, true, res["reachable"])
 	assert.EqualValues(t, http.StatusFound, res["status"], "redirects are reported, never followed")
 
@@ -173,23 +173,23 @@ func TestTestUpstream(t *testing.T) {
 	require.NoError(t, err)
 	closed := ln.Addr().String()
 	require.NoError(t, ln.Close())
-	res = a.do("POST", "/system/test-upstream", map[string]any{"target": closed}).JSON(t)
+	res = a.do("POST", "/system/upstream/test", map[string]any{"target": closed}).JSON(t)
 	assert.Equal(t, false, res["reachable"])
 	assert.Equal(t, "refused", res["error"])
 
 	tlsSrv := httptest.NewTLSServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
 	defer tlsSrv.Close()
 	addr := strings.TrimPrefix(tlsSrv.URL, "https://")
-	res = a.do("POST", "/system/test-upstream", map[string]any{"target": addr, "tls": true}).JSON(t)
+	res = a.do("POST", "/system/upstream/test", map[string]any{"target": addr, "tls": true}).JSON(t)
 	assert.Equal(t, false, res["reachable"], "an untrusted certificate fails verification")
 	assert.Equal(t, "tls", res["error"])
-	res = a.do("POST", "/system/test-upstream", map[string]any{"target": addr, "tls": true, "tls_skip_verify": true}).JSON(t)
+	res = a.do("POST", "/system/upstream/test", map[string]any{"target": addr, "tls": true, "tls_skip_verify": true}).JSON(t)
 	assert.Equal(t, true, res["reachable"])
 
 	for _, bad := range []string{"", "nohost", "h:0", "h:99999", ":80", "h:port"} {
-		assert.Equal(t, http.StatusBadRequest, a.do("POST", "/system/test-upstream", map[string]any{"target": bad}).Status, bad)
+		assert.Equal(t, http.StatusBadRequest, a.do("POST", "/system/upstream/test", map[string]any{"target": bad}).Status, bad)
 	}
-	assert.NotContains(t, string(a.do("POST", "/system/test-upstream", map[string]any{"target": closed}).Body), "127.0.0.1", "errors are classes, not raw dial errors")
+	assert.NotContains(t, string(a.do("POST", "/system/upstream/test", map[string]any{"target": closed}).Body), "127.0.0.1", "errors are classes, not raw dial errors")
 }
 
 func TestTimeseries(t *testing.T) {

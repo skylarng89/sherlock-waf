@@ -19,6 +19,22 @@ var (
 		Name: "sherlock_api_throttled_total",
 		Help: "Control-plane requests refused with 429 by the request limiter, by scope (principal or anonymous).",
 	}, []string{"scope"})
+	loginFailures = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "sherlock_login_failures_total",
+		Help: "Failed logins observed on declared login endpoints, by site.",
+	}, []string{"site"})
+	loginActions = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "sherlock_login_actions_total",
+		Help: "Login-protection decisions, by site, action (challenge, block, log) and the scope that tripped (ip, username, device).",
+	}, []string{"site", "action", "scope"})
+	dlpMatches = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "sherlock_dlp_matches_total",
+		Help: "Sensitive values found in responses, by site, detector (pan, iban, custom) and action (mask, block, log). The values themselves are never recorded.",
+	}, []string{"site", "detector", "action"})
+	dlpSkipped = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "sherlock_dlp_skipped_total",
+		Help: "Responses the data-protection scanner passed through unscanned, by site and reason (too_large, encoding, content_type_unknown).",
+	}, []string{"site", "reason"})
 	requests = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "sherlock_requests_total",
 		Help: "Requests with a security decision, by site and action. Clean requests count as action=allow.",
@@ -49,6 +65,7 @@ var (
 
 func init() {
 	Registry.MustRegister(requests, requestDuration, wafDuration, configVersion, crsVersion, apiThrottled,
+		loginFailures, loginActions, dlpMatches, dlpSkipped,
 		internalErrorCollector{src: policy.InternalErrors.Load},
 		prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 			Name: "sherlock_requests_in_flight",
@@ -59,6 +76,23 @@ func init() {
 
 // ObserveAPIThrottled counts one control-plane request refused by the request limiter.
 func ObserveAPIThrottled(scope string) { apiThrottled.WithLabelValues(scope).Inc() }
+
+// ObserveLoginFailure counts one failed login seen on a declared endpoint.
+func ObserveLoginFailure(site string) { loginFailures.WithLabelValues(site).Inc() }
+
+// ObserveLoginAction counts one login-protection decision.
+func ObserveLoginAction(site, action, scope string) {
+	loginActions.WithLabelValues(site, action, scope).Inc()
+}
+
+// ObserveDLPMatches counts n sensitive values found in one response. detector
+// must be pan, iban or custom (never a user-defined name, which is unbounded).
+func ObserveDLPMatches(site, detector, action string, n int) {
+	dlpMatches.WithLabelValues(site, detector, action).Add(float64(n))
+}
+
+// ObserveDLPSkipped counts one response passed through unscanned.
+func ObserveDLPSkipped(site, reason string) { dlpSkipped.WithLabelValues(site, reason).Inc() }
 
 // ObserveRequest records one finished request. It is called on the request
 // path, so it only touches pre-created collectors.

@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/skylarng89/sherlock-waf/internal/netx"
 )
@@ -175,6 +176,55 @@ var teamsMarkdown = strings.NewReplacer(
 // connectors (MessageCard). It expects a message envelope carrying an Adaptive
 // Card attachment; a bare {"text": ...} body is not accepted there.
 func teamsPayload(n normalised) map[string]any {
+	p := teamsCard(n)
+	// Escaping can multiply the size of hostile text (a backslash per Markdown
+	// character, then JSON escaping of each backslash and of < > &), so a message
+	// within the field limits can still exceed what the Workflows trigger accepts
+	// (about 28 KB). Shed the least important content until it fits: facts from
+	// the end, then the body, then the title.
+	for teamsSize(p) > teamsMaxBytes {
+		switch {
+		case len(n.Fields) > 0:
+			n.Fields = n.Fields[:len(n.Fields)-1]
+		case len(n.Body) > teamsMinText:
+			n.Body = truncateRunes(n.Body, len(n.Body)/2)
+		case len(n.Title) > teamsMinText:
+			n.Title = truncateRunes(n.Title, len(n.Title)/2)
+		default:
+			n.Body = ""
+		}
+		p = teamsCard(n)
+	}
+	return p
+}
+
+// teamsMaxBytes keeps the encoded card below the Workflows trigger's payload
+// limit of about 28 KB with headroom for the envelope.
+const (
+	teamsMaxBytes = 26 * 1024
+	teamsMinText  = 32
+)
+
+func teamsSize(p map[string]any) int {
+	b, err := json.Marshal(p)
+	if err != nil {
+		return teamsMaxBytes + 1 // unencodable: shed content until it is trivially small
+	}
+	return len(b)
+}
+
+// truncateRunes cuts s to at most n bytes on a rune boundary and marks the cut.
+func truncateRunes(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	for n > 0 && !utf8.RuneStart(s[n]) {
+		n--
+	}
+	return s[:n] + "…"
+}
+
+func teamsCard(n normalised) map[string]any {
 	tone := map[string]string{SeverityCritical: "Attention", SeverityWarning: "Warning", SeverityInfo: "Default"}[n.Severity]
 	body := []map[string]any{
 		{"type": "TextBlock", "size": "Medium", "weight": "Bolder", "wrap": true, "color": tone, "text": teamsMarkdown.Replace(n.Title)}, //nolint:misspell // "color" is the Adaptive Card property name

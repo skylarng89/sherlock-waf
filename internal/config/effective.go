@@ -29,6 +29,8 @@ type EffectivePolicy struct {
 	AutoBan    EffectiveAutoBan   `json:"auto_ban"`
 	Bot        EffectiveBot       `json:"bot"`
 	API        EffectiveAPI       `json:"api"`
+	Login      EffectiveLogin     `json:"login_protection"`
+	DLP        EffectiveDLP       `json:"dlp"`
 	// Stacks are the declared technologies; empty or ["auto"] activates
 	// generic virtual patches only.
 	Stacks         []string                `json:"stacks"`
@@ -82,6 +84,8 @@ func (r *Root) EffectivePolicy(s *Site, ep *Endpoint) EffectivePolicy {
 		RateLimits:     []RateLimit{},
 		Bot:            newEffectiveBot(),
 		API:            newEffectiveAPI(),
+		Login:          newEffectiveLogin(),
+		DLP:            newEffectiveDLP(),
 		Sources:        map[string]string{},
 	}
 	for _, f := range []string{
@@ -116,6 +120,8 @@ func (r *Root) EffectivePolicy(s *Site, ep *Endpoint) EffectivePolicy {
 		eff.applyAccess(l.pol, l.name)
 		eff.applyBot(l.pol, l.name)
 		eff.applyAPI(l.pol, l.name)
+		eff.applyLogin(l.pol, l.name)
+		eff.applyDLP(l.pol, l.name)
 		eff.applyRules(l.pol, l.name)
 	}
 	eff.sortRateLimits()

@@ -69,6 +69,20 @@ describe('form to payload', () => {
     })
   })
 
+  it('offers the spool limit on every exporter and omits it when empty', () => {
+    for (const [type, specs] of Object.entries(EXPORTER_SPECS)) {
+      expect(
+        specs.some((f) => f.path === 'spool_max_mb' && f.kind === 'number'),
+        type,
+      ).toBe(true)
+    }
+    const model = defaultsFor(syslog)
+    model.address = 'siem.example.com:514'
+    expect(settingsFromModel(syslog, model, undefined).settings).not.toHaveProperty('spool_max_mb')
+    model.spool_max_mb = 64
+    expect(settingsFromModel(syslog, model, undefined).settings.spool_max_mb).toBe(64)
+  })
+
   it('nests tls fields and drops the object when both are empty', () => {
     const model = defaultsFor(syslog)
     model['tls.server_name'] = 'siem.example.com'

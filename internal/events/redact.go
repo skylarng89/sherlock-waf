@@ -192,18 +192,49 @@ func (r *Redactor) walk(key string, v any) any {
 // searched for valid windows so a card number glued to other digits is still
 // caught.
 func maskPANs(s string) string {
-	if len(s) < minPANDigits {
+	spans := panSpans(s, false)
+	if len(spans) == 0 {
 		return s
 	}
 	var b strings.Builder
-	i, last := 0, 0
+	last := 0
+	for _, sp := range spans {
+		b.WriteString(s[last:sp.From])
+		b.WriteString("[PAN:****" + sp.Last4 + "]")
+		last = sp.To
+	}
+	b.WriteString(s[last:])
+	return b.String()
+}
+
+// PANSpan is the byte span of a card number found in text. Last4 is the only
+// part of the number callers may keep.
+type PANSpan struct {
+	From, To int
+	Last4    string
+}
+
+// FindPANs returns the card numbers in s: Luhn-valid, 13 to 19 digits, written
+// contiguously or in a real card layout. It is the stricter variant used by data
+// loss prevention: a candidate glued to letters or to further digits (an
+// identifier, a longer number) is not reported, because masking part of an
+// identifier corrupts a response. Redaction of Sherlock's own events keeps the
+// looser rule, where over-masking is harmless.
+func FindPANs(s string) []PANSpan { return panSpans(s, true) }
+
+func panSpans(s string, strict bool) []PANSpan {
+	if len(s) < minPANDigits {
+		return nil
+	}
+	var spans []PANSpan
+	i := 0
 	for i < len(s) {
 		if !isDigit(s[i]) {
 			i++
 			continue
 		}
 		// Collect a run: digits with single ' ' or '-' separators between digits.
-		start, end := i, i
+		end := i
 		digits := make([]int, 0, 24) // byte offsets of digits
 		for j := i; j < len(s); {
 			if isDigit(s[j]) {
@@ -222,19 +253,15 @@ func maskPANs(s string) string {
 		if len(digits) < minPANDigits {
 			continue
 		}
-		if m, from, to, ok := findPAN(s, digits); ok {
-			b.WriteString(s[last:from])
-			b.WriteString(m)
-			last = to
+		if last4, from, to, ok := findPAN(s, digits); ok {
+			if strict && !standalone(s, from, to) {
+				continue
+			}
+			spans = append(spans, PANSpan{From: from, To: to, Last4: last4})
 			i = to
 		}
-		_ = start
 	}
-	if last == 0 {
-		return s
-	}
-	b.WriteString(s[last:])
-	return b.String()
+	return spans
 }
 
 // cardLayouts are the digit-group sizes real cards are written in when split
@@ -262,7 +289,7 @@ func isCardLayout(sizes []int) bool {
 	return false
 }
 
-// findPAN returns the mask and byte span of a Luhn-valid card number inside a
+// findPAN returns the last four digits and byte span of a Luhn-valid card number inside a
 // run of digits (digits holds each digit's byte offset in s).
 //
 //   - A contiguous run of 13-19 digits is checked as a whole, so ordinary
@@ -272,7 +299,7 @@ func isCardLayout(sizes []int) bool {
 //   - A run grouped by spaces or dashes is searched for spans of consecutive
 //     groups that use one separator and a real card layout, so
 //     "qty 2 4111 1111 1111 1111" still finds the card.
-func findPAN(s string, digits []int) (mask string, from, to int, ok bool) {
+func findPAN(s string, digits []int) (last4 string, from, to int, ok bool) {
 	n := len(digits)
 	// groups[k] = [first, last+1) indexes into digits.
 	var groups [][2]int
@@ -296,7 +323,7 @@ func findPAN(s string, digits []int) (mask string, from, to int, ok bool) {
 		if !Luhn(ds) {
 			return "", 0, 0, false
 		}
-		return "[PAN:****" + ds[len(ds)-4:] + "]", digits[a], digits[b-1] + 1, true
+		return ds[len(ds)-4:], digits[a], digits[b-1] + 1, true
 	}
 
 	if len(groups) == 1 {

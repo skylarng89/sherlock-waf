@@ -168,6 +168,21 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 	return items, nil
 }
 
+const lockUser = `-- name: LockUser :execrows
+UPDATE users SET mfa_last_step = mfa_last_step WHERE id = $1
+`
+
+// Takes the user's row lock for the rest of the transaction without changing
+// anything: PostgreSQL holds the lock until commit, SQLite already serialises
+// writers. Callers use it to make "count, then insert" atomic per user.
+func (q *Queries) LockUser(ctx context.Context, id string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, lockUser, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const recordLoginFailure = `-- name: RecordLoginFailure :exec
 UPDATE users SET failed_count = $1, locked_until = $2 WHERE id = $3
 `

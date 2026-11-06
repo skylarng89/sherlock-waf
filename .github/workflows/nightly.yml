@@ -62,17 +62,32 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-      - name: Fuzz the config parser, redaction, Luhn and the JWT verifier for 10 minutes each
+      - name: Fuzz the config parser, exclusion globs, redaction, Luhn, the password normaliser and the JWT verifier for 10 minutes each
         run: |
-          for t in "internal/config FuzzParse" "internal/events FuzzRedactQuery" "internal/events FuzzMaskPANs" \
-                   "internal/events FuzzRedactBody" "internal/policy FuzzParseIP" "internal/dataplane/api FuzzVerify"; do
+          for t in "internal/config FuzzParse" "internal/config FuzzPathsRegexp" "internal/events FuzzRedactQuery" \
+                   "internal/events FuzzMaskPANs" "internal/events FuzzRedactBody" "internal/events FuzzLuhn" \
+                   "internal/policy FuzzParseIP" "internal/dataplane/api FuzzVerify" \
+                   "internal/controlplane/auth FuzzCommonPasswordNormaliser" \
+                   "internal/dataplane/login FuzzUsernameExtract"; do
             set -- $t
             go test -run '^$' -fuzz "^$2\$" -fuzztime 10m "./$1"
           done
 
+  # Breaks a dependency under a running node (origin down, event sink and
+  # database failing, event bus flooded, WAF panic) and checks the behaviour in
+  # docs/operations/failure-modes.md. Run locally with the same command.
+  chaos:
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - run: go test -race -tags 'chaos sherlock_testhooks' -count=1 -run Chaos -timeout 20m ./internal/app
+
   # Opens (or comments on) one tracking issue when any nightly job fails.
   report:
-    needs: [ftw, attack-replay, k6, fuzz]
+    needs: [ftw, attack-replay, k6, fuzz, chaos]
     if: failure()
     runs-on: ubuntu-26.04
     permissions:

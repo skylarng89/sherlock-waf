@@ -29,6 +29,7 @@ import (
 	"github.com/skylarng89/sherlock-waf/internal/dataplane/blockpage"
 	"github.com/skylarng89/sherlock-waf/internal/netx"
 	"github.com/skylarng89/sherlock-waf/internal/policy"
+	"github.com/skylarng89/sherlock-waf/internal/policy/challenge"
 )
 
 const (
@@ -183,7 +184,22 @@ func (h *Handler) decide(r *http.Request, d *policy.Decision) (action, why strin
 	if d.ChallengeRequested {
 		return config.ActionChallenge, "ratelimit"
 	}
+	// A client the login module marked after failed logins (it only learns of a
+	// failure once the upstream has answered, which is after this module ran).
+	// Any() keeps this free for every request while nothing is marked.
+	if challenge.Any() && (challenge.Marked(challenge.ClientKey(h.SiteID, d.ClientIP)) ||
+		challenge.Marked(challenge.DeviceKey(h.SiteID, challenge.Fingerprint(r)))) {
+		return config.ActionChallenge, "login"
+	}
 	return "", ""
+}
+
+// Cleared reports whether r carries a valid clearance for this client on the
+// site, so another module can tell a client that already passed a challenge from
+// one that has not. It does not consume or refresh anything.
+func Cleared(r *http.Request, ip netip.Addr, siteID string) bool {
+	c, err := r.Cookie(Cookie)
+	return err == nil && validClearance(bindingFor(ip, r.UserAgent(), siteID), time.Now(), c.Value)
 }
 
 func (r Rule) matches(req *http.Request, ip netip.Addr) bool {

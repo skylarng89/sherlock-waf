@@ -1,0 +1,1398 @@
+{
+  "$defs": {
+    "ACLPolicy": {
+      "additionalProperties": false,
+      "description": "ACLPolicy is the access-control block of a policy.",
+      "properties": {
+        "allow_bypass_waf": {
+          "description": "AllowBypassWAF lets allow-listed clients skip WAF inspection. Off by default: an allow list skips rate limits and bot checks, not the WAF.",
+          "type": "boolean"
+        },
+        "allow_lists": {
+          "description": "Names of ip_lists whose clients are allowed: they skip rate limits and bot checks. A list of names replaces the inherited list; {add, remove} edits it.",
+          "oneOf": [
+            {
+              "description": "Replaces the inherited list.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "additionalProperties": false,
+              "description": "Edits the inherited list.",
+              "properties": {
+                "add": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "remove": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "type": "object"
+            }
+          ]
+        },
+        "countries": {
+          "$ref": "#/$defs/Countries",
+          "description": "Allows or denies clients by country, using the GeoIP database from feeds.geoip."
+        },
+        "deny_lists": {
+          "description": "Names of ip_lists whose clients are blocked. A list of names replaces the inherited list; {add, remove} edits it.",
+          "oneOf": [
+            {
+              "description": "Replaces the inherited list.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "additionalProperties": false,
+              "description": "Edits the inherited list.",
+              "properties": {
+                "add": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "remove": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "type": "object"
+            }
+          ]
+        },
+        "password_gate": {
+          "$ref": "#/$defs/PasswordGate",
+          "description": "PasswordGate puts HTTP Basic authentication in front of the site."
+        },
+        "reputation": {
+          "$ref": "#/$defs/ReputationACL",
+          "description": "Acts on clients listed by the reputation feeds."
+        }
+      },
+      "type": "object"
+    },
+    "ACME": {
+      "additionalProperties": false,
+      "description": "ACME configures automatic certificate issuance.",
+      "properties": {
+        "ca": {
+          "description": "HTTPS URL of an ACME directory to use instead of Caddy's default certificate authorities (for example a private or staging CA).",
+          "type": "string"
+        },
+        "email": {
+          "description": "Contact address sent to the certificate authority when ordering certificates; must contain an @. Optional.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "APIMatch": {
+      "additionalProperties": false,
+      "description": "APIMatch selects requests by path glob and method.",
+      "properties": {
+        "methods": {
+          "description": "Upper-case HTTP methods; empty means every method.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "paths": {
+          "description": "Path globs starting with '/' (default [\"/*\"]).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "APIPolicy": {
+      "additionalProperties": false,
+      "description": "APIPolicy configures the API module: OpenAPI conformance, JWT validation and mutual TLS. Every field is optional and inherits like the rest of a policy.",
+      "properties": {
+        "enabled": {
+          "description": "Turns API protection on (on by default whenever the block is present).",
+          "type": "boolean"
+        },
+        "jwt": {
+          "description": "JWT rules are a list: a lower level replaces the whole list.",
+          "items": {
+            "$ref": "#/$defs/JWTRule"
+          },
+          "type": "array"
+        },
+        "max_body_bytes": {
+          "description": "MaxBodyBytes bounds the request body read for schema validation; larger bodies are not validated (the finding says so).",
+          "type": "integer"
+        },
+        "mtls": {
+          "$ref": "#/$defs/MTLSPolicy",
+          "description": "Requires a verified client certificate on the listed paths."
+        },
+        "openapi_doc_id": {
+          "description": "OpenAPIDocID refers to an uploaded OpenAPI document (3.0 or 3.1).",
+          "type": "string"
+        },
+        "schema_violation_action": {
+          "description": "SchemaViolationAction applies to documented requests whose parameters or body break the schema: log (default) or block. Blocking needs openapi_doc_id.",
+          "type": "string"
+        },
+        "unknown_path_action": {
+          "description": "UnknownPathAction applies to requests the document does not describe (path or method): log (default) or block. Blocking needs openapi_doc_id.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "AccessLog": {
+      "additionalProperties": false,
+      "description": "AccessLog is the optional sampled log of clean requests (FR-EVT-3).",
+      "properties": {
+        "enabled": {
+          "description": "Turns the sampled access log on (default false).",
+          "type": "boolean"
+        },
+        "sample_rate": {
+          "description": "Fraction of clean requests logged, from 0 to 1 (default 0.01).",
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
+    "Admin": {
+      "additionalProperties": false,
+      "description": "Admin configures the node's admin listener, which serves /metrics, /healthz and /readyz. It is separate from proxied traffic.",
+      "properties": {
+        "allowed_cidrs": {
+          "description": "Client addresses or CIDR ranges allowed to reach the admin listener; empty allows any client that can connect.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "listen": {
+          "description": "Address of the admin listener as host:port, or \"off\" to disable it (default 127.0.0.1:9444).",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "AutoBan": {
+      "additionalProperties": false,
+      "description": "AutoBan bans a client that keeps getting blocked.",
+      "properties": {
+        "ban_duration": {
+          "description": "How long the client stays banned, 1m to 30d.",
+          "type": "string"
+        },
+        "blocks_threshold": {
+          "description": "Number of blocked requests within window that triggers a ban, 1 to 1,000,000.",
+          "type": "integer"
+        },
+        "enabled": {
+          "description": "Turns auto-ban on (on by default whenever the block is present).",
+          "type": "boolean"
+        },
+        "window": {
+          "description": "Period in which blocks are counted, 1s to 24h.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "BlockPage": {
+      "additionalProperties": false,
+      "description": "BlockPage selects the page shown for terminated requests.",
+      "properties": {
+        "template_id": {
+          "description": "\"default\" or the id of an uploaded block page (default \"default\").",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "BotMatch": {
+      "additionalProperties": false,
+      "description": "BotMatch selects requests; every set field must match.",
+      "properties": {
+        "countries": {
+          "description": "ISO 3166-1 alpha-2 country codes in capitals.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "methods": {
+          "description": "Upper-case HTTP methods.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "paths": {
+          "description": "Path globs starting with '/'.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "reputation": {
+          "description": "Reputation true matches clients on a reputation list.",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "BotPolicy": {
+      "additionalProperties": false,
+      "description": "BotPolicy configures the bot module: challenge pages for suspicious clients. Every field is optional and inherits like the rest of a policy.",
+      "properties": {
+        "challenge": {
+          "description": "Challenge is pow (self-hosted proof of work), turnstile or hcaptcha. The provider secrets come from the environment (SHERLOCK_TURNSTILE_SECRET, SHERLOCK_HCAPTCHA_SECRET), never from the configuration.",
+          "type": "string"
+        },
+        "clearance_ttl": {
+          "description": "ClearanceTTL is how long a passed challenge is remembered.",
+          "type": "string"
+        },
+        "difficulty": {
+          "description": "Difficulty is the number of leading zero hex digits the proof of work needs (4 takes a browser well under a second).",
+          "type": "integer"
+        },
+        "enabled": {
+          "description": "Turns bot defence on (on by default whenever the block is present).",
+          "type": "boolean"
+        },
+        "rules": {
+          "description": "Rules evaluated in order against each request; at most 50. A lower level replaces the whole list.",
+          "items": {
+            "$ref": "#/$defs/BotRule"
+          },
+          "type": "array"
+        },
+        "site_key": {
+          "description": "SiteKey is the public key of a turnstile or hcaptcha widget.",
+          "type": "string"
+        },
+        "verified_bots": {
+          "description": "VerifiedBots says what to do with clients that claim to be a search engine and whose address checks out by reverse DNS: allow (default), challenge or block. Claims that do not verify are treated as ordinary clients.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "BotRule": {
+      "additionalProperties": false,
+      "description": "BotRule challenges (or blocks, or lets through) requests that match.",
+      "properties": {
+        "action": {
+          "description": "challenge (default) | block | allow",
+          "type": "string"
+        },
+        "match": {
+          "$ref": "#/$defs/BotMatch",
+          "description": "Which requests the rule applies to; every set field must match."
+        }
+      },
+      "type": "object"
+    },
+    "Countries": {
+      "additionalProperties": false,
+      "description": "Countries allows or denies ISO 3166-1 alpha-2 country codes.",
+      "properties": {
+        "list": {
+          "description": "ISO 3166-1 alpha-2 country codes in capitals, without duplicates; an empty list with mode allow is rejected because it would block every country.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "mode": {
+          "description": "off, allow (only the listed countries) or deny (all but the listed countries); default off.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "CrowdSecConfig": {
+      "additionalProperties": false,
+      "description": "CrowdSecConfig connects to a CrowdSec local API as a bouncer.",
+      "properties": {
+        "allow_private": {
+          "description": "AllowPrivate lets the API live on a loopback or private address, which is where a local CrowdSec agent usually listens. Link-local addresses (the cloud metadata service) stay refused.",
+          "type": "boolean"
+        },
+        "enabled": {
+          "description": "Turns the CrowdSec bouncer on (default false).",
+          "type": "boolean"
+        },
+        "lapi_url": {
+          "description": "http or https URL of the CrowdSec local API; required when enabled. The API key comes from SHERLOCK_CROWDSEC_API_KEY.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "DLPPattern": {
+      "additionalProperties": false,
+      "description": "DLPPattern is a named custom detector. The pattern is a Go (RE2) regular expression, so it cannot cause catastrophic backtracking.",
+      "properties": {
+        "name": {
+          "description": "Name used in detect as custom:\u003cname\u003e: lower-case letters, digits and underscores, starting with a letter (at most 32).",
+          "type": "string"
+        },
+        "pattern": {
+          "description": "RE2 regular expression, at most 512 characters, that must not match the empty string.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "DLPPolicy": {
+      "additionalProperties": false,
+      "description": "DLPPolicy configures the data-loss-prevention module (FR-FIN-2): it scans responses for card numbers, IBANs and custom patterns and masks or blocks them. Matched values are never written to events, logs or exports.",
+      "properties": {
+        "action": {
+          "description": "Action is mask (default), block or log. In detect mode a match is only recorded; the response is never changed.",
+          "type": "string"
+        },
+        "content_types": {
+          "description": "ContentTypes is the allow-list of response media types that are scanned.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "custom_patterns": {
+          "description": "Named custom detectors, at most 20; a lower level replaces the whole list.",
+          "items": {
+            "$ref": "#/$defs/DLPPattern"
+          },
+          "type": "array"
+        },
+        "detect": {
+          "description": "Detect lists what to look for: pan, iban, or custom:\u003cname\u003e for an entry of CustomPatterns. A list: a lower level replaces it.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "enabled": {
+          "description": "Turns data protection on (on by default whenever the block is present).",
+          "type": "boolean"
+        },
+        "max_body_bytes": {
+          "description": "MaxBodyBytes bounds how much of a response is scanned; a larger response is passed through untouched and counted as skipped.",
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "Endpoint": {
+      "additionalProperties": false,
+      "description": "Endpoint overrides the site policy for requests matching Match.",
+      "properties": {
+        "id": {
+          "description": "Lowercase slug that names the endpoint; unique within the site.",
+          "type": "string"
+        },
+        "match": {
+          "$ref": "#/$defs/EndpointMatch",
+          "description": "Which requests the endpoint applies to."
+        },
+        "policy": {
+          "$ref": "#/$defs/Policy",
+          "description": "Policy overrides for matching requests; unset fields inherit from the site."
+        }
+      },
+      "required": [
+        "id",
+        "match"
+      ],
+      "type": "object"
+    },
+    "EndpointMatch": {
+      "additionalProperties": false,
+      "description": "EndpointMatch selects requests by exactly one of Path, PathPrefix or PathGlob (path.Match syntax), optionally narrowed to Methods.",
+      "properties": {
+        "methods": {
+          "description": "Upper-case HTTP methods the endpoint applies to; empty means every method.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "path": {
+          "description": "Exact request path, starting with '/'.",
+          "type": "string"
+        },
+        "path_glob": {
+          "description": "Path glob in path.Match syntax, starting with '/'.",
+          "type": "string"
+        },
+        "path_prefix": {
+          "description": "Path prefix, starting with '/'.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "Events": {
+      "additionalProperties": false,
+      "description": "Events configures the event pipeline.",
+      "properties": {
+        "access_log": {
+          "$ref": "#/$defs/AccessLog",
+          "description": "The optional sampled log of clean requests, off by default."
+        },
+        "body_excerpt": {
+          "description": "Records a redacted excerpt of the request body in events (default false).",
+          "type": "boolean"
+        },
+        "node_name": {
+          "description": "Name stamped on every event so exports can tell nodes apart (default: the host name; at most 128 characters).",
+          "type": "string"
+        },
+        "redaction": {
+          "$ref": "#/$defs/Redaction",
+          "description": "Extra redaction rules applied to events on top of the built-in ones."
+        },
+        "retention_days": {
+          "description": "RetentionDays is how long stored events are kept (control-plane database only).",
+          "type": "integer"
+        },
+        "sinks": {
+          "$ref": "#/$defs/Sinks",
+          "description": "Where events are written on the node itself."
+        }
+      },
+      "type": "object"
+    },
+    "Exclusion": {
+      "additionalProperties": false,
+      "description": "Exclusion removes CRS rules, tags or rule targets for requests that match Match. It compiles to a runtime exclusion rule placed before CRS (T1).",
+      "properties": {
+        "description": {
+          "description": "Why the exclusion exists, at most 500 characters.",
+          "type": "string"
+        },
+        "id": {
+          "description": "Lowercase slug that names the exclusion; unique within a level.",
+          "type": "string"
+        },
+        "match": {
+          "$ref": "#/$defs/ExclusionMatch",
+          "description": "Which requests the exclusion applies to; empty means all requests."
+        },
+        "remove_rule_ids": {
+          "description": "CRS rule ids (\"942100\") or ranges (\"942100-942199\") that are not evaluated. Sherlock's own rules, virtual patches and custom rules cannot be removed here.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "remove_tags": {
+          "description": "CRS rule tags whose rules are not evaluated.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "remove_targets": {
+          "description": "Request targets removed from the checks of specific rules or tags.",
+          "items": {
+            "$ref": "#/$defs/ExclusionTarget"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "ExclusionMatch": {
+      "additionalProperties": false,
+      "description": "ExclusionMatch scopes an exclusion. Empty Paths means every path, empty Methods every method. Paths use path.Match globs (\"*\" does not cross \"/\"); a trailing \"/**\" matches the prefix and everything below it.",
+      "properties": {
+        "methods": {
+          "description": "Upper-case HTTP methods the exclusion applies to; empty means every method.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "paths": {
+          "description": "Path globs the exclusion applies to; empty means every path.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "ExclusionTarget": {
+      "additionalProperties": false,
+      "description": "ExclusionTarget removes one request target (ARGS:q, REQUEST_COOKIES:/^_ga/) from the checks of the listed rules or tags.",
+      "properties": {
+        "rule_ids": {
+          "description": "Rule ids or ranges the target is removed from (give rule_ids or tags).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "tags": {
+          "description": "Rule tags the target is removed from (give rule_ids or tags).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "target": {
+          "description": "The request target to exclude, in CRS syntax such as ARGS:q, ARGS_NAMES:q or REQUEST_COOKIES:/^_ga/.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target"
+      ],
+      "type": "object"
+    },
+    "Feeds": {
+      "additionalProperties": false,
+      "description": "Feeds configures the background data the node refreshes. Secrets are never part of the document: the MaxMind licence key and the CrowdSec API key come from the environment (SHERLOCK_MAXMIND_LICENSE_KEY, SHERLOCK_CROWDSEC_API_KEY).",
+      "properties": {
+        "crowdsec": {
+          "$ref": "#/$defs/CrowdSecConfig",
+          "description": "Connection to a CrowdSec local API."
+        },
+        "geoip": {
+          "$ref": "#/$defs/GeoIPFeed",
+          "description": "The country database used by country ACLs and rules."
+        },
+        "reputation_lists": {
+          "description": "Public reputation lists to download: firehol_level1, spamhaus_drop.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "GeoIPFeed": {
+      "additionalProperties": false,
+      "description": "GeoIPFeed selects the country database.",
+      "properties": {
+        "auto_update": {
+          "description": "Downloads and refreshes the database automatically when it is missing or stale (default false: a database file placed in the data directory by hand is used as is).",
+          "type": "boolean"
+        },
+        "provider": {
+          "description": "dbip-lite (default) | maxmind",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "Global": {
+      "additionalProperties": false,
+      "description": "Global holds settings shared by every site.",
+      "properties": {
+        "acme": {
+          "$ref": "#/$defs/ACME",
+          "description": "Settings for automatic certificates (sites with tls.mode acme)."
+        },
+        "admin": {
+          "$ref": "#/$defs/Admin",
+          "description": "The admin listener that serves /metrics, /healthz and /readyz."
+        },
+        "client_ip_headers": {
+          "description": "Headers read, in order, for the real client address when the request comes from a trusted proxy (default X-Forwarded-For when trusted_proxies is set).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "defaults": {
+          "$ref": "#/$defs/Policy",
+          "description": "A policy block applied to every site; sites and endpoints override it field by field."
+        },
+        "events": {
+          "$ref": "#/$defs/Events",
+          "description": "The event pipeline: node name, retention, access log, redaction and sinks."
+        },
+        "feeds": {
+          "$ref": "#/$defs/Feeds",
+          "description": "Background data the node downloads and refreshes: country database, reputation lists and CrowdSec."
+        },
+        "ip_lists": {
+          "description": "Named lists of addresses and CIDR ranges that acl allow_lists and deny_lists refer to (at most 1000 lists and 1,000,000 entries in total).",
+          "items": {
+            "$ref": "#/$defs/IPList"
+          },
+          "type": "array"
+        },
+        "trusted_proxies": {
+          "description": "Addresses or CIDR ranges of reverse proxies and load balancers in front of Sherlock whose client-address headers are trusted; empty means the client is the TCP peer and forwarded headers are ignored.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "HSTS": {
+      "additionalProperties": false,
+      "description": "HSTS configures Strict-Transport-Security.",
+      "properties": {
+        "enabled": {
+          "description": "Sends Strict-Transport-Security on TLS sites (default true; only sent while headers.security_headers is on).",
+          "type": "boolean"
+        },
+        "include_subdomains": {
+          "description": "Adds includeSubDomains (default false).",
+          "type": "boolean"
+        },
+        "max_age": {
+          "description": "max-age in seconds (default 31536000, one year).",
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "Headers": {
+      "additionalProperties": false,
+      "description": "Headers controls response headers added by Sherlock.",
+      "properties": {
+        "security_headers": {
+          "description": "Adds X-Content-Type-Options, Referrer-Policy and, on TLS sites, Strict-Transport-Security to responses (default true).",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "HealthCheck": {
+      "additionalProperties": false,
+      "description": "HealthCheck is an active upstream health probe; it is off when Path is empty.",
+      "properties": {
+        "interval": {
+          "description": "Time between probes (default 10s).",
+          "type": "string"
+        },
+        "path": {
+          "description": "Path requested on each target, starting with '/'; empty turns health checking off.",
+          "type": "string"
+        },
+        "timeout": {
+          "description": "Time a probe may take; positive and not longer than interval (default 2s).",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "IPList": {
+      "additionalProperties": false,
+      "description": "IPList is a named set of CIDRs referenced by ACL allow and deny lists.",
+      "properties": {
+        "cidrs": {
+          "description": "CIDR ranges or single addresses (IPv4 or IPv6).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "name": {
+          "description": "Lowercase letters, digits, '-' or '_' (at most 63); unique.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "cidrs"
+      ],
+      "type": "object"
+    },
+    "JWTRule": {
+      "additionalProperties": false,
+      "description": "JWTRule validates bearer tokens on the requests it matches. Keys come from exactly one of JWKSURL (fetched by a background job, never on the request path), PublicKeyPEM or HMACSecretEnv.",
+      "properties": {
+        "action": {
+          "description": "Action for a missing or invalid token: block (default) or log.",
+          "type": "string"
+        },
+        "audiences": {
+          "description": "Accepted values of the token's aud claim, at most 20; the token must carry at least one.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "clock_skew": {
+          "description": "ClockSkew tolerates small clock differences in exp/nbf (default 30s).",
+          "type": "string"
+        },
+        "hmac_secret_env": {
+          "description": "HMACSecretEnv names the environment variable holding a shared secret. It is the only way to accept HS256/384/512 tokens.",
+          "type": "string"
+        },
+        "issuer": {
+          "description": "Required value of the token's iss claim; set issuer or audiences (or both).",
+          "type": "string"
+        },
+        "jwks_url": {
+          "description": "JWKSURL must be https and may not point at a private, loopback or link-local address (SSRF, threat T13).",
+          "type": "string"
+        },
+        "match": {
+          "$ref": "#/$defs/APIMatch",
+          "description": "Which requests the rule applies to (default all paths and methods)."
+        },
+        "optional": {
+          "description": "Optional lets requests without a token through; a token that is present must still be valid.",
+          "type": "boolean"
+        },
+        "public_key_pem": {
+          "description": "PublicKeyPEM is a static RSA, ECDSA or Ed25519 public key.",
+          "type": "string"
+        },
+        "refresh_interval": {
+          "description": "RefreshInterval is how often the JWKS is refetched (default 15m).",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "LoginEndpoint": {
+      "additionalProperties": false,
+      "description": "LoginEndpoint is one login request: a path glob and method, where the username is in the request, and which upstream statuses mean \"failed\".",
+      "properties": {
+        "failure_statuses": {
+          "description": "FailureStatuses are the upstream statuses counted as a failed login (default 401 and 403).",
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "method": {
+          "description": "default POST",
+          "type": "string"
+        },
+        "path": {
+          "description": "Path glob starting with '/'.",
+          "type": "string"
+        },
+        "username_field": {
+          "description": "UsernameField is a JSON pointer (\"/user/email\") for JSON bodies or a field name (\"email\") for form bodies. Usernames are only ever kept as a keyed hash.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "LoginPolicy": {
+      "additionalProperties": false,
+      "description": "LoginPolicy configures the login-protection module (FR-FIN-1): failed-login velocity per client address, per username and per device, answered with a challenge or a block. Every field is optional and inherits like the rest of a policy; Endpoints is a list, so a lower level replaces it as a whole.",
+      "properties": {
+        "action": {
+          "description": "Action is what happens to a client over a threshold: challenge (default), block or log. In detect mode it is recorded and never enforced.",
+          "type": "string"
+        },
+        "enabled": {
+          "description": "Turns login protection on (on by default whenever the block is present, but nothing is watched until an endpoint is declared).",
+          "type": "boolean"
+        },
+        "endpoints": {
+          "description": "Endpoints declares the login requests Sherlock watches. Nothing is watched until at least one is declared.",
+          "items": {
+            "$ref": "#/$defs/LoginEndpoint"
+          },
+          "type": "array"
+        },
+        "thresholds": {
+          "$ref": "#/$defs/LoginThresholds",
+          "description": "Failures allowed per window before the action applies; unset values inherit."
+        }
+      },
+      "type": "object"
+    },
+    "LoginThresholds": {
+      "additionalProperties": false,
+      "description": "LoginThresholds are the failures allowed per window before Action applies. A zero field inherits.",
+      "properties": {
+        "per_device": {
+          "description": "Failed logins per device fingerprint in the window, 1 to 100000 (default 10).",
+          "type": "integer"
+        },
+        "per_ip": {
+          "description": "Failed logins per client address in the window, 1 to 100000 (default 20).",
+          "type": "integer"
+        },
+        "per_username": {
+          "description": "Failed logins per username in the window, from any address, 1 to 100000 (default 5).",
+          "type": "integer"
+        },
+        "window": {
+          "description": "Period in which failures are counted, 1m to 24h (default 10m).",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "MTLSPolicy": {
+      "additionalProperties": false,
+      "description": "MTLSPolicy requires a verified client certificate on the listed paths. The CA is an uploaded CA bundle; the site's TLS listener asks for a certificate (without insisting) and the API module enforces the paths.",
+      "properties": {
+        "ca_cert_id": {
+          "description": "Id of an uploaded CA bundle the client certificate must chain to; required when required_paths is set.",
+          "type": "string"
+        },
+        "required_paths": {
+          "description": "Path globs (at most 50) on which a verified client certificate is required.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "PasswordGate": {
+      "additionalProperties": false,
+      "description": "PasswordGate configures the site password gate. PasswordHash is an argon2id PHC string (create one with `sherlock hash-password`); the clear password is never stored.",
+      "properties": {
+        "enabled": {
+          "description": "Turns the gate on (on by default whenever the block is present); needs username and password_hash.",
+          "type": "boolean"
+        },
+        "password_hash": {
+          "description": "argon2id hash of the password, starting with $argon2id$; never returned by the API.",
+          "type": "string"
+        },
+        "username": {
+          "description": "The accepted user name, at most 64 characters, without ':' or line breaks.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "Policy": {
+      "additionalProperties": false,
+      "description": "Policy is the protection block used at global, site and endpoint level (ADR-0012). Every field is optional; unset fields inherit.",
+      "properties": {
+        "acl": {
+          "$ref": "#/$defs/ACLPolicy",
+          "description": "Access control: allow and deny lists, countries, reputation and the password gate."
+        },
+        "api": {
+          "$ref": "#/$defs/APIPolicy",
+          "description": "API protection: OpenAPI conformance, JWT validation and mutual TLS."
+        },
+        "auto_ban": {
+          "$ref": "#/$defs/AutoBan",
+          "description": "Bans a client address that keeps getting blocked. There is no built-in default: set blocks_threshold, window and ban_duration together."
+        },
+        "block_page": {
+          "$ref": "#/$defs/BlockPage",
+          "description": "The page shown for requests Sherlock terminates."
+        },
+        "bot": {
+          "$ref": "#/$defs/BotPolicy",
+          "description": "Bot defence: challenge pages for suspicious clients."
+        },
+        "dlp": {
+          "$ref": "#/$defs/DLPPolicy",
+          "description": "Data protection: scans responses for card numbers, IBANs and custom patterns and masks or blocks them."
+        },
+        "fail_mode": {
+          "description": "What happens to a request when a protection module fails internally: open lets it through, closed refuses it (default closed in block mode, otherwise open).",
+          "enum": [
+            "open",
+            "closed"
+          ],
+          "type": "string"
+        },
+        "login_protection": {
+          "$ref": "#/$defs/LoginPolicy",
+          "description": "Login protection: failed-login velocity per client address, username and device on declared login endpoints."
+        },
+        "mode": {
+          "description": "off turns inspection off, detect records what would be blocked without blocking, block enforces (default detect).",
+          "enum": [
+            "off",
+            "detect",
+            "block"
+          ],
+          "type": "string"
+        },
+        "opt_out": {
+          "description": "OptOut removes inherited named items, written \"rate_limits:\u003cname\u003e\", \"exclusions:\u003cid\u003e\" or \"virtual_patches:\u003cid\u003e\". It is the only way to drop a global item (and is audited with the change).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "rate_limits": {
+          "description": "RateLimits are named items: levels are unioned by name, and a lower level may replace an item that has the same name.",
+          "items": {
+            "$ref": "#/$defs/RateLimit"
+          },
+          "type": "array"
+        },
+        "stacks": {
+          "description": "Stacks declares the technologies behind the site (wordpress, php, spring, ...). Product-specific virtual patches activate only for declared stacks. Unset means \"auto\": generic patches only.",
+          "oneOf": [
+            {
+              "description": "Replaces the inherited list.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "additionalProperties": false,
+              "description": "Edits the inherited list.",
+              "properties": {
+                "add": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "remove": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "type": "object"
+            }
+          ]
+        },
+        "virtual_patches": {
+          "$ref": "#/$defs/VirtualPatchPolicy",
+          "description": "VirtualPatches switches the CVE rule pack (ADR-0013) per level."
+        },
+        "waf": {
+          "$ref": "#/$defs/WAFPolicy",
+          "description": "Coraza and OWASP CRS tuning."
+        }
+      },
+      "type": "object"
+    },
+    "RateLimit": {
+      "additionalProperties": false,
+      "description": "RateLimit is one named limit.",
+      "properties": {
+        "action": {
+          "description": "block | challenge | log",
+          "type": "string"
+        },
+        "key": {
+          "description": "ip | header:\u003cname\u003e",
+          "type": "string"
+        },
+        "limit": {
+          "description": "Requests allowed per window and key, 1 to 1,000,000.",
+          "type": "integer"
+        },
+        "match": {
+          "$ref": "#/$defs/RateLimitMatch",
+          "description": "Restricts the limit to matching requests; empty applies it to every request."
+        },
+        "name": {
+          "description": "Lowercase letters, digits, '-' or '_' (at most 63); a lower level replaces an inherited limit of the same name.",
+          "type": "string"
+        },
+        "window": {
+          "description": "Length of the counting window, 1s to 24h.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "limit",
+        "window"
+      ],
+      "type": "object"
+    },
+    "RateLimitMatch": {
+      "additionalProperties": false,
+      "description": "RateLimitMatch narrows a limit to paths (path.Match globs) and methods.",
+      "properties": {
+        "methods": {
+          "description": "Upper-case HTTP methods; empty means every method.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "paths": {
+          "description": "Path globs starting with '/' (at most 50); default [\"/*\"].",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "Redaction": {
+      "additionalProperties": false,
+      "description": "Redaction adds operator patterns to the built-in ones.",
+      "properties": {
+        "patterns": {
+          "description": "Patterns match parameter names (case-sensitive RE2; use (?i) for case-insensitive).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "ReputationACL": {
+      "additionalProperties": false,
+      "description": "ReputationACL acts on feed-listed addresses.",
+      "properties": {
+        "action": {
+          "description": "block | log",
+          "type": "string"
+        },
+        "enabled": {
+          "description": "Turns reputation checks on (on by default whenever the reputation block is present).",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "Root": {
+      "additionalProperties": false,
+      "description": "Root is the whole configuration document.",
+      "properties": {
+        "global": {
+          "$ref": "#/$defs/Global",
+          "description": "Settings shared by every site: admin listener, trusted proxies, certificate authority, events, default policy, IP lists and feeds."
+        },
+        "schema_version": {
+          "description": "Version of this document format; must be 1, the only version this build accepts (default 1 when omitted).",
+          "type": "integer"
+        },
+        "sites": {
+          "description": "The protected sites; at least one is required.",
+          "items": {
+            "$ref": "#/$defs/Site"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "schema_version",
+        "sites"
+      ],
+      "type": "object"
+    },
+    "Sinks": {
+      "additionalProperties": false,
+      "description": "Sinks selects the temporary event outputs used until the store exists.",
+      "properties": {
+        "file": {
+          "description": "Writes security events to events.jsonl (and the access log to access.jsonl) in the data directory, with rotation (default true).",
+          "type": "boolean"
+        },
+        "file_keep": {
+          "description": "Number of rotated event files kept, 1 to 100 (default 5).",
+          "type": "integer"
+        },
+        "file_max_mb": {
+          "description": "Size in MiB at which an event file is rotated, 1 to 10240 (default 100).",
+          "type": "integer"
+        },
+        "stdout": {
+          "description": "Writes security events as JSON lines to standard output (default true).",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "Site": {
+      "additionalProperties": false,
+      "description": "Site is one protected website or API.",
+      "properties": {
+        "endpoints": {
+          "description": "Per-path policy overrides, at most 500.",
+          "items": {
+            "$ref": "#/$defs/Endpoint"
+          },
+          "type": "array"
+        },
+        "headers": {
+          "$ref": "#/$defs/Headers",
+          "description": "Response headers Sherlock adds."
+        },
+        "hosts": {
+          "description": "Host names the site answers for: lowercase DNS names, optionally with a leading \"*.\" wildcard, or IP addresses; at least one.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "id": {
+          "description": "Lowercase slug (a-z, 0-9, '-', at most 63 characters) that identifies the site; unique.",
+          "type": "string"
+        },
+        "name": {
+          "description": "Display name shown in the dashboard.",
+          "type": "string"
+        },
+        "path_prefix": {
+          "description": "Serves only requests under this path (starts with '/', no '..'), so several sites can share a host; the longest prefix wins. Empty means the whole host.",
+          "type": "string"
+        },
+        "policy": {
+          "$ref": "#/$defs/Policy",
+          "description": "The site's protection policy; overrides global.defaults."
+        },
+        "tls": {
+          "$ref": "#/$defs/TLS",
+          "description": "Certificates and transport security."
+        },
+        "upstreams": {
+          "$ref": "#/$defs/Upstreams",
+          "description": "The origin servers behind the site."
+        }
+      },
+      "required": [
+        "id",
+        "hosts",
+        "upstreams"
+      ],
+      "type": "object"
+    },
+    "TLS": {
+      "additionalProperties": false,
+      "description": "TLS configures a site's certificates and transport security. With mode \"file\" the certificate is either a pair of files on the node (CertFile and KeyFile) or an uploaded certificate (CertID); never both.",
+      "properties": {
+        "cert_file": {
+          "description": "Path on the node of the PEM certificate chain; with mode file, use cert_file and key_file together or cert_id.",
+          "type": "string"
+        },
+        "cert_id": {
+          "description": "Id of an uploaded certificate; with mode file, use this instead of cert_file and key_file.",
+          "type": "string"
+        },
+        "hsts": {
+          "$ref": "#/$defs/HSTS",
+          "description": "Strict-Transport-Security header settings."
+        },
+        "key_file": {
+          "description": "Path on the node of the PEM private key; used with cert_file.",
+          "type": "string"
+        },
+        "min_version": {
+          "description": "Lowest TLS version accepted, \"1.2\" or \"1.3\" (default \"1.2\").",
+          "type": "string"
+        },
+        "mode": {
+          "description": "acme obtains certificates automatically, file uses certificates you supply, none serves plain HTTP only (default acme).",
+          "enum": [
+            "acme",
+            "file",
+            "none"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "Timeouts": {
+      "additionalProperties": false,
+      "description": "Timeouts bound upstream connections.",
+      "properties": {
+        "dial": {
+          "description": "Time allowed to connect to the origin (default 5s).",
+          "type": "string"
+        },
+        "read": {
+          "description": "Time allowed to read the origin's response (default 60s).",
+          "type": "string"
+        },
+        "write": {
+          "description": "Time allowed to send the request to the origin (default 60s).",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "UpstreamTLS": {
+      "additionalProperties": false,
+      "description": "UpstreamTLS configures TLS towards the origin.",
+      "properties": {
+        "client_cert_id": {
+          "description": "Id of an uploaded certificate presented to the origin for mutual TLS; needs enabled.",
+          "type": "string"
+        },
+        "enabled": {
+          "description": "Connects to the origin over TLS (default false).",
+          "type": "boolean"
+        },
+        "insecure_skip_verify": {
+          "description": "Skips verifying the origin's certificate (default false). Leaves the connection open to interception: use for testing only.",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "Upstreams": {
+      "additionalProperties": false,
+      "description": "Upstreams describes the origin servers behind a site.",
+      "properties": {
+        "health_check": {
+          "$ref": "#/$defs/HealthCheck",
+          "description": "Active health probe of the targets; off unless a path is set."
+        },
+        "http_version": {
+          "description": "HTTPVersion pins the protocol spoken to the origin: \"\" (Caddy's default), \"1.1\", \"2\", or \"h2c\" (cleartext HTTP/2, which gRPC origins need).",
+          "type": "string"
+        },
+        "lb_policy": {
+          "description": "How requests are spread over targets: round_robin, least_conn or ip_hash (default round_robin).",
+          "enum": [
+            "round_robin",
+            "least_conn",
+            "ip_hash"
+          ],
+          "type": "string"
+        },
+        "targets": {
+          "description": "Origin servers as host:port; at least one.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "timeouts": {
+          "$ref": "#/$defs/Timeouts",
+          "description": "Timeouts for upstream connections."
+        },
+        "tls": {
+          "$ref": "#/$defs/UpstreamTLS",
+          "description": "TLS towards the origin."
+        },
+        "websockets": {
+          "description": "WebSockets allows connection upgrades through to the origin (default true). The WAF cannot inspect frames, so deny is the strict choice.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "targets"
+      ],
+      "type": "object"
+    },
+    "VirtualPatchPolicy": {
+      "additionalProperties": false,
+      "description": "VirtualPatchPolicy enables the virtual-patch pack and lists patches to skip.",
+      "properties": {
+        "disabled": {
+          "description": "Disabled are patch ids (SV-2021-0001) switched off at this level; levels are unioned and a global entry is removed only through opt_out.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "enabled": {
+          "description": "Turns the virtual-patch pack on or off at this level (default true).",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "WAFPolicy": {
+      "additionalProperties": false,
+      "description": "WAFPolicy tunes Coraza and CRS.",
+      "properties": {
+        "blocking_paranoia_level": {
+          "description": "Paranoia level at or below which rules count towards blocking, 1 to 4; it must not exceed paranoia_level (default: the paranoia_level).",
+          "type": "integer"
+        },
+        "custom_rules": {
+          "description": "CustomRules is operator SecLang (ids 10000-99999) loaded before CRS. The lowest level that sets it wins; it is validated by customrules.",
+          "type": "string"
+        },
+        "enabled": {
+          "description": "Turns the WAF on or off for this level (default true).",
+          "type": "boolean"
+        },
+        "exclusions": {
+          "description": "Exclusions are named, scoped rule removals (false-positive tuning). Levels are unioned by id; a lower level replaces an item with the same id.",
+          "items": {
+            "$ref": "#/$defs/Exclusion"
+          },
+          "type": "array"
+        },
+        "inbound_threshold": {
+          "description": "Anomaly score at which a request is blocked; at least 1 (default 5).",
+          "type": "integer"
+        },
+        "max_body_bytes": {
+          "description": "Largest request body in bytes that is inspected, 1 to 1073741824 (1 GiB); default 10485760 (10 MiB).",
+          "type": "integer"
+        },
+        "outbound_content_types": {
+          "description": "OutboundContentTypes are the media types whose responses are inspected (prefix match on the type, e.g. \"text/\" or \"application/json\").",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "outbound_inspection": {
+          "description": "Also inspects response bodies for data leaks and error pages (default false).",
+          "type": "boolean"
+        },
+        "outbound_max_body_bytes": {
+          "description": "OutboundMaxBodyBytes bounds the response body kept for inspection when outbound_inspection is on; larger responses are inspected up to the limit.",
+          "type": "integer"
+        },
+        "outbound_threshold": {
+          "description": "Anomaly score at which a response is blocked when outbound inspection is on; at least 1 (default 4).",
+          "type": "integer"
+        },
+        "paranoia_level": {
+          "description": "CRS paranoia level, 1 to 4: higher levels enable more rules and produce more false positives (default 1).",
+          "type": "integer"
+        },
+        "skip_inspection_extensions": {
+          "description": "File extensions such as \".css\" whose GET and HEAD requests skip body inspection (default: common static assets: css, js, images, icons and fonts).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "https://sherlock-waf.dev/schema/config-v1.json",
+  "$ref": "#/$defs/Root",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Root is the whole configuration document.",
+  "title": "Sherlock WAF configuration (schema_version 1)"
+}

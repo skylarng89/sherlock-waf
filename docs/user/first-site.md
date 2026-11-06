@@ -13,7 +13,7 @@ Open the control plane (`https://127.0.0.1:9443` by default), sign in as the adm
 Before adding the site, confirm the node can reach the application. Link-local addresses (cloud metadata, `169.254.0.0/16`) are always refused; private addresses are fine.
 
 ```sh
-curl -sk -X POST https://127.0.0.1:9443/api/v1/system/test-upstream \
+curl -sk -X POST https://127.0.0.1:9443/api/v1/system/upstream/test \
   -H "Authorization: Bearer $SHERLOCK_TOKEN" -H 'Content-Type: application/json' \
   -d '{"target":"10.0.0.12:8080"}'
 # {"reachable":true,"status":200,"latency_ms":3}

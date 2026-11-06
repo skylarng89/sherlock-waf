@@ -1,6 +1,8 @@
 // Command upstream is the benchmark origin: it answers every request with a
 // fixed 1 KB body as fast as Go allows, so measured latency is Sherlock's and
-// not the application's. POST /payments (the API benchmark) answers 201 instead.
+// not the application's. POST /payments (the API benchmark) answers 201 instead,
+// and POST /api/login (the login-protection run) answers 200 for the password
+// "correct horse" and 401 for anything else.
 package main
 
 import (
@@ -28,6 +30,16 @@ func main() {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusCreated)
 				_, _ = io.WriteString(w, `{"status":"created"}`)
+				return
+			}
+			if r.Method == http.MethodPost && r.URL.Path == "/api/login" {
+				r.Body = http.MaxBytesReader(w, r.Body, 1<<16)
+				_ = r.ParseForm()
+				if r.PostForm.Get("password") == "correct horse" {
+					_, _ = io.WriteString(w, "welcome")
+					return
+				}
+				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")

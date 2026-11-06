@@ -11,7 +11,9 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -20,6 +22,27 @@ import (
 
 	"github.com/skylarng89/sherlock-waf/internal/compiler"
 )
+
+var siteSeq atomic.Uint64
+
+// uniqueSite returns id with a process-unique suffix. The rate limiter, the ban
+// list and the request metrics are process-wide and keyed by site id, so a live
+// test that reuses an id sees the previous run's state under -count>1.
+func uniqueSite(id string) string { return id + "-" + strconv.FormatUint(siteSeq.Add(1), 10) }
+
+// metricValue returns the value of the first sample whose line starts with
+// prefix (a metric name plus optional labels), or 0 when it is absent.
+func metricValue(t *testing.T, body, prefix string) float64 {
+	t.Helper()
+	for line := range strings.SplitSeq(body, "\n") {
+		if rest, ok := strings.CutPrefix(line, prefix+" "); ok {
+			v, err := strconv.ParseFloat(strings.TrimSpace(rest), 64)
+			require.NoError(t, err, line)
+			return v
+		}
+	}
+	return 0
+}
 
 // launch starts the data plane for cfg and returns its HTTP port. The app is
 // stopped (and checked for a clean shutdown) when the test ends.

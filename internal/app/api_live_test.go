@@ -101,7 +101,7 @@ func TestAPIProtectionLive(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(map[string]string{"upstream": r.Method + " " + r.URL.Path, "body": string(b)})
 	}))
 	t.Cleanup(up.Close)
-	port := launch(t, fmt.Sprintf(apiLiveConfig, strings.TrimPrefix(up.URL, "http://"), indented))
+	port := launch(t, fmt.Sprintf(strings.ReplaceAll(apiLiveConfig, "id: bank", "id: "+uniqueSite("bank")), strings.TrimPrefix(up.URL, "http://"), indented))
 
 	token := func(signer *ecdsa.PrivateKey, mut func(map[string]any)) string {
 		c := map[string]any{"iss": "https://auth.bank.test/", "aud": "open-banking", "client_id": "tpp-1", "exp": time.Now().Add(time.Hour).Unix()}

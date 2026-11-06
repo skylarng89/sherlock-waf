@@ -11,7 +11,7 @@ M10 sends events and audit records to the customer's SOC and alerts people. ADR-
 ## Decision
 
 1. **One pipeline per exporter**: bus subscription (live only) → bounded segmented disk spool → sender with exponential backoff and jitter. The spool cursor advances only after the destination accepts a batch, so delivery is **at-least-once**; records carry a stable `id` for receiver-side deduplication.
-2. **Spool overflow drops the oldest segment** and counts the loss (`sherlock_exporter_dropped_total{reason="spool_full"}`). Newest data is the most valuable during an incident, and the bound keeps a dead SIEM from filling the disk. The default is 256 MiB per exporter.
+2. **Spool overflow drops the oldest segment** and counts the loss (`sherlock_exporter_dropped_total{reason="spool_full"}`). Newest data is the most valuable during an incident, and the bound keeps a dead SIEM from filling the disk. The default is 256 MiB per exporter and is configurable per exporter with the `spool_max_mb` setting (16 to 102400 MiB). Lowering it trims an existing backlog on the next append, and the trimmed records are counted as dropped.
 3. **Permanent rejections** (`extension.ErrPermanent`, e.g. HTTP 4xx) discard the batch and count it, so one bad batch cannot block the queue.
 4. **Integrations share one table** (`integrations`: exporter, channel, alert rule). The whole settings document is one encrypted secret (XChaCha20-Poly1305, `internal/secrets`). The API masks credential-looking values; a masked value sent back keeps the stored one.
 5. **Public API addition** (`pkg/extension`): `ExporterType`, `Exporter`, `ExporterTester`, `ExportRecord`, `ErrPermanent`, `Host.AddExporterType`. Exporters exchange structs and a pre-serialised JSON body so the core can add fields.

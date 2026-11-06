@@ -107,7 +107,15 @@ type RotatingFile struct {
 	keep    int
 	f       *os.File
 	size    int64
+	// retryAt delays the next rotation attempt after a failed one, so a
+	// persistent fault (a directory in the way, a read-only mount) costs one log
+	// line a minute, not one per event.
+	retryAt time.Time
 }
+
+// rotateRetry is how long Write keeps appending to the current file after a
+// failed rotation before it tries again.
+const rotateRetry = time.Minute
 
 // NewRotatingFile opens (creating directories as needed) path for append with
 // 0600 permissions. maxSize is in bytes; keep is the number of rotated files.
@@ -144,9 +152,20 @@ func (r *RotatingFile) open() error {
 func (r *RotatingFile) Write(p []byte) (int, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if r.size > 0 && r.size+int64(len(p)) > r.maxSize {
-		if err := r.rotate(); err != nil {
+	if r.f == nil { // a previous rotation could not reopen the file
+		if err := r.open(); err != nil {
 			return 0, err
+		}
+	}
+	if r.size > 0 && r.size+int64(len(p)) > r.maxSize && !time.Now().Before(r.retryAt) {
+		if err := r.rotate(); err != nil {
+			// Losing the event is worse than an oversized file: keep appending to the
+			// current file and try to rotate again later.
+			r.retryAt = time.Now().Add(rotateRetry)
+			slog.Error("event file rotation failed; appending to the current file", "path", r.path, "error", err)
+			if r.f == nil {
+				return 0, err
+			}
 		}
 	}
 	n, err := r.f.Write(p)
@@ -154,32 +173,50 @@ func (r *RotatingFile) Write(p []byte) (int, error) {
 	return n, err
 }
 
+// rotate shifts the files down one. Whatever fails, it reopens path afterwards,
+// so a failed rotation never leaves the sink holding a closed handle.
 func (r *RotatingFile) rotate() error {
-	if err := r.f.Close(); err != nil {
-		return fmt.Errorf("closing %s: %w", r.path, err)
+	closeErr := r.f.Close()
+	if errors.Is(closeErr, os.ErrClosed) {
+		closeErr = nil
 	}
+	if closeErr != nil {
+		closeErr = fmt.Errorf("closing %s: %w", r.path, closeErr)
+	}
+	rotErr := r.shift()
+	if err := r.open(); err != nil {
+		r.f = nil
+		return errors.Join(closeErr, rotErr, err)
+	}
+	return errors.Join(closeErr, rotErr)
+}
+
+func (r *RotatingFile) shift() error {
 	if r.keep == 0 {
 		if err := os.Remove(r.path); err != nil {
 			return fmt.Errorf("removing %s: %w", r.path, err)
 		}
-	} else {
-		_ = os.Remove(fmt.Sprintf("%s.%d", r.path, r.keep))
-		for i := r.keep - 1; i >= 1; i-- {
-			if err := os.Rename(fmt.Sprintf("%s.%d", r.path, i), fmt.Sprintf("%s.%d", r.path, i+1)); err != nil && !errors.Is(err, os.ErrNotExist) {
-				return fmt.Errorf("rotating %s: %w", r.path, err)
-			}
-		}
-		if err := os.Rename(r.path, r.path+".1"); err != nil {
+		return nil
+	}
+	_ = os.Remove(fmt.Sprintf("%s.%d", r.path, r.keep))
+	for i := r.keep - 1; i >= 1; i-- {
+		if err := os.Rename(fmt.Sprintf("%s.%d", r.path, i), fmt.Sprintf("%s.%d", r.path, i+1)); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("rotating %s: %w", r.path, err)
 		}
 	}
-	return r.open()
+	if err := os.Rename(r.path, r.path+".1"); err != nil {
+		return fmt.Errorf("rotating %s: %w", r.path, err)
+	}
+	return nil
 }
 
 // Close closes the current file.
 func (r *RotatingFile) Close() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if r.f == nil {
+		return nil
+	}
 	return r.f.Close()
 }
 

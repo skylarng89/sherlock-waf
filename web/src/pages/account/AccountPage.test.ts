@@ -36,6 +36,8 @@ async function fillPasswords(
   await wrapper.get('input[name="current_password"]').setValue(current)
   await wrapper.get('input[name="new_password"]').setValue(next)
   await wrapper.get('input[name="confirm"]').setValue(confirm)
+  const code = wrapper.find('input[name="totp_code"]')
+  if (code.exists()) await code.setValue('123456')
 }
 
 describe('AccountPage', () => {
@@ -72,10 +74,54 @@ describe('AccountPage', () => {
     await flushPromises()
 
     expect(api.POST).toHaveBeenCalledWith('/auth/password', {
-      body: { current_password: 'the old passphrase', new_password: NEW_PASSWORD },
+      body: {
+        current_password: 'the old passphrase',
+        new_password: NEW_PASSWORD,
+        totp_code: '123456',
+      },
     })
     expect(wrapper.get('input[name="new_password"]').element).toHaveProperty('value', '')
     expect(api.GET).toHaveBeenCalledTimes(2)
+  })
+
+  it('asks for the verification code only when two-step verification is on', async () => {
+    api.POST.mockResolvedValueOnce(ok(undefined, { status: 204 }))
+    const { wrapper } = await renderWithApp(AccountPage, {
+      me: { ...adminMe, mfa_enabled: false },
+    })
+    expect(wrapper.find('input[name="totp_code"]').exists()).toBe(false)
+    await fillPasswords(wrapper, 'the old passphrase', NEW_PASSWORD)
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    expect(api.POST).toHaveBeenCalledWith('/auth/password', {
+      body: { current_password: 'the old passphrase', new_password: NEW_PASSWORD },
+    })
+  })
+
+  it('refuses a malformed code without calling the API and shows a server refusal on the field', async () => {
+    const { wrapper } = await renderWithApp(AccountPage, { me: adminMe })
+    await fillPasswords(wrapper, 'the old passphrase', NEW_PASSWORD)
+    await wrapper.get('input[name="totp_code"]').setValue('12ab')
+    await wrapper.get('form').trigger('submit')
+    expect(wrapper.text()).toContain('6-digit code')
+    expect(api.POST).not.toHaveBeenCalled()
+
+    api.POST.mockResolvedValueOnce(
+      problem(422, {
+        type: 'urn:sherlock:problem:unprocessable',
+        errors: [
+          {
+            path: '/totp_code',
+            code: 'incorrect',
+            message: 'The verification code is incorrect or already used.',
+          },
+        ],
+      }),
+    )
+    await wrapper.get('input[name="totp_code"]').setValue('654321')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    expect(wrapper.text()).toContain('incorrect or already used')
   })
 
   it('refuses a mismatched or short new password without calling the API', async () => {

@@ -1,0 +1,29 @@
+# A representative configuration as accepted by Sherlock v0.1.0 (schema_version 1):
+# two sites, per-site and per-endpoint policy, access control and rate limits.
+schema_version: 1
+global:
+  admin: { listen: "127.0.0.1:9100" }
+  defaults:
+    waf: { paranoia_level: 2 }
+    rate_limits: [{ name: per-ip, key: ip, limit: 600, window: 1m, action: block }]
+sites:
+  - id: shop
+    name: Shop
+    hosts: [shop.example.com, www.shop.example.com]
+    tls: { mode: none }
+    policy:
+      mode: block
+      acl: { deny_lists: [], countries: { mode: off } }
+    upstreams:
+      targets: ["10.0.0.10:8080", "10.0.0.11:8080"]
+    endpoints:
+      - id: login
+        match: { path: /login, methods: [POST] }
+        policy:
+          waf: { paranoia_level: 3 }
+          rate_limits: [{ name: login-per-ip, key: ip, limit: 10, window: 1m, action: block }]
+  - id: blog
+    hosts: [blog.example.com]
+    tls: { mode: none }
+    policy: { mode: detect }
+    upstreams: { targets: ["10.0.0.20:3000"] }

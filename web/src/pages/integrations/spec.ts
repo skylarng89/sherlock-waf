@@ -38,6 +38,9 @@ const tls: FieldSpec[] = [
   { path: 'tls.ca_pem', kind: 'textarea', label: 'tlsCaPem', help: true, mono: true },
 ]
 
+/** Optional cap of the exporter's disk spool in MiB; the backend default (256) applies when empty. */
+const spool: FieldSpec = { path: 'spool_max_mb', kind: 'number', label: 'spoolMaxMb', help: true }
+
 export const EXPORTER_SPECS: Record<string, FieldSpec[]> = {
   syslog: [
     {
@@ -61,12 +64,14 @@ export const EXPORTER_SPECS: Record<string, FieldSpec[]> = {
       help: true,
     },
     ...tls,
+    spool,
   ],
   webhook: [
     { path: 'url', kind: 'secret', label: 'url', help: true, required: true },
     { path: 'hmac_secret', kind: 'secret', label: 'hmacSecret', help: true, required: true },
     { path: 'headers', kind: 'headers', label: 'headers', help: true },
     { path: 'allow_http', kind: 'bool', label: 'allowHttp', help: true },
+    spool,
   ],
   otlp: [
     { path: 'endpoint', kind: 'text', label: 'endpoint', help: true, required: true, mono: true },
@@ -79,6 +84,7 @@ export const EXPORTER_SPECS: Record<string, FieldSpec[]> = {
     },
     { path: 'headers', kind: 'headers', label: 'headers', help: true },
     { path: 'tls.ca_pem', kind: 'textarea', label: 'tlsCaPem', help: true, mono: true },
+    spool,
   ],
 }
 

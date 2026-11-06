@@ -98,6 +98,7 @@ func TestAdminServerOffMoveAndErrors(t *testing.T) {
 // TestMetricsAndHealthLive checks the series that exist after real traffic.
 func TestMetricsAndHealthLive(t *testing.T) {
 	up := upstreamServer(t)
+	site := uniqueSite("shop")
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "sherlock.yaml")
 	require.NoError(t, os.WriteFile(cfgPath, fmt.Appendf(nil, `
@@ -106,12 +107,12 @@ global:
   admin: { listen: "127.0.0.1:0" }
   events: { sinks: { stdout: false, file: false } }
 sites:
-  - id: shop
+  - id: %s
     hosts: [shop.localhost]
     tls: { mode: none }
     policy: { mode: block }
     upstreams: { targets: ["%s"] }
-`, up), 0o600))
+`, site, up), 0o600))
 
 	port := freePort(t)
 	a := New(cfgPath, compiler.Options{HTTPPort: port, HTTPSPort: freePort(t), DataDir: filepath.Join(dir, "data")}, nil)
@@ -122,27 +123,32 @@ sites:
 	code, _ := adminGet(t, admin, http.MethodGet, "/readyz")
 	assert.Equal(t, 200, code, "ready after the first successful config load")
 
+	// Event counters have no site label and are process-wide, so compare deltas.
+	_, before := adminGet(t, admin, http.MethodGet, "/metrics")
+	publishedBefore := metricValue(t, before, "sherlock_events_published_total")
+
 	assert.Equal(t, 200, send(t, port, http.MethodGet, "shop.localhost", "/ok", nil).status)
 	assert.Equal(t, 403, send(t, port, http.MethodGet, "shop.localhost", "/x?id=1%27%20OR%20%271%27=%271", nil).status)
 
 	require.Eventually(t, func() bool {
 		_, body := adminGet(t, admin, http.MethodGet, "/metrics")
-		return strings.Contains(body, `sherlock_requests_total{action="block",site="shop"} 1`)
+		return strings.Contains(body, `sherlock_requests_total{action="block",site="`+site+`"} 1`)
 	}, 5*time.Second, 25*time.Millisecond)
 
 	_, body := adminGet(t, admin, http.MethodGet, "/metrics")
 	for _, want := range []string{
-		`sherlock_requests_total{action="allow",site="shop"} 1`,
-		`sherlock_request_duration_seconds_count{site="shop"} 2`,
-		`sherlock_waf_duration_seconds_count{site="shop"} 2`,
+		`sherlock_requests_total{action="allow",site="` + site + `"} 1`,
+		`sherlock_request_duration_seconds_count{site="` + site + `"} 2`,
+		`sherlock_waf_duration_seconds_count{site="` + site + `"} 2`,
 		`sherlock_crs_version_info{version="4.25.0"} 1`,
 		`sherlock_config_version_info{version="`,
-		"sherlock_events_published_total 1",
 		"sherlock_events_dropped_total 0",
 		"sherlock_internal_errors_total",
 	} {
 		assert.Contains(t, body, want)
 	}
+
+	assert.Equal(t, publishedBefore+1, metricValue(t, body, "sherlock_events_published_total"), "the one blocked request published one event")
 
 	require.NoError(t, a.Reload(t.Context()))
 	_, body = adminGet(t, admin, http.MethodGet, "/metrics")

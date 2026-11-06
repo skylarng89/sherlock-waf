@@ -166,7 +166,7 @@ describe('SetupContinuePage', () => {
       await fillSite(wrapper)
       await buttonNamed(wrapper, 'Test connection').trigger('click')
       await flushPromises()
-      expect(api.POST).toHaveBeenCalledWith('/system/test-upstream', {
+      expect(api.POST).toHaveBeenCalledWith('/system/upstream/test', {
         body: { target: '10.0.1.10:8080', tls: false, tls_skip_verify: false },
       })
       expect(wrapper.get('[data-testid="test-ok"]').text()).toContain('answered HTTP 200 in 12 ms')

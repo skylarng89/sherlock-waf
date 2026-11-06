@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Sherlock WAF control-plane API
-  version: 1.0.0-pre
+  version: 1.0.0
   description: |
     The one public API: the dashboard, the CLI and automation all use `/api/v1`.
     Conventions are in docs/architecture/api.md. Errors are RFC 9457 problem
@@ -431,6 +431,7 @@ paths:
         "204": { description: Changed }
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
         "422": { $ref: "#/components/responses/Problem" }
         "429": { $ref: "#/components/responses/Problem" }
   /auth/sessions:
@@ -534,7 +535,7 @@ paths:
         "403": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
         "429": { $ref: "#/components/responses/Problem" }
-  /system/test-upstream:
+  /system/upstream/test:
     post:
       operationId: testUpstream
       tags: [system]
@@ -1222,6 +1223,8 @@ components:
         auto_ban: { $ref: "#/components/schemas/AutoBan" }
         bot: { $ref: "#/components/schemas/BotPolicy" }
         api: { $ref: "#/components/schemas/APIPolicy" }
+        login_protection: { $ref: "#/components/schemas/LoginProtectionPolicy" }
+        dlp: { $ref: "#/components/schemas/DLPPolicy" }
         stacks: { $ref: "#/components/schemas/NameList", description: "Declared technologies (wordpress, php, spring, ...). Product-specific virtual patches activate only for declared stacks; unset or [auto] activates generic patches only." }
         virtual_patches:
           type: object
@@ -1387,6 +1390,7 @@ components:
       properties:
         current_password: { type: string, minLength: 1, maxLength: 1024, format: password }
         new_password: { type: string, minLength: 12, maxLength: 1024, format: password }
+        totp_code: { type: string, pattern: "^[0-9]{6}$", description: "Current two-step verification code. Required when the account has two-step verification enabled; ignored otherwise." }
     Session:
       type: object
       required: [id, created_at, last_seen_at, expires_at, current]
@@ -1823,6 +1827,54 @@ components:
           properties:
             required_paths: { type: array, items: { type: string } }
             ca_cert_id: { type: string, description: "An uploaded CA bundle (POST /ca-bundles)" }
+    LoginProtectionPolicy:
+      type: object
+      additionalProperties: false
+      description: "Failed-login velocity per client address, username (kept only as a keyed hash) and device. Nothing is watched until an endpoint is declared."
+      properties:
+        enabled: { type: boolean }
+        endpoints:
+          type: array
+          maxItems: 20
+          description: "A lower level replaces the whole list."
+          items:
+            type: object
+            additionalProperties: false
+            required: [path, username_field]
+            properties:
+              path: { type: string, description: "Path glob, starts with /" }
+              method: { type: string, description: "Default POST" }
+              username_field: { type: string, maxLength: 128, description: "A form field name, or a JSON pointer such as /user/email" }
+              failure_statuses: { type: array, maxItems: 20, items: { type: integer, minimum: 100, maximum: 599 }, description: "Upstream statuses counted as a failed login (default 401 and 403)" }
+        thresholds:
+          type: object
+          additionalProperties: false
+          properties:
+            per_ip: { type: integer, minimum: 1, maximum: 100000, description: "Default 20" }
+            per_username: { type: integer, minimum: 1, maximum: 100000, description: "Default 5" }
+            per_device: { type: integer, minimum: 1, maximum: 100000, description: "Default 10" }
+            window: { type: string, description: "Go duration, 1m to 24h (default 10m)" }
+        action: { type: string, enum: [challenge, block, log], description: "Applied to a client over a threshold; recorded but never enforced in detect mode" }
+    DLPPolicy:
+      type: object
+      additionalProperties: false
+      description: "Scans responses for card numbers, IBANs and custom patterns. Matched values are never written to events, logs or exports."
+      properties:
+        enabled: { type: boolean }
+        detect: { type: array, items: { type: string }, description: "pan, iban or custom:<name>; a lower level replaces the list (default [pan])" }
+        custom_patterns:
+          type: array
+          maxItems: 20
+          items:
+            type: object
+            additionalProperties: false
+            required: [name, pattern]
+            properties:
+              name: { type: string, pattern: "^[a-z][a-z0-9_]{0,31}$" }
+              pattern: { type: string, maxLength: 512, description: "RE2 syntax; must not match the empty string" }
+        action: { type: string, enum: [mask, block, log], description: "Default mask; recorded but never enforced in detect mode" }
+        content_types: { type: array, items: { type: string }, description: "Response media types that are scanned (default HTML, text, JSON, XML)" }
+        max_body_bytes: { type: integer, format: int64, minimum: 1024, maximum: 16777216, description: "Larger responses pass through unscanned (default 1 MiB)" }
     JWTRule:
       type: object
       additionalProperties: false

@@ -7,7 +7,7 @@ Enterprise features are added by a separate binary, `sherlock-ee`, built in the 
 1. Everything Enterprise needs MUST go through `pkg/extension`. Enterprise never imports `internal/...` (Go prevents it anyway).
 2. Every interface has a working default in core. Core behaviour without extensions is complete, not crippled.
 3. Interfaces are added to core in the same milestone that first needs them, with a core test using a fake implementation.
-4. `pkg/extension` follows SemVer strictly from v1.0: breaking an interface is a major version bump of the module. Before v1.0, breaking changes are allowed but must be listed in the changelog under "Extension API".
+4. `pkg/extension` is frozen at v1.0.0 and follows SemVer strictly: breaking an interface is a major version bump of the module (a `/v2` module path). Additions are listed in the changelog under "Extension API". `TestAPIGuard` compares the exported surface with `pkg/extension/testdata/api.txt`, so any change is a deliberate golden-file edit in review. The three record types use one timestamp name: `AuditRecord.At`, `EventRecord.At` (renamed from `TS` before the freeze) and `ExportRecord.At`.
 5. No licence checks in core. Core does not know whether a licence exists.
 
 ## Bootstrapping

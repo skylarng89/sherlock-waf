@@ -36,13 +36,21 @@ func (e *env) fullSession(t *testing.T, seed, ip string) Grant {
 	return full
 }
 
+// freshCode moves the clock one minute on and returns the current code, so the
+// TOTP step differs from every step already burned in the test.
+func (e *env) freshCode(t *testing.T, seed string) string {
+	t.Helper()
+	e.clk.advance(time.Minute)
+	return e.code(t, seed, 0)
+}
+
 func TestChangePasswordEndsOtherSessionsAndKeepsCaller(t *testing.T) {
 	e := newEnv(t, RoleAdmin)
 	seed, first := e.enrol(t)
 	other := e.fullSession(t, seed, "10.0.2.1")
 	caller := e.principal(t, first)
 
-	require.NoError(t, e.svc.ChangePassword(t.Context(), caller, "10.0.0.1", testPassword, updated))
+	require.NoError(t, e.svc.ChangePassword(t.Context(), caller, "10.0.0.1", testPassword, updated, e.freshCode(t, seed)))
 
 	_, err := e.svc.AuthenticateSession(t.Context(), other.SessionToken)
 	assert.ErrorIs(t, err, ErrUnauthenticated, "other sessions end")
@@ -71,7 +79,7 @@ func TestChangePasswordRefusals(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			e := newEnv(t, RoleAdmin)
 			_, full := e.enrol(t)
-			err := e.svc.ChangePassword(t.Context(), e.principal(t, full), "10.0.0.1", tc.current, tc.next)
+			err := e.svc.ChangePassword(t.Context(), e.principal(t, full), "10.0.0.1", tc.current, tc.next, "")
 			assert.ErrorIs(t, err, tc.want)
 		})
 	}
@@ -83,11 +91,11 @@ func TestWrongCurrentPasswordIsThrottledWithoutLockingTheAccount(t *testing.T) {
 	p := e.principal(t, full)
 
 	for range 5 {
-		err := e.svc.ChangePassword(t.Context(), p, "10.0.0.1", "wrong guess", updated)
+		err := e.svc.ChangePassword(t.Context(), p, "10.0.0.1", "wrong guess", updated, "")
 		require.ErrorIs(t, err, ErrWrongPassword)
 	}
 	var throttled *ThrottledError
-	err := e.svc.ChangePassword(t.Context(), p, "10.0.0.1", testPassword, updated)
+	err := e.svc.ChangePassword(t.Context(), p, "10.0.0.1", testPassword, updated, "")
 	assert.True(t, errors.As(err, &throttled), "the sixth attempt is refused even with the right password")
 
 	u, err := read(t.Context(), e.st, func(ctx context.Context, tx store.Tx) (store.User, error) { return tx.UserByUsername(ctx, "ada") })
@@ -101,16 +109,16 @@ func TestWrongCurrentPasswordIsThrottledWithoutLockingTheAccount(t *testing.T) {
 
 func TestTokensAndPartialSessionsCannotChangePasswordOrListSessions(t *testing.T) {
 	e := newEnv(t, RoleAdmin)
-	_, full := e.enrol(t)
+	seed, full := e.enrol(t)
 	ctx := t.Context()
 	partial := Principal{UserID: e.uid, Username: "ada", Role: RoleAdmin, Stage: store.StagePasswordOK, SessionID: "partial"}
 	tokenPrincipal := Principal{UserID: e.uid, Username: "ada", Role: RoleAdmin, TokenID: "01TOKEN"}
 
 	for _, p := range []Principal{partial, tokenPrincipal} {
-		err := e.svc.ChangePassword(ctx, p, "10.0.0.1", testPassword, updated)
+		err := e.svc.ChangePassword(ctx, p, "10.0.0.1", testPassword, updated, "")
 		assert.ErrorIs(t, err, ErrUnauthenticated)
 	}
-	require.NoError(t, e.svc.ChangePassword(ctx, e.principal(t, full), "10.0.0.1", testPassword, updated), "a full session can")
+	require.NoError(t, e.svc.ChangePassword(ctx, e.principal(t, full), "10.0.0.1", testPassword, updated, e.freshCode(t, seed)), "a full session can")
 }
 
 func TestRevokeSessionIsScopedToTheCaller(t *testing.T) {
@@ -190,14 +198,16 @@ func TestConcurrentPasswordChangeLosesCompareAndSet(t *testing.T) {
 	ctx := t.Context()
 
 	const first, second = "second correct horse 1", "third correct horse 2"
+	loserCode := e.freshCode(t, seed)
+	winnerCode := e.code(t, seed, 1) // the next step: valid within the skew window and not yet used
 	winner := func() {
 		e.svc.afterPasswordVerify = nil // the competing change must not re-enter the hook
-		require.NoError(t, e.svc.ChangePassword(ctx, p, "10.7.0.1", testPassword, first))
+		require.NoError(t, e.svc.ChangePassword(ctx, p, "10.7.0.1", testPassword, first, winnerCode))
 	}
 	// The stale change verifies the old password, then a competing change commits
 	// before it writes. Its write must be refused, not applied over the winner.
 	e.svc.afterPasswordVerify = winner
-	err := e.svc.ChangePassword(ctx, p, "10.7.0.1", testPassword, second)
+	err := e.svc.ChangePassword(ctx, p, "10.7.0.1", testPassword, second, loserCode)
 	require.ErrorIs(t, err, ErrPasswordChangedConcurrently)
 
 	u, err := read(ctx, e.st, func(ctx context.Context, tx store.Tx) (store.User, error) { return tx.UserByID(ctx, e.uid) })
@@ -208,4 +218,49 @@ func TestConcurrentPasswordChangeLosesCompareAndSet(t *testing.T) {
 	ok, _ = e.svc.Hasher.Verify(ctx, second, u.PasswordHash)
 	assert.False(t, ok, "the loser's password was never stored")
 	assert.Len(t, auditRows(t, e.st, "user.password_change_failed"), 1, "the refused change is audited without its passwords")
+}
+
+func TestChangePasswordRequiresAFreshCodeWhenMFAIsEnrolled(t *testing.T) {
+	e := newEnv(t, RoleAdmin)
+	seed, full := e.enrol(t)
+	p := e.principal(t, full)
+	ctx := t.Context()
+
+	err := e.svc.ChangePassword(ctx, p, "10.0.0.1", testPassword, updated, "")
+	assert.ErrorIs(t, err, ErrMFARequired, "a session cookie and the password are not enough")
+
+	err = e.svc.ChangePassword(ctx, p, "10.0.0.1", testPassword, updated, "000000")
+	assert.ErrorIs(t, err, ErrInvalidCode, "a wrong code is refused")
+
+	// The code that completed enrolment is already burned: replay is refused.
+	err = e.svc.ChangePassword(ctx, p, "10.0.0.1", testPassword, updated, e.code(t, seed, 0))
+	assert.ErrorIs(t, err, ErrInvalidCode, "a replayed code is refused")
+
+	// A policy mistake must not burn the code the user just typed.
+	code := e.freshCode(t, seed)
+	err = e.svc.ChangePassword(ctx, p, "10.0.0.1", testPassword, "short", code)
+	assert.ErrorIs(t, err, ErrWeakPassword)
+	require.NoError(t, e.svc.ChangePassword(ctx, p, "10.0.0.1", testPassword, updated, code), "the same code still works after a policy refusal")
+
+	_, err = e.svc.Login(ctx, "10.9.0.1", "ua", "ada", testPassword)
+	assert.ErrorIs(t, err, ErrInvalidCredentials, "only the successful change took effect")
+	reasons := ""
+	for _, r := range auditRows(t, e.st, "user.password_change_failed") {
+		reasons += string(r.Details)
+	}
+	for _, want := range []string{"mfa_required", "bad_mfa_code"} {
+		assert.Contains(t, reasons, want)
+	}
+	assert.NotContains(t, reasons, "000000", "codes never reach the audit log")
+}
+
+func TestChangePasswordIgnoresACodeWithoutMFA(t *testing.T) {
+	e := newEnv(t, RoleAdmin)
+	_, full := e.enrol(t)
+	ctx := t.Context()
+	require.NoError(t, e.st.Tx(ctx, func(ctx context.Context, tx store.Tx) error {
+		return tx.SetUserMFA(ctx, e.uid, "", false)
+	}))
+	require.NoError(t, e.svc.ChangePassword(ctx, e.principal(t, full), "10.0.0.1", testPassword, updated, ""),
+		"an account without two-step verification needs no code")
 }

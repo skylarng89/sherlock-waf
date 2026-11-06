@@ -370,6 +370,7 @@ type Status struct {
 	SpoolDropped           uint64
 	Pending                int
 	SpoolBytes             int64
+	SpoolMaxBytes          int64
 	LastSuccess            time.Time
 	LastError              string
 	LastErrorAt            time.Time
@@ -381,7 +382,7 @@ func (r *Runner) Status() Status {
 	s := Status{
 		ID: r.id, Name: r.name, Type: r.kind, Stream: r.stream,
 		Sent: r.sent.Load(), SendFailures: r.failures.Load(), Discarded: r.discarded.Load(),
-		Lagged: r.lagged.Load(), SpoolDropped: st.Dropped, Pending: st.Pending, SpoolBytes: st.Bytes,
+		Lagged: r.lagged.Load(), SpoolDropped: st.Dropped, Pending: st.Pending, SpoolBytes: st.Bytes, SpoolMaxBytes: r.spool.MaxBytes(),
 	}
 	if ns := r.lastOK.Load(); ns != 0 {
 		s.LastSuccess = time.Unix(0, ns)

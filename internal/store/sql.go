@@ -285,6 +285,14 @@ func (t sqlTx) SetUserPasswordIfCurrent(ctx context.Context, id, currentHash, ha
 	return n == 1, nil
 }
 
+func (t sqlTx) LockUser(ctx context.Context, id string) (bool, error) {
+	n, err := t.q.LockUser(ctx, id)
+	if err != nil {
+		return false, mapErr(err)
+	}
+	return n == 1, nil
+}
+
 func (t sqlTx) SetUserRole(ctx context.Context, id, role string) error {
 	return affected(t.q.UpdateUserRole(ctx, db.UpdateUserRoleParams{ID: id, Role: role}))
 }

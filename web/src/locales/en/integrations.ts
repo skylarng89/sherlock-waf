@@ -63,6 +63,9 @@ export default {
     framing: 'Framing',
     framingHelp: 'How TCP and TLS messages are delimited. Octet counting is the RFC 6587 default.',
     tlsServerName: 'TLS server name',
+    spoolMaxMb: 'Spool size limit (MiB)',
+    spoolMaxMbHelp:
+      'Optional. How much disk the backlog may use while the destination is down, 16 to 102400. Default 256. When full, the oldest records are dropped and counted.',
     tlsCaPem: 'CA certificate (PEM)',
     tlsCaPemHelp: 'Optional. Trust this CA instead of the system roots.',
     url: 'URL',

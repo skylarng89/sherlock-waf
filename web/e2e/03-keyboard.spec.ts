@@ -1,5 +1,6 @@
 import { expect, test } from './fixtures'
 import { LoginPage } from './pages/auth'
+import { DataProtectionPage, LoginProtectionPage } from './pages/finance'
 import { Shell } from './pages/shell'
 import type { Page } from '@playwright/test'
 
@@ -119,5 +120,39 @@ test.describe('keyboard @smoke', () => {
     await adminPage.keyboard.press('Escape')
     await expect(block).toBeHidden()
     await expect(mode).toBeFocused()
+  })
+
+  test('finance tabs: every control is reachable in reading order and the tab is current', async ({
+    adminPage,
+  }) => {
+    for (const [PageObject, name] of [
+      [LoginProtectionPage, 'Login protection'],
+      [DataProtectionPage, 'Data protection'],
+    ] as const) {
+      const tab = new PageObject(adminPage)
+      await tab.open()
+      await expect(
+        adminPage
+          .getByRole('navigation', { name: 'Site sections' })
+          .getByRole('link', { name, exact: true }),
+      ).toHaveAttribute('aria-current', 'page')
+      const count = await tagInteractive(adminPage)
+      const order = await tabThrough(adminPage, count)
+      expect(order, `${name}: Tab visits every control once, in order`).toEqual(
+        Array.from({ length: count }, (_, k) => k),
+      )
+    }
+  })
+
+  test('the Fintech baseline review opens and closes from the keyboard', async ({ adminPage }) => {
+    await new LoginProtectionPage(adminPage).open()
+    // The label changes with the state, so the button is found by what it controls.
+    const toggle = adminPage.locator('button[aria-controls="fintech-review"]')
+    await toggle.focus()
+    await adminPage.keyboard.press('Enter')
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    await expect(adminPage.getByTestId('fintech-diff')).toBeVisible()
+    await adminPage.keyboard.press('Enter')
+    await expect(adminPage.getByTestId('fintech-diff')).toBeHidden()
   })
 })

@@ -28,9 +28,11 @@ setup: ## Download Go modules, pinned tools and web dependencies
 	$(WEB) install --frozen-lockfile
 
 .PHONY: gen
-gen: ## Run code generators (event schema, sqlc, oapi-codegen, openapi-typescript)
+gen: ## Run code generators (event schema, config schema and reference, API reference, sqlc, oapi-codegen, openapi-typescript)
 	mkdir -p docs/reference
 	go run ./internal/events/schemagen docs/reference/event.schema.json
+	go run ./internal/config/refgen internal/config docs/reference
+	go run ./internal/controlplane/api/refgen api/openapi.yaml docs/reference/api-reference.md
 	$(GOTOOL) sqlc generate
 	$(GOTOOL) oapi-codegen -config api/oapi-codegen.yaml api/openapi.yaml
 	cd web && pnpm exec openapi-typescript ../api/openapi.yaml -o src/api/schema.d.ts

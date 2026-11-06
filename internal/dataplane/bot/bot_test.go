@@ -23,6 +23,7 @@ import (
 	"github.com/skylarng89/sherlock-waf/internal/dataplane/acl"
 	"github.com/skylarng89/sherlock-waf/internal/netx"
 	"github.com/skylarng89/sherlock-waf/internal/policy"
+	"github.com/skylarng89/sherlock-waf/internal/policy/challenge"
 	"github.com/skylarng89/sherlock-waf/internal/policy/ipset"
 )
 
@@ -336,6 +337,50 @@ func TestRateLimitHandoff(t *testing.T) {
 	assert.Contains(t, r.body, "Checking your browser")
 	assert.Equal(t, "ratelimit", r.d.Findings()[0].RuleID)
 	assert.True(t, send(t, h, reqOpts{target: "/", accept: html}).reached, "without a request for it nothing is challenged")
+}
+
+func TestLoginMarksAreChallengedUntilClearance(t *testing.T) {
+	challenge.Reset()
+	t.Cleanup(challenge.Reset)
+	h := newHandler(t, Handler{})
+	const ip = "203.0.113.10"
+	assert.True(t, send(t, h, reqOpts{target: "/", accept: html}).reached, "nothing marked: nothing challenged")
+
+	challenge.Mark(challenge.ClientKey("shop", netip.MustParseAddr(ip)), time.Hour)
+	r := send(t, h, reqOpts{target: "/login", accept: html})
+	assert.Equal(t, 403, r.status)
+	assert.Contains(t, r.body, "Checking your browser")
+	assert.Equal(t, "login", r.d.Findings()[0].RuleID, "the finding says who asked")
+	assert.True(t, send(t, h, reqOpts{target: "/", accept: html, ip: "203.0.113.99"}).reached, "another client is not challenged")
+
+	cookie := solveChallenge(t, h, "/login", ip, browserUA)
+	assert.True(t, send(t, h, reqOpts{target: "/login", accept: html, cookie: cookie}).reached, "a cleared client passes while still marked")
+	assert.True(t, Cleared(requestWithCookie(t, cookie), netip.MustParseAddr(ip), "shop"))
+	assert.False(t, Cleared(requestWithCookie(t, cookie), netip.MustParseAddr(ip), "other-site"), "clearance is per site")
+	assert.False(t, Cleared(requestWithCookie(t, ""), netip.MustParseAddr(ip), "shop"))
+}
+
+func TestLoginDeviceMarkChallengesAnotherAddress(t *testing.T) {
+	challenge.Reset()
+	t.Cleanup(challenge.Reset)
+	h := newHandler(t, Handler{})
+	probe, _ := http.NewRequestWithContext(t.Context(), http.MethodGet, "/", http.NoBody)
+	probe.Header.Set("User-Agent", browserUA)
+	probe.Header.Set("Accept", html) // the test request carries the same headers
+	challenge.Mark(challenge.DeviceKey("shop", challenge.Fingerprint(probe)), time.Hour)
+	r := send(t, h, reqOpts{target: "/login", accept: html, ip: "198.51.100.77"})
+	assert.Equal(t, 403, r.status, "the same browser fingerprint from a new address is challenged")
+}
+
+func requestWithCookie(t *testing.T, value string) *http.Request {
+	t.Helper()
+	r, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/", http.NoBody)
+	require.NoError(t, err)
+	r.Header.Set("User-Agent", browserUA)
+	if value != "" {
+		r.AddCookie(&http.Cookie{Name: Cookie, Value: value}) //nolint:gosec // a request cookie in a test
+	}
+	return r
 }
 
 type fakeDNS struct {

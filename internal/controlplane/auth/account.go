@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/skylarng89/sherlock-waf/internal/audit"
 	"github.com/skylarng89/sherlock-waf/internal/store"
@@ -24,16 +25,20 @@ var (
 	ErrSameAsCurrent = errors.New("new password must differ from the current password")
 	// ErrCurrentSession refuses to revoke the caller's own session; sign-out does that.
 	ErrCurrentSession = errors.New("the current session is ended by signing out")
+	// ErrMFARequired means the account has two-step verification enrolled and the
+	// request carried no verification code.
+	ErrMFARequired = errors.New("a verification code is required")
 	// ErrPasswordChangedConcurrently means another change committed after this
 	// one verified the current password; this change is refused, not applied.
 	ErrPasswordChangedConcurrently = errors.New("password changed concurrently")
 )
 
 // ChangePassword replaces the caller's password after re-checking the current
-// one. Every attempt counts against a per-user limit (the same bound as login)
+// one and, when the account has two-step verification, a current TOTP code (a
+// stolen session alone must not be enough to take the account over). Every attempt counts against a per-user limit (the same bound as login)
 // but a failure never locks the account. On success every other session of the
 // user ends; the caller's session stays signed in.
-func (s *Service) ChangePassword(ctx context.Context, p Principal, ip, current, next string) error {
+func (s *Service) ChangePassword(ctx context.Context, p Principal, ip, current, next, totp string) error {
 	if p.IsToken() || p.Stage != store.StageFull {
 		return ErrUnauthenticated
 	}
@@ -64,6 +69,20 @@ func (s *Service) ChangePassword(ctx context.Context, p Principal, ip, current, 
 	if subtle.ConstantTimeCompare([]byte(current), []byte(next)) == 1 {
 		s.auditPasswordChangeFailed(ctx, u.ID, ip, "unchanged")
 		return ErrSameAsCurrent
+	}
+	// The code is checked last among the cheap refusals: checkCode burns the TOTP
+	// step, and a policy mistake in the new password must not cost the user a code.
+	if u.MFAEnabled {
+		if strings.TrimSpace(totp) == "" {
+			s.auditPasswordChangeFailed(ctx, u.ID, ip, "mfa_required")
+			return ErrMFARequired
+		}
+		if err := s.checkCode(ctx, u, totp); err != nil {
+			if errors.Is(err, ErrInvalidCode) {
+				s.auditPasswordChangeFailed(ctx, u.ID, ip, "bad_mfa_code")
+			}
+			return err
+		}
 	}
 	if s.afterPasswordVerify != nil {
 		s.afterPasswordVerify() // test seam: lets a test commit a competing change here
@@ -148,6 +167,11 @@ func (s *Service) RevokeSession(ctx context.Context, p Principal, ip, id string)
 // creates the session so the count it sees is the count it changes. The audit
 // row is appended in the same transaction and delivered by the caller.
 func (s *Service) evictOldestFull(ctx context.Context, tx store.Tx, userID string) (*store.AuditEntry, error) {
+	// Without the row lock, two concurrent sign-ins on PostgreSQL (READ
+	// COMMITTED) both count four sessions and both insert a fifth.
+	if _, err := tx.LockUser(ctx, userID); err != nil {
+		return nil, fmt.Errorf("locking user for the session cap: %w", err)
+	}
 	sessions, err := tx.ListUserSessions(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("listing sessions for the cap: %w", err)

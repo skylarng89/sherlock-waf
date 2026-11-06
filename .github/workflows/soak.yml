@@ -1,0 +1,31 @@
+name: soak
+
+# The release soak (M11-T4): the whole data plane under steady mixed load with
+# the race detector, checked for 5xx, recovered internal errors, goroutine and
+# heap growth. Started by hand. GitHub-hosted runners stop a job after 6 hours,
+# so the 24 hour run needs a self-hosted runner: set the repository variable
+# SOAK_RUNNER to its label and start this workflow with duration 24h.
+on:
+  workflow_dispatch:
+    inputs:
+      duration:
+        description: Go duration of the load phase (24h needs a self-hosted SOAK_RUNNER)
+        default: 5h
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  soak:
+    runs-on: ${{ vars.SOAK_RUNNER || 'ubuntu-26.04' }}
+    timeout-minutes: 1560
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Soak
+        env:
+          SOAK_DURATION: ${{ inputs.duration }}
+        run: go test -race -tags 'soak sherlock_testhooks' -run '^TestSoak$' -count=1 -timeout 0 -v ./internal/app

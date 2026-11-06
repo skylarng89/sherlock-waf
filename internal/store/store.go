@@ -172,6 +172,10 @@ type Users interface {
 	// SetUserPasswordIfCurrent replaces the hash only while it still equals
 	// currentHash (compare-and-set). It reports false when another change won.
 	SetUserPasswordIfCurrent(ctx context.Context, id, currentHash, hash string) (bool, error)
+	// LockUser holds the user's row lock until the transaction ends, so a
+	// count-then-insert on that user's sessions or tokens cannot interleave with
+	// another transaction's. It reports whether the user exists.
+	LockUser(ctx context.Context, id string) (bool, error)
 	SetUserRole(ctx context.Context, id, role string) error
 	SetUserDisabled(ctx context.Context, id string, disabled bool) error
 	// SetUserMFA sets (or, with an empty secret id and false, clears) the TOTP secret and resets the replay step.

@@ -14,6 +14,8 @@ var (
 		"Records spooled and not yet delivered.", []string{"exporter", "type"}, nil)
 	descSpoolBytes = prometheus.NewDesc("sherlock_exporter_spool_bytes",
 		"Bytes held in the exporter's disk spool.", []string{"exporter", "type"}, nil)
+	descSpoolMax = prometheus.NewDesc("sherlock_exporter_spool_max_bytes",
+		"Configured cap of the exporter's disk spool (spool_max_mb); the oldest segment is dropped beyond it.", []string{"exporter", "type"}, nil)
 	descLastSuccess = prometheus.NewDesc("sherlock_exporter_last_success_timestamp_seconds",
 		"Unix time of the last accepted batch; 0 if none yet.", []string{"exporter", "type"}, nil)
 )
@@ -28,7 +30,7 @@ func RegisterMetrics(reg *prometheus.Registry, m *Manager) {
 type collector struct{ m *Manager }
 
 func (collector) Describe(ch chan<- *prometheus.Desc) {
-	for _, d := range []*prometheus.Desc{descSent, descFailures, descDropped, descPending, descSpoolBytes, descLastSuccess} {
+	for _, d := range []*prometheus.Desc{descSent, descFailures, descDropped, descPending, descSpoolBytes, descSpoolMax, descLastSuccess} {
 		ch <- d
 	}
 }
@@ -43,6 +45,7 @@ func (c collector) Collect(ch chan<- prometheus.Metric) {
 		ch <- prometheus.MustNewConstMetric(descDropped, prometheus.CounterValue, float64(s.Discarded), s.ID, s.Type, "rejected")
 		ch <- prometheus.MustNewConstMetric(descPending, prometheus.GaugeValue, float64(s.Pending), l...)
 		ch <- prometheus.MustNewConstMetric(descSpoolBytes, prometheus.GaugeValue, float64(s.SpoolBytes), l...)
+		ch <- prometheus.MustNewConstMetric(descSpoolMax, prometheus.GaugeValue, float64(s.SpoolMaxBytes), l...)
 		var ts float64
 		if !s.LastSuccess.IsZero() {
 			ts = float64(s.LastSuccess.UnixNano()) / 1e9

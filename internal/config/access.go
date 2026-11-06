@@ -11,28 +11,36 @@ import (
 
 // IPList is a named set of CIDRs referenced by ACL allow and deny lists.
 type IPList struct {
-	Name  string   `yaml:"name" json:"name"`
+	// Lowercase letters, digits, '-' or '_' (at most 63); unique.
+	Name string `yaml:"name" json:"name"`
+	// CIDR ranges or single addresses (IPv4 or IPv6).
 	CIDRs []string `yaml:"cidrs" json:"cidrs"`
 }
 
-// Feeds configures the background data the node refreshes (M5). Secrets are
+// Feeds configures the background data the node refreshes. Secrets are
 // never part of the document: the MaxMind licence key and the CrowdSec API key
 // come from the environment (SHERLOCK_MAXMIND_LICENSE_KEY, SHERLOCK_CROWDSEC_API_KEY).
 type Feeds struct {
-	GeoIP           GeoIPFeed      `yaml:"geoip,omitempty" json:"geoip"`
-	ReputationLists []string       `yaml:"reputation_lists,omitempty" json:"reputation_lists,omitempty"`
-	CrowdSec        CrowdSecConfig `yaml:"crowdsec,omitempty" json:"crowdsec"`
+	// The country database used by country ACLs and rules.
+	GeoIP GeoIPFeed `yaml:"geoip,omitempty" json:"geoip"`
+	// Public reputation lists to download: firehol_level1, spamhaus_drop.
+	ReputationLists []string `yaml:"reputation_lists,omitempty" json:"reputation_lists,omitempty"`
+	// Connection to a CrowdSec local API.
+	CrowdSec CrowdSecConfig `yaml:"crowdsec,omitempty" json:"crowdsec"`
 }
 
 // GeoIPFeed selects the country database.
 type GeoIPFeed struct {
-	Provider   string `yaml:"provider,omitempty" json:"provider,omitempty"` // dbip-lite (default) | maxmind
-	AutoUpdate bool   `yaml:"auto_update,omitempty" json:"auto_update,omitempty"`
+	Provider string `yaml:"provider,omitempty" json:"provider,omitempty"` // dbip-lite (default) | maxmind
+	// Downloads and refreshes the database automatically when it is missing or stale (default false: a database file placed in the data directory by hand is used as is).
+	AutoUpdate bool `yaml:"auto_update,omitempty" json:"auto_update,omitempty"`
 }
 
 // CrowdSecConfig connects to a CrowdSec local API as a bouncer.
 type CrowdSecConfig struct {
-	Enabled bool   `yaml:"enabled,omitempty" json:"enabled,omitempty"`
+	// Turns the CrowdSec bouncer on (default false).
+	Enabled bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
+	// http or https URL of the CrowdSec local API; required when enabled. The API key comes from SHERLOCK_CROWDSEC_API_KEY.
 	LAPIURL string `yaml:"lapi_url,omitempty" json:"lapi_url,omitempty"`
 	// AllowPrivate lets the API live on a loopback or private address, which
 	// is where a local CrowdSec agent usually listens. Link-local addresses
@@ -150,9 +158,13 @@ func (l NameList) MarshalJSON() ([]byte, error) {
 
 // ACLPolicy is the access-control block of a policy.
 type ACLPolicy struct {
-	AllowLists *NameList      `yaml:"allow_lists,omitempty" json:"allow_lists,omitempty"`
-	DenyLists  *NameList      `yaml:"deny_lists,omitempty" json:"deny_lists,omitempty"`
-	Countries  *Countries     `yaml:"countries,omitempty" json:"countries,omitempty"`
+	// Names of ip_lists whose clients are allowed: they skip rate limits and bot checks. A list of names replaces the inherited list; {add, remove} edits it.
+	AllowLists *NameList `yaml:"allow_lists,omitempty" json:"allow_lists,omitempty"`
+	// Names of ip_lists whose clients are blocked. A list of names replaces the inherited list; {add, remove} edits it.
+	DenyLists *NameList `yaml:"deny_lists,omitempty" json:"deny_lists,omitempty"`
+	// Allows or denies clients by country, using the GeoIP database from feeds.geoip.
+	Countries *Countries `yaml:"countries,omitempty" json:"countries,omitempty"`
+	// Acts on clients listed by the reputation feeds.
 	Reputation *ReputationACL `yaml:"reputation,omitempty" json:"reputation,omitempty"`
 	// PasswordGate puts HTTP Basic authentication in front of the site.
 	PasswordGate *PasswordGate `yaml:"password_gate,omitempty" json:"password_gate,omitempty"`
@@ -170,12 +182,15 @@ const (
 
 // Countries allows or denies ISO 3166-1 alpha-2 country codes.
 type Countries struct {
-	Mode string   `yaml:"mode,omitempty" json:"mode,omitempty"`
+	// off, allow (only the listed countries) or deny (all but the listed countries); default off.
+	Mode string `yaml:"mode,omitempty" json:"mode,omitempty"`
+	// ISO 3166-1 alpha-2 country codes in capitals, without duplicates; an empty list with mode allow is rejected because it would block every country.
 	List []string `yaml:"list,omitempty" json:"list,omitempty"`
 }
 
 // ReputationACL acts on feed-listed addresses.
 type ReputationACL struct {
+	// Turns reputation checks on (on by default whenever the reputation block is present).
 	Enabled *bool  `yaml:"enabled,omitempty" json:"enabled,omitempty"`
 	Action  string `yaml:"action,omitempty" json:"action,omitempty"` // block | log
 }
@@ -184,33 +199,46 @@ type ReputationACL struct {
 // PHC string (create one with `sherlock hash-password`); the clear password is
 // never stored.
 type PasswordGate struct {
-	Enabled      *bool  `yaml:"enabled,omitempty" json:"enabled,omitempty"`
-	Username     string `yaml:"username,omitempty" json:"username,omitempty"`
+	// Turns the gate on (on by default whenever the block is present); needs username and password_hash.
+	Enabled *bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
+	// The accepted user name, at most 64 characters, without ':' or line breaks.
+	Username string `yaml:"username,omitempty" json:"username,omitempty"`
+	// argon2id hash of the password, starting with $argon2id$; never returned by the API.
 	PasswordHash string `yaml:"password_hash,omitempty" json:"password_hash,omitempty"`
 }
 
 // RateLimit is one named limit.
 type RateLimit struct {
-	Name   string         `yaml:"name" json:"name"`
-	Match  RateLimitMatch `yaml:"match,omitempty" json:"match"`
-	Key    string         `yaml:"key,omitempty" json:"key,omitempty"` // ip | header:<name>
-	Limit  int            `yaml:"limit" json:"limit"`
-	Window Duration       `yaml:"window" json:"window"`
-	Action string         `yaml:"action,omitempty" json:"action,omitempty"` // block | challenge | log
+	// Lowercase letters, digits, '-' or '_' (at most 63); a lower level replaces an inherited limit of the same name.
+	Name string `yaml:"name" json:"name"`
+	// Restricts the limit to matching requests; empty applies it to every request.
+	Match RateLimitMatch `yaml:"match,omitempty" json:"match"`
+	Key   string         `yaml:"key,omitempty" json:"key,omitempty"` // ip | header:<name>
+	// Requests allowed per window and key, 1 to 1,000,000.
+	Limit int `yaml:"limit" json:"limit"`
+	// Length of the counting window, 1s to 24h.
+	Window Duration `yaml:"window" json:"window"`
+	Action string   `yaml:"action,omitempty" json:"action,omitempty"` // block | challenge | log
 }
 
 // RateLimitMatch narrows a limit to paths (path.Match globs) and methods.
 type RateLimitMatch struct {
-	Paths   []string `yaml:"paths,omitempty" json:"paths,omitempty"`
+	// Path globs starting with '/' (at most 50); default ["/*"].
+	Paths []string `yaml:"paths,omitempty" json:"paths,omitempty"`
+	// Upper-case HTTP methods; empty means every method.
 	Methods []string `yaml:"methods,omitempty" json:"methods,omitempty"`
 }
 
 // AutoBan bans a client that keeps getting blocked.
 type AutoBan struct {
-	Enabled         *bool    `yaml:"enabled,omitempty" json:"enabled,omitempty"`
-	BlocksThreshold int      `yaml:"blocks_threshold,omitempty" json:"blocks_threshold,omitempty"`
-	Window          Duration `yaml:"window,omitempty" json:"window,omitempty"`
-	BanDuration     Duration `yaml:"ban_duration,omitempty" json:"ban_duration,omitempty"`
+	// Turns auto-ban on (on by default whenever the block is present).
+	Enabled *bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
+	// Number of blocked requests within window that triggers a ban, 1 to 1,000,000.
+	BlocksThreshold int `yaml:"blocks_threshold,omitempty" json:"blocks_threshold,omitempty"`
+	// Period in which blocks are counted, 1s to 24h.
+	Window Duration `yaml:"window,omitempty" json:"window,omitempty"`
+	// How long the client stays banned, 1m to 30d.
+	BanDuration Duration `yaml:"ban_duration,omitempty" json:"ban_duration,omitempty"`
 }
 
 // Rate-limit actions and keys.

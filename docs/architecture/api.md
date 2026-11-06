@@ -16,6 +16,7 @@
 | Pagination | Cursor-based: `?limit=50&cursor=…`, response `{items, next_cursor}` |
 | Filtering events | Query params (`site`, `action`, `rule_id`, `ip`, `from`, `to`, `q`) |
 | Concurrency | Config objects return `ETag` (config version). Writes require `If-Match`; mismatch returns 412 so two admins cannot overwrite each other |
+| Deprecation | A deprecated operation is marked `deprecated: true` with `x-sherlock-sunset` (RFC 3339) in the spec, is announced one minor release ahead, and answers with `Deprecation: true`, `Sunset: <HTTP-date>` and an optional `Link: <notes>; rel="deprecation"`. Nothing is deprecated at 1.0 |
 | Idempotency | `POST` that creates accepts optional `Idempotency-Key` header |
 | Rate limiting | Login: 5 attempts/min per IP, per IP and username, and 20/min per username across clients. Failed API-token presentations: 10/min per IP (429 before the lookup). Control plane: 300 req/min per signed-in user or token; 120 req/min per IP for anonymous public operations (429, `Retry-After`) |
 
@@ -81,7 +82,7 @@ Operational conventions: errors are RFC 9457 `application/problem+json` with a `
 | `POST /system/update/apply` | Download, verify (ADR-0017) and stage or install the latest release; never restarts; audited | admin (`system:update`; the `admin` token scope only) | M7 |
 | `GET /system/backups` | The node's own backups, newest first | viewer (`system:read`) | M7 |
 | `GET /setup/status`, `POST /setup/admin` | First-run setup: whether it is open; create the first admin with the one-time setup token | public (token-guarded, closes itself) | M4 |
-| `POST /system/test-upstream` | Reachability check for an upstream (connect + `HEAD /`, no redirects, 3 s, no response content returned) | admin | M4 |
+| `POST /system/upstream/test` | Reachability check for an upstream (connect + `HEAD /`, no redirects, 3 s, no response content returned) | admin | M4 |
 | `GET /stats/timeseries?from&to&step&site` | Event counts per bucket and action from the minute rollups (dense buckets, at most 2000) | viewer | M4 |
 | `GET/POST /certificates`, `DELETE /certificates/{id}`, `GET /certificates/acme-status` | Uploaded certificates (PEM chain + key; key never returned; delete refused while a site uses it); certificate state per site host | viewer / admin | M4 |
 | `GET /block-pages`, `PUT/DELETE /block-pages/{id}` | Custom block page templates (`html/template`; fields `.Status .Title .Detail .EventID`; validated by rendering once; delete refused while in use) | viewer / admin | M4 |

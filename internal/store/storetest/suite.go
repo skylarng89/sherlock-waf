@@ -41,6 +41,7 @@ func Run(t *testing.T, newStore Factory) {
 		"sessions":                     testSessions,
 		"sessions of one user":         testUserSessions,
 		"tokens":                       testTokens,
+		"user lock serialises writers": testLockUser,
 		"deleting a user cascades":     testCascade,
 		"audit head and ordering":      testAudit,
 		"concurrent audit writers":     testAuditConcurrent,
@@ -444,6 +445,64 @@ func testSessionConstraints(t *testing.T, s store.Store) {
 	sess.Stage, sess.UserID = store.StageFull, "ghost"
 	assert.Error(t, failsWith(t, s, func(ctx context.Context, tx store.Tx) error { return tx.CreateSession(ctx, sess) }),
 		"a session for a missing user is rejected: foreign keys are enforced on every engine")
+}
+
+// testLockUser is the guarantee the session and token caps rely on: with the
+// user's row lock, "count, then insert if below the cap" cannot interleave. On
+// PostgreSQL (READ COMMITTED) without the lock every writer sees the same count.
+func testLockUser(t *testing.T, s store.Store) {
+	tx(t, s, func(ctx context.Context, tx store.Tx) error {
+		require.NoError(t, tx.CreateUser(ctx, user("u1", "alice")))
+		ok, err := tx.LockUser(ctx, "u1")
+		require.NoError(t, err)
+		assert.True(t, ok)
+		ok, err = tx.LockUser(ctx, "nobody")
+		require.NoError(t, err)
+		assert.False(t, ok, "a missing user is reported, not an error")
+		return nil
+	})
+
+	const writers, limit = 12, 3
+	errAtCap := errors.New("at cap")
+	var wg sync.WaitGroup
+	results := make(chan error, writers)
+	for i := range writers {
+		wg.Go(func() {
+			results <- s.Tx(t.Context(), func(ctx context.Context, tx store.Tx) error {
+				if _, err := tx.LockUser(ctx, "u1"); err != nil {
+					return err
+				}
+				existing, err := tx.ListTokensByUser(ctx, "u1")
+				if err != nil {
+					return err
+				}
+				if len(existing) >= limit {
+					return errAtCap
+				}
+				id := "t" + strconv.Itoa(i)
+				return tx.CreateToken(ctx, store.Token{ID: id, UserID: "u1", Name: id, TokenHash: "h" + id, Scopes: []byte(`[]`), CIDRs: []byte(`[]`), CreatedAt: base})
+			})
+		})
+	}
+	wg.Wait()
+	close(results)
+	ok := 0
+	for err := range results {
+		switch {
+		case err == nil:
+			ok++
+		case errors.Is(err, errAtCap):
+		default:
+			t.Errorf("unexpected error: %v", err)
+		}
+	}
+	assert.Equal(t, limit, ok, "exactly the cap's worth of writers succeed")
+	tx(t, s, func(ctx context.Context, tx store.Tx) error {
+		got, err := tx.ListTokensByUser(ctx, "u1")
+		require.NoError(t, err)
+		assert.Len(t, got, limit)
+		return nil
+	})
 }
 
 func testTokens(t *testing.T, s store.Store) {

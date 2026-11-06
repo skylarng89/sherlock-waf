@@ -102,6 +102,8 @@ func (r *Root) validateGlobalAccess(errs *Errors) map[string]bool {
 func (p *Policy) validateAccess(path string, lists map[string]bool, inherited []string, isGlobal bool, errs *Errors) {
 	p.validateBot(path+"/bot", errs)
 	p.validateAPI(path+"/api", errs)
+	p.validateLogin(path+"/login_protection", errs)
+	p.validateDLP(path+"/dlp", errs)
 	if a := p.ACL; a != nil {
 		a.validate(path+"/acl", lists, errs)
 	}

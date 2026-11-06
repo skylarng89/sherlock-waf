@@ -1,7 +1,6 @@
 package config
 
 import (
-	"path"
 	"regexp"
 	"slices"
 	"strconv"
@@ -41,11 +40,17 @@ const (
 // Exclusion removes CRS rules, tags or rule targets for requests that match
 // Match. It compiles to a runtime exclusion rule placed before CRS (T1).
 type Exclusion struct {
-	ID            string            `yaml:"id" json:"id"`
-	Description   string            `yaml:"description,omitempty" json:"description,omitempty"`
-	Match         ExclusionMatch    `yaml:"match,omitempty" json:"match"`
-	RemoveRuleIDs []string          `yaml:"remove_rule_ids,omitempty" json:"remove_rule_ids,omitempty"`
-	RemoveTags    []string          `yaml:"remove_tags,omitempty" json:"remove_tags,omitempty"`
+	// Lowercase slug that names the exclusion; unique within a level.
+	ID string `yaml:"id" json:"id"`
+	// Why the exclusion exists, at most 500 characters.
+	Description string `yaml:"description,omitempty" json:"description,omitempty"`
+	// Which requests the exclusion applies to; empty means all requests.
+	Match ExclusionMatch `yaml:"match,omitempty" json:"match"`
+	// CRS rule ids ("942100") or ranges ("942100-942199") that are not evaluated. Sherlock's own rules, virtual patches and custom rules cannot be removed here.
+	RemoveRuleIDs []string `yaml:"remove_rule_ids,omitempty" json:"remove_rule_ids,omitempty"`
+	// CRS rule tags whose rules are not evaluated.
+	RemoveTags []string `yaml:"remove_tags,omitempty" json:"remove_tags,omitempty"`
+	// Request targets removed from the checks of specific rules or tags.
 	RemoveTargets []ExclusionTarget `yaml:"remove_targets,omitempty" json:"remove_targets,omitempty"`
 }
 
@@ -53,16 +58,21 @@ type Exclusion struct {
 // Methods every method. Paths use path.Match globs ("*" does not cross "/");
 // a trailing "/**" matches the prefix and everything below it.
 type ExclusionMatch struct {
-	Paths   []string `yaml:"paths,omitempty" json:"paths,omitempty"`
+	// Path globs the exclusion applies to; empty means every path.
+	Paths []string `yaml:"paths,omitempty" json:"paths,omitempty"`
+	// Upper-case HTTP methods the exclusion applies to; empty means every method.
 	Methods []string `yaml:"methods,omitempty" json:"methods,omitempty"`
 }
 
 // ExclusionTarget removes one request target (ARGS:q, REQUEST_COOKIES:/^_ga/)
 // from the checks of the listed rules or tags.
 type ExclusionTarget struct {
+	// Rule ids or ranges the target is removed from (give rule_ids or tags).
 	RuleIDs []string `yaml:"rule_ids,omitempty" json:"rule_ids,omitempty"`
-	Tags    []string `yaml:"tags,omitempty" json:"tags,omitempty"`
-	Target  string   `yaml:"target" json:"target"`
+	// Rule tags the target is removed from (give rule_ids or tags).
+	Tags []string `yaml:"tags,omitempty" json:"tags,omitempty"`
+	// The request target to exclude, in CRS syntax such as ARGS:q, ARGS_NAMES:q or REQUEST_COOKIES:/^_ga/.
+	Target string `yaml:"target" json:"target"`
 }
 
 var (
@@ -112,7 +122,7 @@ func (m ExclusionMatch) validate(p string, errs *Errors) {
 		case !validPath(g) || strings.ContainsAny(g, "\"'\\") || strings.IndexFunc(g, func(r rune) bool { return r < 0x20 || r == 0x7f }) >= 0:
 			errs.add(gp, CodeInvalid, "must start with '/' and contain no '..' segments, quotes, backslashes or control characters")
 		default:
-			if _, err := path.Match(strings.TrimSuffix(g, "/**"), ""); err != nil {
+			if _, err := PathsRegexp([]string{g}); err != nil {
 				errs.add(gp, CodeInvalid, "invalid glob: %v", err)
 			}
 		}

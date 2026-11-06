@@ -3,6 +3,7 @@ package ratelimit
 import (
 	"context"
 	"fmt"
+	"hash/fnv"
 	"sync"
 	"testing"
 	"time"
@@ -139,4 +140,33 @@ func BenchmarkAllow(b *testing.B) {
 			i++
 		}
 	})
+}
+
+func TestAddAtCountsPastTheLimitAndEstimateAtDoesNotCount(t *testing.T) {
+	now := time.Unix(1_000_020, 0) // on a window boundary, so the arithmetic below is exact
+	l := newWithClock(1024, func() time.Time { return now })
+	const w = time.Minute
+
+	assert.Zero(t, l.EstimateAt("k", w, now), "a stranger has no count")
+	assert.Zero(t, l.Len(), "asking creates no key")
+	for i := 1; i <= 10; i++ {
+		assert.InDelta(t, float64(i), l.AddAt("k", w, now), 1e-9, "failures keep counting past any limit")
+	}
+	assert.InDelta(t, 10, l.EstimateAt("k", w, now), 1e-9)
+	assert.InDelta(t, 10, l.EstimateAt("k", w, now), 1e-9, "estimating does not count")
+
+	// Half a window later the previous bucket is weighted by what still overlaps.
+	later := now.Add(w).Add(w / 2)
+	assert.InDelta(t, 5, l.EstimateAt("k", w, later), 1.0)
+	assert.Zero(t, l.EstimateAt("k", w, now.Add(3*w)), "idle for two windows: forgotten")
+	assert.Zero(t, l.EstimateAt("k", 2*w, now), "a different window is a different rule")
+}
+
+func TestShardOfMatchesFNV(t *testing.T) {
+	l := newWithClock(1024, time.Now)
+	for _, k := range []string{"", "a", "ip|site|10.0.0.1", "héllo"} {
+		h := fnv.New32a()
+		_, _ = h.Write([]byte(k))
+		assert.Same(t, &l.shards[h.Sum32()%shardCount], l.shardOf(k), k)
+	}
 }

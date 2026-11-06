@@ -26,7 +26,7 @@ Written: 2026-10-28. Status: approved plan, pre-implementation.
 | 14 | [engineering/](engineering/) | Repo layout, coding standards, testing, CI/CD, dev environment |
 | 15 | [release/](release/) | Versioning, releases, upgrades and support |
 | 16 | [operations/deployment.md](operations/deployment.md) | Installing and running Sherlock |
-| 16b | [user/](user/) | Install, first site, detect-to-block rollout, backup and restore, upgrade, investigating attacks in the dashboard ([dashboard-events](user/dashboard-events.md)) |
+| 16b | [user/](user/) | Install, first site, detect-to-block rollout, backup and restore, upgrade, investigating attacks in the dashboard ([dashboard-events](user/dashboard-events.md)), [TLS and certificates](user/tls-certificates.md), [users, tokens and the audit log](user/users-tokens-audit.md), [virtual patching](user/virtual-patching.md) |
 | 16c | [integrations/](integrations/README.md) | Sending events and audit records to a SIEM, verifying webhook signatures, alert rules and channels; guides for [Splunk](integrations/splunk.md), [Elastic](integrations/elastic.md), [Sentinel](integrations/sentinel.md), [Graylog](integrations/graylog.md) and [Wazuh](integrations/wazuh.md) |
 | 17 | [plan/roadmap.md](plan/roadmap.md) | Choosing the next milestone |
 | 18 | [plan/milestones/](plan/milestones/) | Building. One file per milestone with tasks and acceptance criteria |

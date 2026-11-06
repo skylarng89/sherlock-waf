@@ -85,6 +85,10 @@ type Querier interface {
 	ListTokensByUser(ctx context.Context, userID string) ([]ApiToken, error)
 	ListUserSessions(ctx context.Context, userID string) ([]Session, error)
 	ListUsers(ctx context.Context) ([]User, error)
+	// Takes the user's row lock for the rest of the transaction without changing
+	// anything: PostgreSQL holds the lock until commit, SQLite already serialises
+	// writers. Callers use it to make "count, then insert" atomic per user.
+	LockUser(ctx context.Context, id string) (int64, error)
 	RecordLoginFailure(ctx context.Context, arg RecordLoginFailureParams) error
 	RecordLoginSuccess(ctx context.Context, arg RecordLoginSuccessParams) error
 	SetAuditHeadHash(ctx context.Context, hash string) error

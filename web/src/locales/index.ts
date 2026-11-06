@@ -11,9 +11,12 @@ import bot from './en/bot'
 import certificates from './en/certificates'
 import common from './en/common'
 import defaults from './en/defaults'
+import dlp from './en/dlp'
 import events from './en/events'
+import fintech from './en/fintech'
 import history from './en/history'
 import integrations from './en/integrations'
+import login from './en/login'
 import nav from './en/nav'
 import overview from './en/overview'
 import reports from './en/reports'
@@ -36,9 +39,12 @@ export const en = {
   certificates,
   common,
   defaults,
+  dlp,
   events,
+  fintech,
   history,
   integrations,
+  login,
   nav,
   overview,
   reports,

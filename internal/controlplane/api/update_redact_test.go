@@ -176,7 +176,7 @@ func TestTestUpstreamRefusesMetadataAndLinkLocal(t *testing.T) {
 	h := newHarness(t)
 	a := adminSession(h)
 	for _, target := range []string{"169.254.169.254:80", "[fe80::1]:80", "0.0.0.0:80"} {
-		r := a.do("POST", "/system/test-upstream", map[string]any{"target": target})
+		r := a.do("POST", "/system/upstream/test", map[string]any{"target": target})
 		require.Equal(t, http.StatusOK, r.Status, target)
 		body := r.JSON(t)
 		assert.Equal(t, false, body["reachable"], target)

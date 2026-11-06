@@ -137,8 +137,16 @@ func (h *handlers) ChangePassword(ctx context.Context, req apigen.ChangePassword
 	if req.Body == nil {
 		return nil, errBadRequest("A JSON body is required.")
 	}
-	err := h.s.Auth.ChangePassword(ctx, principalFrom(ctx), ipFrom(ctx), req.Body.CurrentPassword, req.Body.NewPassword)
+	var totp string
+	if req.Body.TotpCode != nil {
+		totp = *req.Body.TotpCode
+	}
+	err := h.s.Auth.ChangePassword(ctx, principalFrom(ctx), ipFrom(ctx), req.Body.CurrentPassword, req.Body.NewPassword, totp)
 	switch {
+	case errors.Is(err, auth.ErrMFARequired):
+		return nil, fieldProblem("/totp_code", "required", "Enter the current verification code from your authenticator app.")
+	case errors.Is(err, auth.ErrInvalidCode):
+		return nil, fieldProblem("/totp_code", "incorrect", "The verification code is incorrect or already used.")
 	case errors.Is(err, auth.ErrWrongPassword):
 		return nil, fieldProblem("/current_password", "incorrect", "The current password is incorrect.")
 	case errors.Is(err, auth.ErrWeakPassword), errors.Is(err, auth.ErrSameAsCurrent):

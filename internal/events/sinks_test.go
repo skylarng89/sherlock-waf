@@ -221,3 +221,35 @@ func TestJSONLWriterReportsWriteErrors(t *testing.T) {
 	assert.Contains(t, err.Error(), "disk full")
 	require.NoError(t, w.Flush(), "a failed batch is dropped, not retried forever")
 }
+
+// A rotation that cannot complete (here: a non-empty directory sits where the
+// rotated file must go) must not leave the sink holding a closed handle: events
+// keep landing in the current file, and rotation resumes once the fault is gone.
+func TestRotatingFileSurvivesAFailedRotation(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "events.jsonl")
+	r, err := NewRotatingFile(path, 50, 1)
+	require.NoError(t, err)
+	defer func() { _ = r.Close() }()
+
+	blocker := path + ".1"
+	require.NoError(t, os.MkdirAll(filepath.Join(blocker, "x"), 0o700))
+
+	line := []byte(strings.Repeat("a", 30) + "\n")
+	for range 5 {
+		n, err := r.Write(line)
+		require.NoError(t, err, "a failed rotation must not fail the write")
+		assert.Equal(t, len(line), n)
+	}
+	got, err := os.ReadFile(path) //nolint:gosec // test path
+	require.NoError(t, err)
+	assert.Len(t, got, 5*len(line), "every event is in the current file, none lost")
+
+	require.NoError(t, os.RemoveAll(blocker))
+	r.retryAt = time.Time{} // the retry delay has passed
+	_, err = r.Write(line)
+	require.NoError(t, err)
+	rotated, err := os.ReadFile(blocker) //nolint:gosec // test path
+	require.NoError(t, err, "rotation resumed once the obstruction was removed")
+	assert.Len(t, rotated, 5*len(line))
+}

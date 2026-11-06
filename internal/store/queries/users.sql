@@ -26,6 +26,12 @@ UPDATE users SET password_hash = sqlc.arg(password_hash), failed_count = 0, lock
 -- name: UpdateUserPasswordIfCurrent :execrows
 UPDATE users SET password_hash = sqlc.arg(password_hash), failed_count = 0, locked_until = 0 WHERE id = sqlc.arg(id) AND password_hash = sqlc.arg(current_hash);
 
+-- Takes the user's row lock for the rest of the transaction without changing
+-- anything: PostgreSQL holds the lock until commit, SQLite already serialises
+-- writers. Callers use it to make "count, then insert" atomic per user.
+-- name: LockUser :execrows
+UPDATE users SET mfa_last_step = mfa_last_step WHERE id = sqlc.arg(id);
+
 -- name: UpdateUserRole :execrows
 UPDATE users SET role = sqlc.arg(role) WHERE id = sqlc.arg(id);
 

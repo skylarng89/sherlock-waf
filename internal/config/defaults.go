@@ -72,6 +72,7 @@ func (r *Root) ApplyDefaults() {
 func (p *Policy) applyAccessDefaults() {
 	p.applyBotDefaults()
 	p.applyAPIDefaults()
+	p.applyLoginDefaults()
 	for i := range p.RateLimits {
 		rl := &p.RateLimits[i]
 		if rl.Key == "" {

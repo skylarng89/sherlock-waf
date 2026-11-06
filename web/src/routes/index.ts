@@ -9,9 +9,11 @@ import bans from './bans'
 import bot from './bot'
 import certificates from './certificates'
 import defaults from './defaults'
+import dlp from './dlp'
 import events from './events'
 import history from './history'
 import integrations from './integrations'
+import login from './login'
 import overview from './overview'
 import reports from './reports'
 import setup from './setup'
@@ -40,6 +42,8 @@ const areas: AreaModule[] = [
   bans,
   bot,
   api,
+  login,
+  dlp,
   events,
   tuning,
   analytics,

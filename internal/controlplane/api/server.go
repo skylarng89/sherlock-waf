@@ -117,15 +117,17 @@ type Deps struct {
 // Server is the HTTP API.
 type Server struct {
 	Deps
-	log       *slog.Logger
-	perms     map[string]string // "METHOD /api/v1/path/{param}" -> permission
-	validator *oapi.Validator
-	limits    ratelimit.Backend
+	log          *slog.Logger
+	perms        map[string]string // "METHOD /api/v1/path/{param}" -> permission
+	deprecations map[string]deprecation
+	validator    *oapi.Validator
+	limits       ratelimit.Backend
 
 	updates updateCache
 }
 
-// New builds the server and verifies that every operation declares a permission.
+// New builds the server and verifies that every operation declares a permission
+// and that every deprecated operation declares its sunset date.
 func New(d Deps) (*Server, error) {
 	if d.Logger == nil {
 		d.Logger = slog.New(slog.DiscardHandler)
@@ -144,6 +146,10 @@ func New(d Deps) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
+	deprecations, err := deprecationTableFor(spec)
+	if err != nil {
+		return nil, err
+	}
 	validator, err := newRequestValidator(spec)
 	if err != nil {
 		return nil, err
@@ -151,7 +157,7 @@ func New(d Deps) (*Server, error) {
 	if d.Limits == nil {
 		d.Limits = ratelimit.New(requestLimiterKeys)
 	}
-	return &Server{Deps: d, log: d.Logger, perms: perms, validator: validator, limits: d.Limits}, nil
+	return &Server{Deps: d, log: d.Logger, perms: perms, deprecations: deprecations, validator: validator, limits: d.Limits}, nil
 }
 
 // permissionTable reads x-sherlock-permission from the embedded spec.
@@ -280,6 +286,9 @@ func (s *Server) guard(mux *http.ServeMux) http.Handler {
 		if !declared { // only the not-found fallback is registered without a permission
 			mux.ServeHTTP(w, r)
 			return
+		}
+		if d, ok := s.deprecations[pattern]; ok {
+			setDeprecationHeaders(w.Header(), d) // before any refusal, so every response announces it
 		}
 		if perm == auth.PermPublic {
 			if err := s.limitAnonymous(r); err != nil {

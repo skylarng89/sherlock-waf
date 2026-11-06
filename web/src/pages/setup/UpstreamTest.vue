@@ -41,7 +41,7 @@ async function run() {
   failure.value = undefined
   try {
     const res = await call(
-      client.POST('/system/test-upstream', {
+      client.POST('/system/upstream/test', {
         body: { target: props.target.trim(), tls: props.tls, tls_skip_verify: props.skipVerify },
       }),
       { toast: false },

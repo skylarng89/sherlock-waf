@@ -15,19 +15,22 @@ import (
 // APIPolicy configures the API module: OpenAPI conformance, JWT validation and
 // mutual TLS. Every field is optional and inherits like the rest of a policy.
 type APIPolicy struct {
+	// Turns API protection on (on by default whenever the block is present).
 	Enabled *bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
 	// OpenAPIDocID refers to an uploaded OpenAPI document (3.0 or 3.1).
 	OpenAPIDocID string `yaml:"openapi_doc_id,omitempty" json:"openapi_doc_id,omitempty"`
 	// UnknownPathAction applies to requests the document does not describe
-	// (path or method); SchemaViolationAction to documented requests whose
-	// parameters or body break the schema. Both are log (default) or block.
-	UnknownPathAction     string `yaml:"unknown_path_action,omitempty" json:"unknown_path_action,omitempty"`
+	// (path or method): log (default) or block. Blocking needs openapi_doc_id.
+	UnknownPathAction string `yaml:"unknown_path_action,omitempty" json:"unknown_path_action,omitempty"`
+	// SchemaViolationAction applies to documented requests whose parameters or
+	// body break the schema: log (default) or block. Blocking needs openapi_doc_id.
 	SchemaViolationAction string `yaml:"schema_violation_action,omitempty" json:"schema_violation_action,omitempty"`
 	// MaxBodyBytes bounds the request body read for schema validation; larger
 	// bodies are not validated (the finding says so).
 	MaxBodyBytes *int64 `yaml:"max_body_bytes,omitempty" json:"max_body_bytes,omitempty"`
 	// JWT rules are a list: a lower level replaces the whole list.
-	JWT  []JWTRule   `yaml:"jwt,omitempty" json:"jwt,omitempty"`
+	JWT []JWTRule `yaml:"jwt,omitempty" json:"jwt,omitempty"`
+	// Requires a verified client certificate on the listed paths.
 	MTLS *MTLSPolicy `yaml:"mtls,omitempty" json:"mtls,omitempty"`
 }
 
@@ -35,6 +38,7 @@ type APIPolicy struct {
 // exactly one of JWKSURL (fetched by a background job, never on the request
 // path), PublicKeyPEM or HMACSecretEnv.
 type JWTRule struct {
+	// Which requests the rule applies to (default all paths and methods).
 	Match APIMatch `yaml:"match,omitempty" json:"match"`
 	// JWKSURL must be https and may not point at a private, loopback or
 	// link-local address (SSRF, threat T13).
@@ -43,9 +47,11 @@ type JWTRule struct {
 	PublicKeyPEM string `yaml:"public_key_pem,omitempty" json:"public_key_pem,omitempty"`
 	// HMACSecretEnv names the environment variable holding a shared secret.
 	// It is the only way to accept HS256/384/512 tokens.
-	HMACSecretEnv string   `yaml:"hmac_secret_env,omitempty" json:"hmac_secret_env,omitempty"`
-	Issuer        string   `yaml:"issuer,omitempty" json:"issuer,omitempty"`
-	Audiences     []string `yaml:"audiences,omitempty" json:"audiences,omitempty"`
+	HMACSecretEnv string `yaml:"hmac_secret_env,omitempty" json:"hmac_secret_env,omitempty"`
+	// Required value of the token's iss claim; set issuer or audiences (or both).
+	Issuer string `yaml:"issuer,omitempty" json:"issuer,omitempty"`
+	// Accepted values of the token's aud claim, at most 20; the token must carry at least one.
+	Audiences []string `yaml:"audiences,omitempty" json:"audiences,omitempty"`
 	// ClockSkew tolerates small clock differences in exp/nbf (default 30s).
 	ClockSkew Duration `yaml:"clock_skew,omitempty" json:"clock_skew,omitempty"`
 	// RefreshInterval is how often the JWKS is refetched (default 15m).
@@ -59,7 +65,9 @@ type JWTRule struct {
 
 // APIMatch selects requests by path glob and method.
 type APIMatch struct {
-	Paths   []string `yaml:"paths,omitempty" json:"paths,omitempty"`
+	// Path globs starting with '/' (default ["/*"]).
+	Paths []string `yaml:"paths,omitempty" json:"paths,omitempty"`
+	// Upper-case HTTP methods; empty means every method.
 	Methods []string `yaml:"methods,omitempty" json:"methods,omitempty"`
 }
 
@@ -67,8 +75,10 @@ type APIMatch struct {
 // CA is an uploaded CA bundle; the site's TLS listener asks for a certificate
 // (without insisting) and the API module enforces the paths.
 type MTLSPolicy struct {
+	// Path globs (at most 50) on which a verified client certificate is required.
 	RequiredPaths []string `yaml:"required_paths,omitempty" json:"required_paths,omitempty"`
-	CACertID      string   `yaml:"ca_cert_id,omitempty" json:"ca_cert_id,omitempty"`
+	// Id of an uploaded CA bundle the client certificate must chain to; required when required_paths is set.
+	CACertID string `yaml:"ca_cert_id,omitempty" json:"ca_cert_id,omitempty"`
 }
 
 // API defaults and bounds.

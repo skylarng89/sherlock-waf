@@ -11,6 +11,7 @@ import (
 // BotPolicy configures the bot module: challenge pages for suspicious clients.
 // Every field is optional and inherits like the rest of a policy.
 type BotPolicy struct {
+	// Turns bot defence on (on by default whenever the block is present).
 	Enabled *bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
 	// Challenge is pow (self-hosted proof of work), turnstile or hcaptcha. The
 	// provider secrets come from the environment (SHERLOCK_TURNSTILE_SECRET,
@@ -26,20 +27,25 @@ type BotPolicy struct {
 	// VerifiedBots says what to do with clients that claim to be a search
 	// engine and whose address checks out by reverse DNS: allow (default),
 	// challenge or block. Claims that do not verify are treated as ordinary clients.
-	VerifiedBots string    `yaml:"verified_bots,omitempty" json:"verified_bots,omitempty"`
-	Rules        []BotRule `yaml:"rules,omitempty" json:"rules,omitempty"`
+	VerifiedBots string `yaml:"verified_bots,omitempty" json:"verified_bots,omitempty"`
+	// Rules evaluated in order against each request; at most 50. A lower level replaces the whole list.
+	Rules []BotRule `yaml:"rules,omitempty" json:"rules,omitempty"`
 }
 
 // BotRule challenges (or blocks, or lets through) requests that match.
 type BotRule struct {
+	// Which requests the rule applies to; every set field must match.
 	Match  BotMatch `yaml:"match,omitempty" json:"match"`
 	Action string   `yaml:"action,omitempty" json:"action,omitempty"` // challenge (default) | block | allow
 }
 
 // BotMatch selects requests; every set field must match.
 type BotMatch struct {
-	Paths     []string `yaml:"paths,omitempty" json:"paths,omitempty"`
-	Methods   []string `yaml:"methods,omitempty" json:"methods,omitempty"`
+	// Path globs starting with '/'.
+	Paths []string `yaml:"paths,omitempty" json:"paths,omitempty"`
+	// Upper-case HTTP methods.
+	Methods []string `yaml:"methods,omitempty" json:"methods,omitempty"`
+	// ISO 3166-1 alpha-2 country codes in capitals.
 	Countries []string `yaml:"countries,omitempty" json:"countries,omitempty"`
 	// Reputation true matches clients on a reputation list.
 	Reputation *bool `yaml:"reputation,omitempty" json:"reputation,omitempty"`

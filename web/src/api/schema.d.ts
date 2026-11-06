@@ -558,7 +558,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/system/test-upstream": {
+    "/system/upstream/test": {
         parameters: {
             query?: never;
             header?: never;
@@ -1393,6 +1393,8 @@ export interface components {
             auto_ban?: components["schemas"]["AutoBan"];
             bot?: components["schemas"]["BotPolicy"];
             api?: components["schemas"]["APIPolicy"];
+            login_protection?: components["schemas"]["LoginProtectionPolicy"];
+            dlp?: components["schemas"]["DLPPolicy"];
             /** @description Declared technologies (wordpress, php, spring, ...). Product-specific virtual patches activate only for declared stacks; unset or [auto] activates generic patches only. */
             stacks?: components["schemas"]["NameList"];
             virtual_patches?: {
@@ -1547,6 +1549,8 @@ export interface components {
             current_password: string;
             /** Format: password */
             new_password: string;
+            /** @description Current two-step verification code. Required when the account has two-step verification enabled; ignored otherwise. */
+            totp_code?: string;
         };
         Session: {
             /** @description Opaque identifier: the hex SHA-256 of the session cookie. It cannot be used as a credential. */
@@ -1998,6 +2002,59 @@ export interface components {
                 /** @description An uploaded CA bundle (POST /ca-bundles) */
                 ca_cert_id?: string;
             };
+        };
+        /** @description Failed-login velocity per client address, username (kept only as a keyed hash) and device. Nothing is watched until an endpoint is declared. */
+        LoginProtectionPolicy: {
+            enabled?: boolean;
+            /** @description A lower level replaces the whole list. */
+            endpoints?: {
+                /** @description Path glob, starts with / */
+                path: string;
+                /** @description Default POST */
+                method?: string;
+                /** @description A form field name, or a JSON pointer such as /user/email */
+                username_field: string;
+                /** @description Upstream statuses counted as a failed login (default 401 and 403) */
+                failure_statuses?: number[];
+            }[];
+            thresholds?: {
+                /** @description Default 20 */
+                per_ip?: number;
+                /** @description Default 5 */
+                per_username?: number;
+                /** @description Default 10 */
+                per_device?: number;
+                /** @description Go duration, 1m to 24h (default 10m) */
+                window?: string;
+            };
+            /**
+             * @description Applied to a client over a threshold; recorded but never enforced in detect mode
+             * @enum {string}
+             */
+            action?: "challenge" | "block" | "log";
+        };
+        /** @description Scans responses for card numbers, IBANs and custom patterns. Matched values are never written to events, logs or exports. */
+        DLPPolicy: {
+            enabled?: boolean;
+            /** @description pan, iban or custom:<name>; a lower level replaces the list (default [pan]) */
+            detect?: string[];
+            custom_patterns?: {
+                name: string;
+                /** @description RE2 syntax; must not match the empty string */
+                pattern: string;
+            }[];
+            /**
+             * @description Default mask; recorded but never enforced in detect mode
+             * @enum {string}
+             */
+            action?: "mask" | "block" | "log";
+            /** @description Response media types that are scanned (default HTML, text, JSON, XML) */
+            content_types?: string[];
+            /**
+             * Format: int64
+             * @description Larger responses pass through unscanned (default 1 MiB)
+             */
+            max_body_bytes?: number;
         };
         /** @description Set exactly one of jwks_url, public_key_pem, hmac_secret_env */
         JWTRule: {
@@ -3286,6 +3343,7 @@ export interface operations {
             };
             401: components["responses"]["Problem"];
             403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
             429: components["responses"]["Problem"];
         };

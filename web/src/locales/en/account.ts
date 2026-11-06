@@ -10,6 +10,10 @@ export default {
     next: 'New password',
     nextHelp: 'At least 12 characters. It must differ from your current password.',
     confirm: 'Confirm new password',
+    code: 'Verification code',
+    codeHelp:
+      'The 6-digit code from your authenticator app. Required because two-step verification is on.',
+    codeInvalid: 'Enter the 6-digit code from your authenticator app.',
     tooShort: 'The new password must be at least 12 characters.',
     mismatch: 'The two new passwords do not match.',
     submit: 'Change password',

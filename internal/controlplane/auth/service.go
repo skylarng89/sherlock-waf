@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"net/netip"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/skylarng89/sherlock-waf/internal/audit"
@@ -112,7 +111,6 @@ type Service struct {
 	passwordLimit *ipLimiter // keyed by user id: bounds guesses at the current password
 	tokenFails    *ipLimiter // failed token presentations per client IP
 
-	tokenMu    sync.Mutex // serialises the per-user token count with the insert
 	tokenAudit *coalescer
 
 	// afterPasswordVerify runs in tests between verifying the current password
@@ -518,9 +516,12 @@ func (s *Service) CreateToken(ctx context.Context, userID, name string, scopes, 
 	sj, _ := json.Marshal(scopes)
 	cj, _ := json.Marshal(append([]string{}, cidrs...))
 	rec := store.Token{ID: id, UserID: userID, Name: name, TokenHash: hashToken(secret), Scopes: sj, CIDRs: cj, ExpiresAt: expires, CreatedAt: now}
-	s.tokenMu.Lock()
-	defer s.tokenMu.Unlock()
 	if err := s.Store.Tx(ctx, func(ctx context.Context, tx store.Tx) error {
+		// The row lock makes count-then-insert atomic per user across processes
+		// and nodes; an in-process mutex only covered one process.
+		if _, err := tx.LockUser(ctx, userID); err != nil {
+			return err
+		}
 		existing, err := tx.ListTokensByUser(ctx, userID)
 		if err != nil {
 			return err

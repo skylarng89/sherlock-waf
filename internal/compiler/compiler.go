@@ -386,6 +386,9 @@ func (c *compilation) chain(s config.Site, eff config.EffectivePolicy) ([]obj, e
 	if bot := botHandler(s.ID, eff.Bot); bot != nil {
 		chain = append(chain, bot)
 	}
+	if login := loginHandler(s.ID, eff); login != nil {
+		chain = append(chain, login)
+	}
 
 	if eff.Mode != config.ModeOff && eff.WAF.Enabled {
 		patches, err := vpatch.Select(eff.VirtualPatches.Enabled, eff.VirtualPatches.Disabled, eff.DeclaredStacks())
@@ -443,6 +446,13 @@ func (c *compilation) chain(s config.Site, eff config.EffectivePolicy) ([]obj, e
 		chain = append(chain, w)
 	}
 
+	dlp, err := dlpHandler(s.ID, eff)
+	if err != nil {
+		return nil, err
+	}
+	if dlp != nil {
+		chain = append(chain, dlp)
+	}
 	if h := responseHeaders(s); h != nil {
 		chain = append(chain, h)
 	}

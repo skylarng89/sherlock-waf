@@ -10,10 +10,12 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -358,4 +360,112 @@ func TestTestSendsALabelledMessage(t *testing.T) {
 	require.NoError(t, Test(t.Context(), KindWebhook, raw(fmt.Sprintf(`{"url":%q,"allow_http":true}`, srv.URL))))
 	assert.Contains(t, string(c.body), "test notification")
 	require.ErrorIs(t, Test(t.Context(), KindWebhook, raw(`{}`)), ErrInvalid)
+}
+
+// teamsCardProblems checks a Teams Workflows payload against the parts of the
+// Adaptive Card 1.4 schema this code relies on, offline. It returns every
+// violation found.
+func teamsCardProblems(p map[string]any) []string {
+	var out []string
+	bad := func(format string, a ...any) { out = append(out, fmt.Sprintf(format, a...)) }
+
+	if p["type"] != "message" {
+		bad("envelope type = %v, want message", p["type"])
+	}
+	atts, _ := p["attachments"].([]map[string]any)
+	if len(atts) != 1 {
+		bad("want exactly one attachment, got %d", len(atts))
+		return out
+	}
+	if atts[0]["contentType"] != "application/vnd.microsoft.card.adaptive" {
+		bad("contentType = %v", atts[0]["contentType"])
+	}
+	card, _ := atts[0]["content"].(map[string]any)
+	if card["type"] != "AdaptiveCard" {
+		bad("card type = %v", card["type"])
+	}
+	if s, _ := card["$schema"].(string); !strings.HasSuffix(s, "/schemas/adaptive-card.json") {
+		bad("$schema = %v", card["$schema"])
+	}
+	v, _ := card["version"].(string)
+	var major, minor int
+	if _, err := fmt.Sscanf(v, "%d.%d", &major, &minor); err != nil || major != 1 || minor > 4 {
+		bad("version = %q, want 1.x with x <= 4", v)
+	}
+	tones := []string{"Default", "Dark", "Light", "Accent", "Good", "Warning", "Attention"}
+	body, _ := card["body"].([]map[string]any)
+	if len(body) == 0 {
+		bad("card has an empty body")
+	}
+	for i, el := range body {
+		switch el["type"] {
+		case "TextBlock":
+			if txt, ok := el["text"].(string); !ok || txt == "" {
+				bad("body[%d]: TextBlock needs non-empty text", i)
+			}
+			if c, ok := el["color"]; ok && !slices.Contains(tones, fmt.Sprint(c)) { //nolint:misspell // "color" is the Adaptive Card property name
+				bad("body[%d]: tone %v is not in the Adaptive Card enum", i, c)
+			}
+		case "FactSet":
+			facts, _ := el["facts"].([]map[string]string)
+			if len(facts) == 0 {
+				bad("body[%d]: FactSet needs facts", i)
+			}
+			for j, f := range facts {
+				if f["title"] == "" || f["value"] == "" {
+					bad("body[%d].facts[%d]: title and value are required", i, j)
+				}
+			}
+		default:
+			bad("body[%d]: unexpected element type %v", i, el["type"])
+		}
+	}
+	return out
+}
+
+func TestTeamsCardMatchesAdaptiveCard14(t *testing.T) {
+	for _, sev := range []string{SeverityInfo, SeverityWarning, SeverityCritical, "nonsense"} {
+		n := normalise(Message{
+			Title: "Blocks spiking", Body: "120 blocks in 5 minutes", Severity: sev, At: time.Unix(1700000000, 0),
+			Fields: map[string]string{"site": "shop", "country": "NG"},
+		})
+		assert.Empty(t, teamsCardProblems(teamsPayload(n)), "severity %q", sev)
+	}
+	// The checker itself must notice a broken card.
+	broken := teamsPayload(normalise(Message{Title: "x", Severity: SeverityInfo}))
+	broken["type"] = "MessageCard"
+	assert.NotEmpty(t, teamsCardProblems(broken))
+}
+
+func TestTeamsPayloadStaysUnderTheWorkflowsLimit(t *testing.T) {
+	// Every character is one the Markdown escaper doubles and JSON then escapes
+	// again (< is \< in the card and \\< on the wire), the worst case.
+	hostile := strings.Repeat("<", 4000)
+	fields := map[string]string{}
+	for i := range 40 {
+		fields[fmt.Sprintf("<%02d%s", i, strings.Repeat("<", 60))] = hostile
+	}
+	n := normalise(Message{Title: hostile, Body: hostile, Severity: SeverityCritical, Fields: fields})
+	require.Greater(t, teamsSize(teamsCard(n)), teamsMaxBytes, "the input must exceed the limit, or this test proves nothing")
+	p := teamsPayload(n)
+
+	wire, err := json.Marshal(p)
+	require.NoError(t, err)
+	assert.Less(t, len(wire), 28*1000, "the Workflows trigger rejects payloads of about 28 KB")
+	assert.Empty(t, teamsCardProblems(p), "a shortened card is still a valid card")
+	assert.True(t, utf8.Valid(wire), "truncation never cuts a rune in half")
+}
+
+func TestTeamsPayloadKeepsSmallMessagesWhole(t *testing.T) {
+	n := normalise(Message{Title: "t", Body: "b", Severity: SeverityInfo, Fields: map[string]string{"a": "1", "b": "2"}})
+	body := teamsPayload(n)["attachments"].([]map[string]any)[0]["content"].(map[string]any)["body"].([]map[string]any)
+	facts := body[len(body)-1]["facts"].([]map[string]string)
+	assert.Len(t, facts, 2, "nothing is shed when the card fits")
+}
+
+func TestTruncateRunes(t *testing.T) {
+	assert.Equal(t, "abc", truncateRunes("abc", 10))
+	got := truncateRunes("aé€x", 2) // 2 falls inside the two-byte é
+	assert.True(t, utf8.ValidString(got), got)
+	assert.Equal(t, "a…", got)
 }

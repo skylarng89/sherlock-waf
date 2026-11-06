@@ -24,6 +24,8 @@ The table shows live delivery state, refreshed every 15 seconds while the page i
 - **Spool**: bytes held on disk.
 - **Last delivery** and the **last error**, with how long ago each happened.
 
+**Spool size limit** (optional, 16 to 102400 MiB, default 256) is how much disk an exporter may use for its backlog while the destination is down. Size it for your event rate times the longest outage you want to ride out; once it is full the oldest records are dropped and counted. Lowering the limit trims an existing backlog the next time a record is spooled. The current cap is exported as `sherlock_exporter_spool_max_bytes`.
+
 **Test** sends a connectivity check without saving anything. In the edit dialog it uses the values in the form; masked values are filled in from the saved exporter. The result is announced to screen readers.
 
 ## Notification channels

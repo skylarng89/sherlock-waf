@@ -6,6 +6,7 @@
 package exporters
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -16,6 +17,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"sync"
 
 	"github.com/skylarng89/sherlock-waf/internal/events"
@@ -27,6 +29,19 @@ var (
 	ErrUnknownType = errors.New("exporters: unknown exporter type")
 	ErrNoTester    = errors.New("exporters: this exporter type has no connectivity test")
 	ErrInvalid     = errors.New("exporters: invalid exporter configuration")
+)
+
+// SettingSpoolMaxMB is the Sherlock-level settings key that caps one exporter's
+// disk spool, in MiB. The Manager strips it before the exporter type sees the
+// settings, so types that reject unknown keys need no knowledge of it.
+const SettingSpoolMaxMB = "spool_max_mb"
+
+// Bounds for SettingSpoolMaxMB. Below the floor a spool would be a handful of
+// segments, so a short outage would already lose records; the ceiling keeps a
+// typo from claiming a whole disk.
+const (
+	MinSpoolMB = 16
+	MaxSpoolMB = 100 * 1024
 )
 
 // idPattern keeps an exporter id usable as a directory name.
@@ -42,6 +57,35 @@ type Config struct {
 	// Settings is the type-specific JSON; it may hold secrets, so the Manager
 	// never logs it.
 	Settings json.RawMessage
+}
+
+// splitSettings separates SettingSpoolMaxMB from the type-specific settings. It
+// returns the remaining settings and the spool cap in bytes (0 when unset, which
+// means the default).
+func splitSettings(raw json.RawMessage) (rest json.RawMessage, spoolBytes int64, err error) {
+	trimmed := bytes.TrimSpace(raw)
+	// Anything that is not an object is left for the type's own validation to report.
+	if len(trimmed) == 0 || trimmed[0] != '{' {
+		return raw, 0, nil
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(trimmed, &m); err != nil {
+		return nil, 0, fmt.Errorf("settings are not valid JSON: %w", err)
+	}
+	v, ok := m[SettingSpoolMaxMB]
+	if !ok {
+		return raw, 0, nil
+	}
+	mb, err := strconv.ParseInt(string(bytes.TrimSpace(v)), 10, 64)
+	if err != nil || mb < MinSpoolMB || mb > MaxSpoolMB {
+		return nil, 0, fmt.Errorf("%s must be a whole number of MiB between %d and %d", SettingSpoolMaxMB, MinSpoolMB, MaxSpoolMB)
+	}
+	delete(m, SettingSpoolMaxMB)
+	rest, err = json.Marshal(m)
+	if err != nil {
+		return nil, 0, fmt.Errorf("re-encoding settings: %w", err)
+	}
+	return rest, mb << 20, nil
 }
 
 func (c Config) fingerprint() [sha256.Size]byte {
@@ -133,7 +177,11 @@ func (m *Manager) Validate(c Config) error {
 	if !ok {
 		return fmt.Errorf("%w: %q", ErrUnknownType, c.Type)
 	}
-	if err := t.Validate(c.Settings); err != nil {
+	rest, _, err := splitSettings(c.Settings)
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalid, err)
+	}
+	if err := t.Validate(rest); err != nil {
 		return fmt.Errorf("%w: %w", ErrInvalid, err)
 	}
 	return nil
@@ -239,14 +287,22 @@ func (m *Manager) start(ctx context.Context, c Config) (*running, error) {
 	default:
 		return nil, fmt.Errorf("%w: stream %q", ErrInvalid, c.Stream)
 	}
-	if err := t.Validate(c.Settings); err != nil {
+	rest, spoolBytes, err := splitSettings(c.Settings)
+	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrInvalid, err)
 	}
-	exp, err := t.New(c.Settings)
+	if err := t.Validate(rest); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrInvalid, err)
+	}
+	exp, err := t.New(rest)
 	if err != nil {
 		return nil, fmt.Errorf("creating exporter: %w", err)
 	}
-	runner, err := NewRunner(c.ID, c.Name, c.Type, c.Stream, exp, m.bus, filepath.Join(m.dir, c.ID), m.opts, m.logger)
+	opts := m.opts
+	if spoolBytes > 0 {
+		opts.Spool.MaxBytes = spoolBytes
+	}
+	runner, err := NewRunner(c.ID, c.Name, c.Type, c.Stream, exp, m.bus, filepath.Join(m.dir, c.ID), opts, m.logger)
 	if err != nil {
 		_ = exp.Close()
 		return nil, err
@@ -279,7 +335,11 @@ func (m *Manager) Test(ctx context.Context, c Config) error {
 	m.mu.Lock()
 	t := m.types[c.Type]
 	m.mu.Unlock()
-	exp, err := t.New(c.Settings)
+	rest, _, err := splitSettings(c.Settings)
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalid, err)
+	}
+	exp, err := t.New(rest)
 	if err != nil {
 		return fmt.Errorf("creating exporter: %w", err)
 	}

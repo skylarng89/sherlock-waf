@@ -16,8 +16,8 @@
 
 ## Steps (automated)
 
-1. Conventional Commits on `main` → `release-please` keeps a release PR updated with version bump and `CHANGELOG.md`.
-2. Merge the release PR when the milestone's acceptance criteria and the release checklist pass. This creates tag `vX.Y.Z`.
+1. Work lands on `main` as Conventional Commits. `CHANGELOG.md` is edited by hand: entries go under `[Unreleased]` as the work merges, and at release time that heading is renamed to the version and date and a fresh `[Unreleased]` is started.
+2. When the milestone's acceptance criteria and the release checklist pass and `main` is green, the owner creates an annotated tag `vX.Y.Z` (or `vX.Y.Z-rc.N`) on `main` and pushes it. The tag is what starts the release; nothing is created automatically.
 3. `release.yml` runs GoReleaser:
    - builds `sherlock` for linux/amd64 and linux/arm64 with `-trimpath`, `-buildvcs`, ldflags for version info, `CGO_ENABLED=0`;
    - builds the dashboard first (`make web`), embedded;
@@ -28,7 +28,7 @@
    - publishes `release-manifest.json` (version, CRS version, checksums, minimum upgrade-from version), signed.
 4. Docs site rebuilds from the tag.
 
-## Release checklist (human, in the release PR)
+## Release checklist (human, before tagging)
 
 - [ ] Nightly suite green on the release commit (ftw full, nuclei/ZAP, k6 budgets, upgrade test).
 - [ ] CHANGELOG reviewed; breaking changes have migration notes.
@@ -36,6 +36,8 @@
 - [ ] Upgrade tested from the previous two minors.
 - [ ] Security-sensitive changes since last release listed and reviewed.
 - [ ] Version matrix in `docs/release/versioning.md` examples still accurate.
+
+The automated N-2 upgrade check is `internal/store/upgrade_test.go` (`go test ./internal/store`, with `SHERLOCK_TEST_PG_DSN` set to cover PostgreSQL too). It builds a database at the oldest schema, fills every table, and applies the migrations one version at a time, checking after each step that nothing was lost and that the audit chain still verifies. It also loads the configuration snapshot each earlier release stored. Every release must add a fixture directory `internal/store/testdata/upgrade/vX.Y.Z/` generated with that release's own code (see the README there) and must never edit an existing one; a fixture that has to change means compatibility broke and a migration is needed. The "upgrade tested from the previous two minors" item above also needs a manual run of the real binaries, which the test does not replace.
 
 ## Verifying a release (users)
 
@@ -47,7 +49,11 @@ cosign verify-blob --certificate-identity-regexp 'https://github.com/skylarng89/
 
 `sherlock update` does not need cosign: it verifies `release-manifest.json` against the Ed25519 release key embedded in the binary, then the SHA-256 of the archive, and refuses unsigned, mismatched, older or too-old-to-upgrade releases ([ADR-0017](../architecture/adr/0017-update-verification.md)). The workflow signs the manifest with `RELEASE_SIGNING_KEY` (base64 Ed25519 seed, repository secret) using `go run ./internal/updater/cmd/sign-manifest`, and uploads `release-manifest.json`, `release-manifest.json.sig` and the cosign bundle.
 
+A tag with a `-rc.N` suffix is published as a GitHub pre-release and its image gets only the exact version tag, never `latest`, `X.Y` or `X`.
+
 ### Release signing key (one-time setup, before the first public release)
+
+Status: the key has been created, its public half is committed in `internal/updater/release_key.pub` and the `RELEASE_SIGNING_KEY` repository secret is set (the seed is kept offline). The steps below are kept for key rotation and for forks.
 
 ```bash
 (umask 077; head -c 32 /dev/urandom | base64 > release-seed.b64)   # keep offline; paste into the RELEASE_SIGNING_KEY secret

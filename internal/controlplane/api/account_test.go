@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -164,4 +165,62 @@ func TestAccountRoutesRefuseTokensPartialSessionsAndAnonymous(t *testing.T) {
 	anon := h.anon()
 	assert.Equal(t, http.StatusUnauthorized, anon.do("POST", "/auth/password", body).Status)
 	assert.Equal(t, http.StatusUnauthorized, anon.do("GET", "/auth/sessions", nil).Status)
+}
+
+// enrolledAdmin signs ada in, enrols two-step verification and returns the full
+// session and the authenticator seed.
+func enrolledAdmin(t *testing.T, h *harness) (*session, string) {
+	t.Helper()
+	c := h.anon()
+	require.Equal(t, http.StatusOK, c.do("POST", "/auth/login", map[string]string{"username": "ada", "password": pw}).Status)
+	c.csrf = cookieValue(t, c, CSRFCookie)
+	en := c.do("POST", "/auth/mfa/enroll", nil)
+	require.Equal(t, http.StatusOK, en.Status, string(en.Body))
+	seed := en.JSON(t)["secret"].(string)
+	done := c.do("POST", "/auth/mfa/enroll/confirm", map[string]string{"code": totpNow(t, seed)})
+	require.Equal(t, http.StatusOK, done.Status, string(done.Body))
+	c.csrf = cookieValue(t, c, CSRFCookie)
+	return c, seed
+}
+
+// wrongCode returns a six-digit code that is not valid at any step the server
+// accepts, so a test cannot pass or fail by chance.
+func wrongCode(t *testing.T, seed string) string {
+	t.Helper()
+	valid := map[string]bool{}
+	for off := int64(-1); off <= 1; off++ {
+		valid[totpAt(t, seed, off)] = true
+	}
+	for n := 135790; ; n++ {
+		if c := fmt.Sprintf("%06d", n); !valid[c] {
+			return c
+		}
+	}
+}
+
+func TestPasswordChangeNeedsACurrentCodeWhenMFAIsEnrolled(t *testing.T) {
+	h := newHarness(t)
+	c, seed := enrolledAdmin(t, h)
+
+	r := c.do("POST", "/auth/password", map[string]any{"current_password": pw, "new_password": freshPassword})
+	require.Equal(t, http.StatusUnprocessableEntity, r.Status, string(r.Body))
+	assert.Equal(t, "/totp_code", fieldErrorPath(t, r), "a session alone cannot change the password")
+
+	bad := wrongCode(t, seed)
+	r = c.do("POST", "/auth/password", map[string]any{"current_password": pw, "new_password": freshPassword, "totp_code": bad})
+	require.Equal(t, http.StatusUnprocessableEntity, r.Status, string(r.Body))
+	assert.Equal(t, "/totp_code", fieldErrorPath(t, r))
+
+	r = c.do("POST", "/auth/password", map[string]any{"current_password": pw, "new_password": freshPassword, "totp_code": "12345"})
+	assert.Equal(t, http.StatusUnprocessableEntity, r.Status, "a malformed code is refused by the schema")
+
+	// The enrolment code is spent; the next step's code is valid and unused.
+	r = c.do("POST", "/auth/password", map[string]any{"current_password": pw, "new_password": freshPassword, "totp_code": totpAt(t, seed, 1)})
+	require.Equal(t, http.StatusNoContent, r.Status, string(r.Body))
+	assert.Equal(t, http.StatusOK, c.do("GET", "/auth/me", nil).Status, "the caller stays signed in")
+
+	audit := string(adminSession(h).do("GET", "/audit", nil).Body)
+	assert.Contains(t, audit, "mfa_required")
+	assert.Contains(t, audit, "bad_mfa_code")
+	assert.NotContains(t, audit, bad, "codes never reach the audit log")
 }

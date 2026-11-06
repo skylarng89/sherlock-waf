@@ -503,6 +503,9 @@ type SpoolStats struct {
 	Dropped uint64 // records lost to the byte cap since the spool opened
 }
 
+// MaxBytes is the effective byte cap after defaults are applied.
+func (s *Spool) MaxBytes() int64 { return s.opts.MaxBytes }
+
 // Stats returns the current sizes and counters.
 func (s *Spool) Stats() SpoolStats {
 	s.mu.Lock()

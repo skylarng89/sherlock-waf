@@ -5,10 +5,13 @@
 //
 // # Compatibility
 //
-// Before v1.0 breaking changes are allowed but are listed in the changelog under
-// "Extension API". From v1.0 this package follows SemVer strictly. To keep that
-// promise cheap, the package is built so it can grow without breaking
-// implementers:
+// This package is frozen at v1.0.0 and follows SemVer strictly: within v1 only
+// additions are made, and a breaking change needs a new major version with a
+// /v2 module path (docs/release/versioning.md). Releases list additions under
+// "Extension API" in the changelog, and a test (TestAPIGuard) compares the
+// exported surface with testdata/api.txt, so any change to it is a visible,
+// deliberate golden-file update in review. To keep the promise cheap, the
+// package is built so it can grow without breaking implementers:
 //
 //   - Interfaces that extensions implement (Authorizer, AuthProvider, AuditSink,
 //     EventStore) stay small, and take and return structs: adding a field to a
